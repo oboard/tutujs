@@ -1,48 +1,66 @@
 # BunnyJS
 
-BunnyJS 是一个完全使用 [MoonBit](https://www.moonbitlang.com/) 语言编写的轻量级 JavaScript 解析器（Parser）和解释器（Interpreter）。
+BunnyJS is a lightweight JavaScript Parser and Interpreter written entirely in [MoonBit](https://www.moonbitlang.com/).
 
-## 项目简介
+## Introduction
 
-本项目的目标是探索 MoonBit 在构建编程语言工具链方面的潜力，并提供一个可嵌入、高性能的 JavaScript 运行时子集。目前主要支持 JavaScript 的核心语法解析和基础执行能力。
+This project aims to explore the potential of MoonBit in building programming language toolchains and to provide an embeddable, high-performance JavaScript runtime subset. It currently supports core JavaScript syntax parsing and basic execution capabilities.
 
-## 主要特性
+## Key Features
 
-*   **词法分析与语法解析**：手写的递归下降解析器，不依赖第三方生成工具。
-    *   支持变量声明 (`let`, `const`, `var`)
-    *   支持函数声明与调用
-    *   支持控制流语句 (`if`, `while`, `return`)
-    *   支持基础表达式（二元运算、成员访问 `obj.prop`、链式调用）
-    *   支持字面量（数字、字符串）
-*   **AST 定义**：清晰的抽象语法树结构，易于扩展和遍历。
-*   **纯 MoonBit 实现**：充分利用 MoonBit 的强类型系统和 WASM 编译优势，运行高效且安全。
+*   **Lexer & Parser**: Handwritten recursive descent parser, independent of third-party generation tools.
+    *   Supports variable declarations (`let`, `const`, `var`)
+    *   Supports function declarations and calls
+    *   Supports control flow statements (`if`, `while`, `return`)
+    *   Supports basic expressions (binary operations, member access `obj.prop`, chained calls)
+    *   Supports literals (numbers, strings)
+*   **AST Definition**: Clear Abstract Syntax Tree structure, easy to extend and traverse.
+*   **Pure MoonBit Implementation**: leverages MoonBit's strong type system and WASM compilation advantages for efficiency and safety.
 
-## 快速开始
+## Roadmap & Status
 
-### 安装
+- [x] **Lexer**: Basic tokenization (Keywords, Identifiers, Numbers, Strings, Operators)
+- [x] **Parser**: Recursive descent parsing to AST
+    - [x] Variable Declarations
+    - [x] Function Declarations
+    - [x] Control Flow (`if`, `while`, `return`)
+    - [x] Expressions (Binary, Member, Call)
+- [x] **Interpreter**: Basic runtime environment
+    - [x] Global Scope & Variable Management
+    - [x] Basic Expression Evaluation
+    - [x] Built-in Function Support (e.g., `console.log`)
+- [ ] **Advanced Features**
+    - [ ] Object & Array Literals
+    - [ ] Closures & Scope Chains
+    - [ ] Prototypes & Inheritance
+    - [ ] Standard Library (Math, Date, etc.)
 
-确保你已经安装了 [MoonBit](https://www.moonbitlang.com/download/)。
+## Quick Start
 
-### 运行测试
+### Installation
+
+Ensure you have installed the [MoonBit toolchain](https://www.moonbitlang.com/download/).
+
+### Running Tests
 
 ```bash
 moon test
 ```
 
-### 使用示例
+### Usage Example
 
-解析一段简单的 JavaScript 代码：
+Parse and evaluate a simple piece of JavaScript code:
 
 ```moonbit
+let ctx = Context::new()
 let code = "let x = 10; console.log(x);"
-let ast = @parser.parse(code)
-inspect(ast)
+let _ = ctx.eval(code)
 ```
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 或 Pull Request 来改进解析器支持的语法范围或增强解释器功能。
+Contributions are welcome! Feel free to submit Issues or Pull Requests to improve the parser's syntax coverage or enhance interpreter functionality.
 
-## 许可证
+## License
 
-MIT License
+Apache License 2.0
