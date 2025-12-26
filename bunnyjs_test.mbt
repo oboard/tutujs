@@ -29,3 +29,11 @@ test "interpreter_variable" {
   let result = ctx.eval("a")
   assert_eq(result, Number(10.0))
 }
+
+///|
+test "function_call" {
+  let ctx = Context::new()
+  let _ = ctx.eval("function add(x, y) { return x + y }")
+  let result = ctx.eval("add(3, 4)")
+  assert_eq(result, Number(7.0))
+}

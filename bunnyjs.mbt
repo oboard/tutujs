@@ -14,6 +14,7 @@ pub fn Context::new() -> Context {
 ///|
 pub fn Context::eval(self : Context, code : String) -> @value.JSValue {
   let ast = @parser.parse(code)
+  println(ast)
   self.evaluate(ast)
 }
 
@@ -36,8 +37,7 @@ fn Context::evaluate(self : Context, node : @parser.ASTNode) -> @value.JSValue {
       // 简单的字面量处理
       match node.value {
         Some(val) =>
-          if node.raw.unwrap_or("").has_prefix("\"") ||
-            node.raw.unwrap_or("").has_prefix("'") {
+          if node.raw is Some(['\"' | '\'' | '`', .., '\"' | '\'' | '`']) {
             String(val)
           } else {
             // 假设是数字，这里应该更严谨
@@ -85,7 +85,7 @@ fn Context::evaluate(self : Context, node : @parser.ASTNode) -> @value.JSValue {
       let mut is_console_log = false
       match node.callee {
         Some(callee) =>
-          if callee.node_type.to_string() == "MemberExpression" {
+          if callee.node_type is MemberExpression {
             // 检查 object 和 property
             match (callee.left, callee.right) {
               (Some(obj), Some(prop)) =>

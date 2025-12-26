@@ -1,87 +1,27 @@
 ///|
-pub enum NodeType {
-  Program
-  VariableDeclaration
-  VariableDeclarator
-  FunctionDeclaration
-  BlockStatement
-  ReturnStatement
-  ExpressionStatement
-  BinaryExpression
-  CallExpression
-  Identifier
-  Literal
-  IfStatement
-  WhileStatement
-  ForStatement
-  AssignmentExpression
-  MemberExpression
-  ObjectExpression
-  ArrayExpression
-  Property
-  UnaryExpression
-  UpdateExpression
-} derive(Show, Eq, ToJson, FromJson)
-
-///|
 pub enum SourceType {
   Script
   Module
-} derive(Show, Eq, ToJson, FromJson)
+} derive(Show, Eq, ToJson, FromJson, Compare, Hash)
 
 ///|
 pub enum VariableKind {
   Var
   Let
   Const
-} derive(Show, Eq, ToJson, FromJson)
+} derive(Show, Eq, ToJson, FromJson, Compare, Hash)
 
 ///|
 struct Position {
   line : Int
   column : Int
-} derive(Show, Eq, ToJson, FromJson)
+} derive(Show, Eq, ToJson, FromJson, Compare, Hash)
 
 ///|
 struct SourceLocation {
   start : Position
   end : Position
-} derive(Show, Eq, ToJson, FromJson)
-
-///|
-pub struct ASTNode {
-  node_type : NodeType
-  loc : SourceLocation?
-  // Common fields
-  body : Array[ASTNode]
-  // Expression fields
-  operator : String?
-  left : ASTNode?
-  right : ASTNode?
-  argument : ASTNode?
-  // Declaration fields
-  declarations : Array[ASTNode]
-  kind : VariableKind?
-  id : ASTNode?
-  init : ASTNode?
-  // Function fields
-  params : Array[ASTNode]
-  callee : ASTNode?
-  // Identifier and Literal
-  name : String?
-  value : String?
-  raw : String?
-  // Statement fields
-  condition : ASTNode?
-  consequent : ASTNode?
-  alternate : ASTNode?
-  // Object/Array
-  properties : Array[ASTNode]
-  elements : Array[ASTNode]
-  key : ASTNode?
-  node_method : Bool?
-  shorthand : Bool?
-} derive(Show, ToJson)
+} derive(Show, Eq, ToJson, FromJson, Compare, Hash)
 
 // --- Helper Functions for AST Creation ---
 
@@ -118,7 +58,7 @@ fn create_program(body : Array[ASTNode]) -> ASTNode {
 ///|
 fn create_identifier(name : String, loc : SourceLocation?) -> ASTNode {
   {
-    node_type: Identifier,
+    node_type: Identifier({ name, optional: false }),
     loc,
     name: Some(name),
     body: [],
@@ -152,7 +92,7 @@ fn create_literal(
   loc : SourceLocation?,
 ) -> ASTNode {
   {
-    node_type: Literal,
+    node_type: StringLiteral(value),
     loc,
     // TODO: tokenize value
     value: Some(value),
@@ -179,37 +119,6 @@ fn create_literal(
     shorthand: None,
   }
 }
-
-// --- Token Definition ---
-
-///|
-enum TokenKind {
-  EOF
-  Identifier(String)
-  StringLiteral(String)
-  Number(String)
-  // Keywords
-  Function
-  Return
-  Let
-  Var
-  Const
-  If
-  Else
-  // Punctuation
-  Assign
-  Semi
-  LParen
-  RParen
-  LBrace
-  RBrace
-  Comma
-  Dot
-  Plus
-  Minus
-  Star
-  Slash
-} derive(Show, Eq)
 
 ///|
 struct Token {
