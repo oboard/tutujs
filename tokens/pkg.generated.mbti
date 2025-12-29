@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/bunnyjs/tokens"
 
+import(
+  "moonbitlang/core/json"
+)
+
 // Values
 
 // Errors
@@ -11,7 +15,8 @@ pub(all) enum TokenKind {
   StringLiteral
   BooleanLiteral
   NullLiteral
-  RegExpLiteral
+  RegularExpressionLiteral
+  TemplateLiteral
   Identifier
   Break
   Case
@@ -33,6 +38,7 @@ pub(all) enum TokenKind {
   Import
   In
   Instanceof
+  Let
   New
   Return
   Super
@@ -46,76 +52,116 @@ pub(all) enum TokenKind {
   While
   With
   Yield
+  Async
+  Await
   Enum
   Implements
   Interface
-  Let
   Package
   Private
   Protected
   Public
   Static
-  Await
-  Async
-  LBrace
-  RBrace
   LParen
   RParen
+  LBrace
+  RBrace
   LBracket
   RBracket
-  Dot
-  Ellipsis
-  Semi
+  Semicolon
   Comma
-  Question
+  Dot
   Colon
-  Arrow
-  Eq
+  QuestionMark
+  Ellipsis
   Plus
   Minus
   Star
   Slash
   Percent
-  StarStar
   PlusPlus
   MinusMinus
-  LShift
-  RShift
-  URShift
+  Equal
+  PlusEqual
+  MinusEqual
+  StarEqual
+  SlashEqual
+  PercentEqual
+  EqualEqual
+  NotEqual
+  StrictEqual
+  StrictNotEqual
+  LessThan
+  LessThanOrEqual
+  GreaterThan
+  GreaterThanOrEqual
+  Exclamation
+  Tilde
+  Ampersand
+  Pipe
+  Caret
+  LeftShift
+  RightShift
+  UnsignedRightShift
+  AmpersandEqual
+  PipeEqual
+  CaretEqual
+  LeftShiftEqual
+  RightShiftEqual
+  UnsignedRightShiftEqual
+  StarStar
+  StarStarEqual
+  Arrow
+  QuestionQuestion
+  LogicalAnd
+  LogicalOr
+  LogicalNot
+  EqEq
+  NotEq
+  Le
+  Ge
   BitAnd
   BitOr
   BitXor
   Not
   BitNot
-  And
-  Or
-  QuestionQuestion
-  EqEq
-  NotEq
-  EqEqEq
-  NotEqEq
   Lt
-  Le
   Gt
-  Ge
+  URShift
+  LShift
+  RShift
+  URShiftEq
+  LShiftEq
+  RShiftEq
   PlusEq
   MinusEq
   StarEq
   SlashEq
-  PercentEq
-  StarStarEq
-  LShiftEq
-  RShiftEq
-  URShiftEq
   BitAndEq
   BitOrEq
   BitXorEq
-  EOF
+  And
+  Or
+  Semi
+  Eq
   Illegal
+  EqEqEq
+  NotEqEq
+  PercentEq
+  Question
+  EOF
+  Whitespace
+  LineTerminator
+  Comment
+  Template
+  TemplateHead
+  TemplateMiddle
+  TemplateTail
 }
-pub fn TokenKind::to_string(Self) -> String
 pub impl Eq for TokenKind
 pub impl Show for TokenKind
+pub impl ToJson for TokenKind
+pub impl @json.FromJson for TokenKind
 
 // Type aliases
 

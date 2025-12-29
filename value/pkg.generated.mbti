@@ -45,10 +45,17 @@ pub(all) enum JSValue {
   Null
   Undefined
 }
+pub fn JSValue::unstrict_equal(Self, Self) -> Bool
+pub impl Add for JSValue
 pub impl Compare for JSValue
+pub impl Div for JSValue
 pub impl Eq for JSValue
 pub impl Hash for JSValue
+pub impl Mod for JSValue
+pub impl Mul for JSValue
+pub impl Neg for JSValue
 pub impl Show for JSValue
+pub impl Sub for JSValue
 pub impl ToJson for JSValue
 pub impl @json.FromJson for JSValue
 

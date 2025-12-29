@@ -5,12 +5,11 @@ pub(all) enum TokenKind {
   StringLiteral
   BooleanLiteral
   NullLiteral
-  RegExpLiteral
+  RegularExpressionLiteral
+  TemplateLiteral
 
-  // Identifiers
+  // Identifiers and Keywords
   Identifier
-
-  // Keywords
   Break
   Case
   Catch
@@ -31,6 +30,7 @@ pub(all) enum TokenKind {
   Import
   In
   Instanceof
+  Let
   New
   Return
   Super
@@ -44,191 +44,119 @@ pub(all) enum TokenKind {
   While
   With
   Yield
+  Async
+  Await
   Enum
   Implements
   Interface
-  Let
   Package
   Private
   Protected
   Public
   Static
-  Await
-  Async
 
-  // Punctuators
-  LBrace // {
-  RBrace // }
-  LParen // (
-  RParen // )
-  LBracket // [
-  RBracket // ]
-  Dot // .
-  Ellipsis // ...
-  Semi // ;
-  Comma // ,
-  Question // ?
-  Colon // :
-  Arrow // =>
+  // Punctuation
+  LParen
+  RParen
+  LBrace
+  RBrace
+  LBracket
+  RBracket
+  Semicolon
+  Comma
+  Dot
+  Colon
+  QuestionMark
+  Ellipsis
 
   // Operators
-  Eq // =
-  Plus // +
-  Minus // -
-  Star // *
-  Slash // /
-  Percent // %
-  StarStar // **
-  PlusPlus // ++
-  MinusMinus // --
-  LShift // <<
-  RShift // >>
-  URShift // >>>
-  BitAnd // &
-  BitOr // |
-  BitXor // ^
-  Not // !
-  BitNot // ~
-  And // &&
-  Or // ||
-  QuestionQuestion // ??
+  Plus
+  Minus
+  Star
+  Slash
+  Percent
+  PlusPlus
+  MinusMinus
+  Equal
+  PlusEqual
+  MinusEqual
+  StarEqual
+  SlashEqual
+  PercentEqual
+  EqualEqual
+  NotEqual
+  StrictEqual
+  StrictNotEqual
+  LessThan
+  LessThanOrEqual
+  GreaterThan
+  GreaterThanOrEqual
+  Exclamation
+  Tilde
+  Ampersand
+  Pipe
+  Caret
+  LeftShift
+  RightShift
+  UnsignedRightShift
+  AmpersandEqual
+  PipeEqual
+  CaretEqual
+  LeftShiftEqual
+  RightShiftEqual
+  UnsignedRightShiftEqual
+  StarStar
+  StarStarEqual
+  Arrow
+  QuestionQuestion
 
-  // Comparison
-  EqEq // ==
-  NotEq // !=
-  EqEqEq // ===
-  NotEqEq // !==
-  Lt // <
-  Le // <=
-  Gt // >
-  Ge // >=
+  // Logical Operators
+  LogicalAnd
+  LogicalOr
+  LogicalNot
 
-  // Assignment
-  PlusEq // +=
-  MinusEq // -=
-  StarEq // *=
-  SlashEq // /=
-  PercentEq // %=
-  StarStarEq // **=
-  LShiftEq // <<=
-  RShiftEq // >>=
-  URShiftEq // >>>=
-  BitAndEq // &=
-  BitOrEq // |=
-  BitXorEq // ^=
+  // Comparison (alternative names)
+  EqEq
+  NotEq
+  Le
+  Ge
+  BitAnd
+  BitOr
+  BitXor
+  Not
+  BitNot
+  Lt
+  Gt
+  URShift
+  LShift
+  RShift
+  URShiftEq
+  LShiftEq
+  RShiftEq
+  PlusEq
+  MinusEq
+  StarEq
+  SlashEq
+  BitAndEq
+  BitOrEq
+  BitXorEq
+  And
+  Or
+  Semi
+  Eq
+  Illegal
+  EqEqEq
+  NotEqEq
+  PercentEq
+  Question
 
   // Other
   EOF
-  Illegal
-} derive(Show, Eq)
-
-///|
-pub fn TokenKind::to_string(self : TokenKind) -> String {
-  match self {
-    NumericLiteral => "NumericLiteral"
-    StringLiteral => "StringLiteral"
-    BooleanLiteral => "BooleanLiteral"
-    NullLiteral => "NullLiteral"
-    RegExpLiteral => "RegExpLiteral"
-    Identifier => "Identifier"
-    Break => "break"
-    Case => "case"
-    Catch => "catch"
-    Class => "class"
-    Const => "const"
-    Continue => "continue"
-    Debugger => "debugger"
-    Default => "default"
-    Delete => "delete"
-    Do => "do"
-    Else => "else"
-    Export => "export"
-    Extends => "extends"
-    Finally => "finally"
-    For => "for"
-    Function => "function"
-    If => "if"
-    Import => "import"
-    In => "in"
-    Instanceof => "instanceof"
-    New => "new"
-    Return => "return"
-    Super => "super"
-    Switch => "switch"
-    This => "this"
-    Throw => "throw"
-    Try => "try"
-    Typeof => "typeof"
-    Var => "var"
-    Void => "void"
-    While => "while"
-    With => "with"
-    Yield => "yield"
-    Enum => "enum"
-    Implements => "implements"
-    Interface => "interface"
-    Let => "let"
-    Package => "package"
-    Private => "private"
-    Protected => "protected"
-    Public => "public"
-    Static => "static"
-    Await => "await"
-    Async => "async"
-    LBrace => "{"
-    RBrace => "}"
-    LParen => "("
-    RParen => ")"
-    LBracket => "["
-    RBracket => "]"
-    Dot => "."
-    Ellipsis => "..."
-    Semi => ";"
-    Comma => ","
-    Question => "?"
-    Colon => ":"
-    Arrow => "=>"
-    Eq => "="
-    Plus => "+"
-    Minus => "-"
-    Star => "*"
-    Slash => "/"
-    Percent => "%"
-    StarStar => "**"
-    PlusPlus => "++"
-    MinusMinus => "--"
-    LShift => "<<"
-    RShift => ">>"
-    URShift => ">>>"
-    BitAnd => "&"
-    BitOr => "|"
-    BitXor => "^"
-    Not => "!"
-    BitNot => "~"
-    And => "&&"
-    Or => "||"
-    QuestionQuestion => "??"
-    EqEq => "=="
-    NotEq => "!="
-    EqEqEq => "==="
-    NotEqEq => "!=="
-    Lt => "<"
-    Le => "<="
-    Gt => ">"
-    Ge => ">="
-    PlusEq => "+="
-    MinusEq => "-="
-    StarEq => "*="
-    SlashEq => "/="
-    PercentEq => "%="
-    StarStarEq => "**="
-    LShiftEq => "<<="
-    RShiftEq => ">>="
-    URShiftEq => ">>>="
-    BitAndEq => "&="
-    BitOrEq => "|="
-    BitXorEq => "^="
-    EOF => "EOF"
-    Illegal => "Illegal"
-  }
-}
+  Whitespace
+  LineTerminator
+  Comment
+  Template
+  TemplateHead
+  TemplateMiddle
+  TemplateTail
+} derive(Show, Eq, ToJson, FromJson)

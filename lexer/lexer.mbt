@@ -421,7 +421,7 @@ fn Lexer::read_operator(self : Lexer) -> LexToken {
         self.advance()
         self.advance()
         return {
-          kind: StarStarEq,
+          kind: StarStarEqual,
           value: "**=",
           line: self.line,
           column: start_column,
