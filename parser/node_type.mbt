@@ -78,7 +78,7 @@ pub(all) enum RegExpFlag {
 pub(all) enum ArrayElement {
   Expression(Expression)
   SpreadElement(argument~ : Expression)
-  None
+  OmittedExpression
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
@@ -88,7 +88,7 @@ pub struct ArrayExpression {
 
 ///|
 pub(all) enum Expression {
-  ArrayExpression(ArrayExpression)
+  ArrayLiteralExpression(ArrayExpression)
   AssignmentExpression(AssignmentExpression)
   BinaryExpression(BinaryExpression)
   CallExpression(CallExpression)
@@ -97,7 +97,7 @@ pub(all) enum Expression {
   Identifier(Identifier)
   StringLiteral(StringLiteral)
   NumericLiteral(NumericLiteral)
-  NullLiteral(NullLiteral)
+  NullLiteral
   BooleanLiteral(BooleanLiteral)
   RegExpLiteral(RegExpLiteral)
   LogicalExpression(LogicalExpression)
@@ -106,19 +106,19 @@ pub(all) enum Expression {
   ObjectExpression(ObjectExpression)
   SequenceExpression(SequenceExpression)
   ParenthesizedExpression(ParenthesizedExpression)
-  ThisExpression(ThisExpression)
+  ThisExpression
   UnaryExpression(UnaryExpression)
   UpdateExpression(UpdateExpression)
   ArrowFunctionExpression(ArrowFunctionExpression)
   ClassExpression(ClassExpression)
   ImportExpression(ImportExpression)
   MetaProperty(MetaProperty)
-  Super(Super)
+  Super
   TaggedTemplateExpression(TaggedTemplateExpression)
   TemplateLiteral(TemplateLiteral)
   YieldExpression(YieldExpression)
   AwaitExpression(AwaitExpression)
-  Import(Import)
+  Import
   BigIntLiteral(BigIntLiteral)
   OptionalMemberExpression(OptionalMemberExpression)
   OptionalCallExpression(OptionalCallExpression)
@@ -148,6 +148,7 @@ pub(all) enum Pattern {
   AssignmentPattern(AssignmentPattern)
   MemberExpression(MemberExpression)
   VoidPattern(VoidPattern)
+  OmittedExpression
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
@@ -165,7 +166,7 @@ pub(all) enum Declaration {
 ///|
 pub(all) enum Literal {
   RegExpLiteral(RegExpLiteral)
-  NullLiteral(NullLiteral)
+  NullLiteral
   StringLiteral(StringLiteral)
   BooleanLiteral(BooleanLiteral)
   NumericLiteral(NumericLiteral)
@@ -177,9 +178,6 @@ pub(all) struct RegExpLiteral {
   pattern : String
   flags : Array[RegExpFlag]
 } derive(Show, Eq, ToJson, FromJson)
-
-///|
-pub struct NullLiteral {} derive(Show, Eq, ToJson, FromJson)
 
 ///|
 pub struct StringLiteral {
@@ -859,18 +857,6 @@ pub struct BindExpression {
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
-/// This表达式
-pub struct ThisExpression {} derive(Show, Eq, ToJson, FromJson)
-
-///|
-/// Super表达式
-pub struct Super {} derive(Show, Eq, ToJson, FromJson)
-
-///|
-/// Import表达式
-pub struct Import {} derive(Show, Eq, ToJson, FromJson)
-
-///|
 /// Yield表达式
 pub struct YieldExpression {
   argument : Expression?
@@ -903,7 +889,7 @@ pub struct ModuleExpression {
 ///|
 /// 数组模式
 pub struct ArrayPattern {
-  elements : Array[Pattern?]
+  elements : Array[Pattern]
   optional : Bool?
   typeAnnotation : TypeAnnotation?
 } derive(Show, Eq, ToJson, FromJson)
@@ -1281,7 +1267,7 @@ pub struct TsTypeReference {
 /// TypeScript实体名称
 pub(all) enum TsEntityName {
   Identifier(Identifier)
-  ThisExpression(ThisExpression)
+  ThisExpression
   TsQualifiedName(TsQualifiedName)
 } derive(Show, Eq, ToJson, FromJson)
 

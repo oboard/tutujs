@@ -177,12 +177,12 @@ test "parse array literal" {
         "ExpressionStatement",
         {
           "expression": [
-            "ArrayExpression",
+            "ArrayLiteralExpression",
             {
               "elements": [
                 ["Expression", ["NumericLiteral", { "value": 1 }]],
                 ["Expression", ["NumericLiteral", { "value": 2 }]],
-                "None",
+                "OmittedExpression",
                 [
                   "SpreadElement",
                   {

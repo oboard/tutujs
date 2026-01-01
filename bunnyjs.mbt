@@ -89,6 +89,7 @@ fn Context::evaluate(self : Context, node : @parser.NodeType) -> JSValue {
         BooleanLiteral({ value }) => Boolean(value)
         NumericLiteral({ value }) => Number(value)
         StringLiteral({ value }) => String(value)
+        NullLiteral => Null
         Identifier({ name, .. }) =>
           match self.scope.get(name) {
             Some(value) => value

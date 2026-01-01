@@ -52,6 +52,7 @@ let keyword_table : @immut/hashmap.HashMap[String, @tokens.TokenKind] = @immut/h
     ("static", @tokens.TokenKind::Static),
     ("await", @tokens.TokenKind::Await),
     ("async", @tokens.TokenKind::Async),
+    ("null", @tokens.TokenKind::NullLiteral),
   ],
 )
 

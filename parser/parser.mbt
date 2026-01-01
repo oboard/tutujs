@@ -196,22 +196,20 @@ fn Parser::to_pattern(self : Parser, expr : Expression) -> Pattern {
   match expr {
     Identifier(id) => Pattern::Identifier(id)
     MemberExpression(expr) => Pattern::MemberExpression(expr)
-    ArrayExpression(expr) => {
+    ArrayLiteralExpression(expr) => {
       let elements = []
       for elem in expr.elements {
         match elem {
-          Expression(expr) => elements.push(Some(self.to_pattern(expr)))
+          Expression(expr) => elements.push(self.to_pattern(expr))
           SpreadElement(argument=arg) =>
             elements.push(
-              Some(
-                Pattern::RestElement({
-                  argument: self.to_pattern(arg),
-                  optional: None,
-                  typeAnnotation: None,
-                }),
-              ),
+              Pattern::RestElement({
+                argument: self.to_pattern(arg),
+                optional: None,
+                typeAnnotation: None,
+              }),
             )
-          None => elements.push(None)
+          OmittedExpression => elements.push(OmittedExpression)
         }
       }
       Pattern::ArrayPattern({ elements, optional: None, typeAnnotation: None })
@@ -690,7 +688,7 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     }
     TokenKind::NullLiteral => {
       self.advance()
-      Expression::NullLiteral(NullLiteral::{  })
+      Expression::NullLiteral
     }
     TokenKind::Identifier => {
       self.advance()
@@ -702,7 +700,7 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     }
     TokenKind::This => {
       self.advance()
-      Expression::ThisExpression(ThisExpression::{  })
+      Expression::ThisExpression
     }
     TokenKind::LParen => {
       self.advance()
@@ -729,7 +727,7 @@ fn Parser::parse_array_literal(self : Parser) -> Expression {
   let elements : Array[ArrayElement] = []
   while self.peek().kind != TokenKind::RBracket {
     if self.peek().kind == TokenKind::Comma {
-      elements.push(ArrayElement::None)
+      elements.push(ArrayElement::OmittedExpression)
       self.advance()
     } else if self.peek().kind == TokenKind::Ellipsis {
       self.advance()
@@ -750,7 +748,7 @@ fn Parser::parse_array_literal(self : Parser) -> Expression {
     }
   }
   self.consume(TokenKind::RBracket)
-  Expression::ArrayExpression(ArrayExpression::{ elements, })
+  Expression::ArrayLiteralExpression(ArrayExpression::{ elements, })
 }
 
 ///|
