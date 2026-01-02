@@ -10,14 +10,9 @@ import(
 // Errors
 
 // Types and methods
-pub struct Context {
-  scope : Map[String, @value.JSValue]
-  parent : Context?
-}
-pub fn Context::eval(Self, &Show) -> @value.JSValue
-pub fn Context::new(parent? : Self) -> Self
 
 // Type aliases
+pub using @value {type Context}
 
 // Traits
 

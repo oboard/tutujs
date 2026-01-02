@@ -111,11 +111,11 @@ pub(all) enum TokenKind {
   /// ==
   EqualEqual
   /// !=
-  NotEqual
+  ExclamationEqual
   /// ===
-  StrictEqual
+  EqualEqualEqual
   /// !==
-  StrictNotEqual
+  ExclamationEqualEqual
   /// <
   LessThan
   /// <=
@@ -160,86 +160,18 @@ pub(all) enum TokenKind {
   Arrow
   /// ??
   QuestionQuestion
-
-  // Logical Operators
   /// &&
-  LogicalAnd
+  AmpersandAmpersand
   /// ||
-  LogicalOr
-  /// !
-  LogicalNot
-
-  // Comparison (alternative names)
-  /// ==
-  EqEq
-  /// !=
-  NotEq
-  /// <=
-  Le
-  /// >=
-  Ge
-  /// &
-  BitAnd
-  /// |
-  BitOr
-  /// ^
-  BitXor
-  /// !
-  Not
-  /// ~
-  BitNot
-  /// <
-  Lt
-  /// >
-  Gt
-  /// >>>
-  URShift
-  /// <<
-  LShift
-  /// >>
-  RShift
-  /// >>>=
-  URShiftEq
-  /// <<=
-  LShiftEq
-  /// >>=
-  RShiftEq
-  /// +=
-  PlusEq
-  /// -=
-  MinusEq
-  /// *=
-  StarEq
-  /// /=
-  SlashEq
-  /// &=
-  BitAndEq
-  /// |=
-  BitOrEq
-  /// ^=
-  BitXorEq
-  /// &&
-  And
-  /// ||
-  Or
-  /// ;
-  Semi
-  /// =
-  Eq
+  BarBar
   /// Illegal
   Illegal
-  /// ===
-  EqEqEq
-  /// !==
-  NotEqEq
-  /// %=
-  PercentEq
   /// ?
   Question
 
   // Other
   /// EOF
-  EOF
+  EndOfFile
   /// Whitespace
   Whitespace
   /// LineTerminator

@@ -30,7 +30,8 @@ pub impl Show for JSValue with output(self, logger) {
 pub(all) struct JSFunction {
   name : String
   params : Array[String]
-  body : @parser.ASTNode
+  body : @parser.BlockStatement
+  context : Context
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|

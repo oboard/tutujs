@@ -22,7 +22,9 @@ test "logical OR" {
   @json.inspect(context.eval("1 || 0"), content=["Number", 1])
   @json.inspect(context.eval("0 || 1"), content=["Number", 1])
   @json.inspect(context.eval("0 || null"), content="Null")
-  // @json.inspect(context.eval("\"Hello\" || \"World\""), content=["String", "Hello"])
-  // @json.inspect(context.eval("\"\" || \"World\""), content=["String", "World"])
-  // @json.inspect(context.eval("null || undefined"), content=["Undefined", null])
+  @json.inspect(context.eval("\"Hello\" || \"World\""), content=[
+    "String", "Hello",
+  ])
+  @json.inspect(context.eval("\"\" || \"World\""), content=["String", "World"])
+  @json.inspect(context.eval("null || undefined"), content="Undefined")
 }

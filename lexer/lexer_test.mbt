@@ -47,11 +47,17 @@ test "bool" {
 }
 
 ///|
-
-///|
 test "function" {
-  @json.inspect(@lexer.parse("function"), content=[
+  @json.inspect(@lexer.parse("function example() { return 1; }"), content=[
     { "kind": "Function", "value": "function", "line": 1, "column": 1 },
-    { "kind": "EOF", "value": "EOF", "line": 1, "column": 9 },
+    { "kind": "Identifier", "value": "example", "line": 1, "column": 9 },
+    { "kind": "LParen", "value": "(", "line": 1, "column": 16 },
+    { "kind": "RParen", "value": ")", "line": 1, "column": 17 },
+    { "kind": "LBrace", "value": "{", "line": 1, "column": 18 },
+    { "kind": "Return", "value": "return", "line": 1, "column": 19 },
+    { "kind": "NumericLiteral", "value": "1", "line": 1, "column": 25 },
+    { "kind": "Semicolon", "value": ";", "line": 1, "column": 26 },
+    { "kind": "RBrace", "value": "}", "line": 1, "column": 27 },
+    { "kind": "EndOfFile", "value": "EOF", "line": 1, "column": 28 },
   ])
 }

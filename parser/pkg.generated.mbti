@@ -67,7 +67,7 @@ pub impl @json.FromJson for ArgumentPlaceholder
 pub(all) enum ArrayElement {
   Expression(Expression)
   SpreadElement(argument~ : Expression)
-  None
+  OmittedExpression
 }
 pub impl Eq for ArrayElement
 pub impl Show for ArrayElement
@@ -83,7 +83,7 @@ pub impl ToJson for ArrayExpression
 pub impl @json.FromJson for ArrayExpression
 
 pub struct ArrayPattern {
-  elements : Array[Pattern?]
+  elements : Array[Pattern]
   optional : Bool?
   typeAnnotation : TypeAnnotation?
 }
@@ -936,7 +936,7 @@ pub impl ToJson for ExportSpecifier
 pub impl @json.FromJson for ExportSpecifier
 
 pub(all) enum Expression {
-  ArrayExpression(ArrayExpression)
+  ArrayLiteralExpression(ArrayExpression)
   AssignmentExpression(AssignmentExpression)
   BinaryExpression(BinaryExpression)
   CallExpression(CallExpression)
@@ -945,7 +945,7 @@ pub(all) enum Expression {
   Identifier(Identifier)
   StringLiteral(StringLiteral)
   NumericLiteral(NumericLiteral)
-  NullLiteral(NullLiteral)
+  NullLiteral
   BooleanLiteral(BooleanLiteral)
   RegExpLiteral(RegExpLiteral)
   LogicalExpression(LogicalExpression)
@@ -954,19 +954,19 @@ pub(all) enum Expression {
   ObjectExpression(ObjectExpression)
   SequenceExpression(SequenceExpression)
   ParenthesizedExpression(ParenthesizedExpression)
-  ThisExpression(ThisExpression)
+  ThisExpression
   UnaryExpression(UnaryExpression)
   UpdateExpression(UpdateExpression)
   ArrowFunctionExpression(ArrowFunctionExpression)
   ClassExpression(ClassExpression)
   ImportExpression(ImportExpression)
   MetaProperty(MetaProperty)
-  Super(Super)
+  Super
   TaggedTemplateExpression(TaggedTemplateExpression)
   TemplateLiteral(TemplateLiteral)
   YieldExpression(YieldExpression)
   AwaitExpression(AwaitExpression)
-  Import(Import)
+  Import
   BigIntLiteral(BigIntLiteral)
   OptionalMemberExpression(OptionalMemberExpression)
   OptionalCallExpression(OptionalCallExpression)
@@ -1283,13 +1283,6 @@ pub impl Show for IfStatement
 pub impl ToJson for IfStatement
 pub impl @json.FromJson for IfStatement
 
-pub struct Import {
-}
-pub impl Eq for Import
-pub impl Show for Import
-pub impl ToJson for Import
-pub impl @json.FromJson for Import
-
 pub struct ImportAttribute {
   key : Expression
   value : String
@@ -1410,7 +1403,7 @@ pub impl @json.FromJson for LabeledStatement
 
 pub(all) enum Literal {
   RegExpLiteral(RegExpLiteral)
-  NullLiteral(NullLiteral)
+  NullLiteral
   StringLiteral(StringLiteral)
   BooleanLiteral(BooleanLiteral)
   NumericLiteral(NumericLiteral)
@@ -1564,13 +1557,6 @@ pub impl Eq for NormalFunction
 pub impl Show for NormalFunction
 pub impl ToJson for NormalFunction
 pub impl @json.FromJson for NormalFunction
-
-pub struct NullLiteral {
-}
-pub impl Eq for NullLiteral
-pub impl Show for NullLiteral
-pub impl ToJson for NullLiteral
-pub impl @json.FromJson for NullLiteral
 
 pub struct NumericLiteral {
   value : Double
@@ -1769,6 +1755,7 @@ pub(all) enum Pattern {
   AssignmentPattern(AssignmentPattern)
   MemberExpression(MemberExpression)
   VoidPattern(VoidPattern)
+  OmittedExpression
 }
 pub impl Eq for Pattern
 pub impl Show for Pattern
@@ -1966,13 +1953,6 @@ pub impl Show for StringLiteral
 pub impl ToJson for StringLiteral
 pub impl @json.FromJson for StringLiteral
 
-pub struct Super {
-}
-pub impl Eq for Super
-pub impl Show for Super
-pub impl ToJson for Super
-pub impl @json.FromJson for Super
-
 pub struct SwitchCase {
   test_ : Expression?
   consequent : Array[Statement]
@@ -2110,13 +2090,6 @@ pub impl Show for TemplateLiteral
 pub impl ToJson for TemplateLiteral
 pub impl @json.FromJson for TemplateLiteral
 
-pub struct ThisExpression {
-}
-pub impl Eq for ThisExpression
-pub impl Show for ThisExpression
-pub impl ToJson for ThisExpression
-pub impl @json.FromJson for ThisExpression
-
 pub struct ThrowStatement {
   argument : Expression
 }
@@ -2225,7 +2198,7 @@ pub impl @json.FromJson for TsConstructorType
 
 pub(all) enum TsEntityName {
   Identifier(Identifier)
-  ThisExpression(ThisExpression)
+  ThisExpression
   TsQualifiedName(TsQualifiedName)
 }
 pub impl Eq for TsEntityName

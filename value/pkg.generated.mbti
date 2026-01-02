@@ -12,10 +12,24 @@ import(
 // Errors
 
 // Types and methods
+pub(all) struct Context {
+  scope : Map[String, JSValue]
+  parent : Context?
+}
+pub fn Context::eval(Self, &Show) -> JSValue
+pub fn Context::new(parent? : Self) -> Self
+pub impl Compare for Context
+pub impl Eq for Context
+pub impl Hash for Context
+pub impl Show for Context
+pub impl ToJson for Context
+pub impl @json.FromJson for Context
+
 pub(all) struct JSFunction {
   name : String
   params : Array[String]
-  body : @parser.ASTNode
+  body : @parser.BlockStatement
+  context : Context
 }
 pub impl Compare for JSFunction
 pub impl Eq for JSFunction

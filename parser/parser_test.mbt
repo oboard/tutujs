@@ -201,3 +201,42 @@ test "parse array literal" {
     "directives": [],
   })
 }
+
+///|
+test "function" {
+  @json.inspect(
+    (
+      #|function example() { 
+      #|  return 1;
+      #|}
+    )
+    |> @lexer.parse
+    |> @parser.parse,
+    content={
+      "sourceType": "Module",
+      "body": [
+        [
+          "FunctionDeclaration",
+          {
+            "id": { "name": "example", "optional": false },
+            "params": [],
+            "body": {
+              "body": [
+                [
+                  "ReturnStatement",
+                  { "argument": ["NumericLiteral", { "value": 1 }] },
+                ],
+              ],
+              "directives": [],
+            },
+            "generator": false,
+            "async_": false,
+            "expression": false,
+            "declare_": false,
+          },
+        ],
+      ],
+      "directives": [],
+    },
+  )
+}

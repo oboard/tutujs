@@ -88,9 +88,9 @@ pub(all) enum TokenKind {
   SlashEqual
   PercentEqual
   EqualEqual
-  NotEqual
-  StrictEqual
-  StrictNotEqual
+  ExclamationEqual
+  EqualEqualEqual
+  ExclamationEqualEqual
   LessThan
   LessThanOrEqual
   GreaterThan
@@ -113,43 +113,11 @@ pub(all) enum TokenKind {
   StarStarEqual
   Arrow
   QuestionQuestion
-  LogicalAnd
-  LogicalOr
-  LogicalNot
-  EqEq
-  NotEq
-  Le
-  Ge
-  BitAnd
-  BitOr
-  BitXor
-  Not
-  BitNot
-  Lt
-  Gt
-  URShift
-  LShift
-  RShift
-  URShiftEq
-  LShiftEq
-  RShiftEq
-  PlusEq
-  MinusEq
-  StarEq
-  SlashEq
-  BitAndEq
-  BitOrEq
-  BitXorEq
-  And
-  Or
-  Semi
-  Eq
+  AmpersandAmpersand
+  BarBar
   Illegal
-  EqEqEq
-  NotEqEq
-  PercentEq
   Question
-  EOF
+  EndOfFile
   Whitespace
   LineTerminator
   Comment

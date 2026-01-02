@@ -18,18 +18,15 @@ pub fn Parser::new(tokens : Array[LexToken]) -> Parser {
 ///|
 pub fn parse(tokens : Array[LexToken]) -> Program {
   let p = Parser::new(tokens).parse_program()
-  println(p)
   p
 }
 
 ///|
 pub fn Parser::parse_program(self : Parser) -> Program {
   let body = []
-  while self.peek().kind != TokenKind::EOF {
-    let expr = self.parse_expression()
-    body.push(
-      Statement::ExpressionStatement({ expression: expr, directive: None }),
-    )
+  while self.peek().kind != TokenKind::EndOfFile {
+    let stmt = self.parse_statement()
+    body.push(stmt)
   }
   { sourceType: Module, body, directives: [], interpreter: None }
 }
@@ -67,7 +64,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
   let left = self.parse_conditional()
   let token = self.peek()
   match token.kind {
-    TokenKind::Eq => {
+    TokenKind::Equal => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -77,7 +74,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::PlusEq => {
+    TokenKind::PlusEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -87,7 +84,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::MinusEq => {
+    TokenKind::MinusEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -97,7 +94,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::StarEq => {
+    TokenKind::StarEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -107,7 +104,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::SlashEq => {
+    TokenKind::SlashEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -117,7 +114,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::PercentEq => {
+    TokenKind::PercentEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -127,7 +124,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::LShiftEq => {
+    TokenKind::LeftShiftEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -137,7 +134,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::RShiftEq => {
+    TokenKind::RightShiftEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -147,7 +144,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::URShiftEq => {
+    TokenKind::UnsignedRightShiftEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -157,7 +154,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::BitAndEq => {
+    TokenKind::AmpersandEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -167,7 +164,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::BitXorEq => {
+    TokenKind::CaretEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -177,7 +174,7 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
-    TokenKind::BitOrEq => {
+    TokenKind::PipeEqual => {
       self.advance()
       let right = self.parse_assignment()
       let pattern = self.to_pattern(left)
@@ -276,7 +273,7 @@ fn Parser::parse_conditional(self : Parser) -> Expression {
 ///|
 fn Parser::parse_logical_or(self : Parser) -> Expression {
   let mut left = self.parse_logical_and()
-  while self.peek().kind == TokenKind::Or {
+  while self.peek().kind == TokenKind::BarBar {
     self.advance()
     let right = self.parse_logical_and()
     left = Expression::LogicalExpression({
@@ -290,10 +287,10 @@ fn Parser::parse_logical_or(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_logical_and(self : Parser) -> Expression {
-  let mut left = self.parse_equality()
-  while self.peek().kind == TokenKind::And {
+  let mut left = self.parse_bitwise_or()
+  while self.peek().kind == TokenKind::AmpersandAmpersand {
     self.advance()
-    let right = self.parse_equality()
+    let right = self.parse_bitwise_or()
     left = Expression::LogicalExpression({
       operator: LogicalOperator::LogicalAnd,
       left,
@@ -307,18 +304,18 @@ fn Parser::parse_logical_and(self : Parser) -> Expression {
 fn Parser::parse_equality(self : Parser) -> Expression {
   let mut left = self.parse_relational()
   while self.peek().kind
-        is (TokenKind::EqEq
-        | TokenKind::NotEq
-        | TokenKind::EqEqEq
-        | TokenKind::NotEqEq) {
+        is (TokenKind::EqualEqual
+        | TokenKind::ExclamationEqual
+        | TokenKind::EqualEqualEqual
+        | TokenKind::ExclamationEqualEqual) {
     let op_token = self.peek()
     self.advance()
     let right = self.parse_relational()
     let operator = match op_token.kind {
-      TokenKind::EqEq => BinaryOperator::Equal
-      TokenKind::NotEq => BinaryOperator::NotEqual
-      TokenKind::EqEqEq => BinaryOperator::StrictEqual
-      TokenKind::NotEqEq => BinaryOperator::StrictNotEqual
+      TokenKind::EqualEqual => BinaryOperator::Equal
+      TokenKind::ExclamationEqual => BinaryOperator::NotEqual
+      TokenKind::EqualEqualEqual => BinaryOperator::StrictEqual
+      TokenKind::ExclamationEqualEqual => BinaryOperator::StrictNotEqual
       _ => BinaryOperator::Equal // Should not happen
     }
     left = Expression::BinaryExpression({ operator, left, right })
@@ -330,20 +327,20 @@ fn Parser::parse_equality(self : Parser) -> Expression {
 fn Parser::parse_relational(self : Parser) -> Expression {
   let mut left = self.parse_shift()
   while self.peek().kind
-        is (TokenKind::Lt
-        | TokenKind::Le
-        | TokenKind::Gt
-        | TokenKind::Ge
+        is (TokenKind::LessThan
+        | TokenKind::LessThanOrEqual
+        | TokenKind::GreaterThan
+        | TokenKind::GreaterThanOrEqual
         | TokenKind::In
         | TokenKind::Instanceof) {
     let op_token = self.peek()
     self.advance()
     let right = self.parse_shift()
     let operator = match op_token.kind {
-      TokenKind::Lt => BinaryOperator::LessThan
-      TokenKind::Le => BinaryOperator::LessThanOrEqual
-      TokenKind::Gt => BinaryOperator::GreaterThan
-      TokenKind::Ge => BinaryOperator::GreaterThanOrEqual
+      TokenKind::LessThan => BinaryOperator::LessThan
+      TokenKind::LessThanOrEqual => BinaryOperator::LessThanOrEqual
+      TokenKind::GreaterThan => BinaryOperator::GreaterThan
+      TokenKind::GreaterThanOrEqual => BinaryOperator::GreaterThanOrEqual
       TokenKind::In => BinaryOperator::In
       TokenKind::Instanceof => BinaryOperator::Instanceof
       _ => BinaryOperator::LessThan // Should not happen
@@ -357,14 +354,16 @@ fn Parser::parse_relational(self : Parser) -> Expression {
 fn Parser::parse_shift(self : Parser) -> Expression {
   let mut left = self.parse_additive()
   while self.peek().kind
-        is (TokenKind::LShift | TokenKind::RShift | TokenKind::URShift) {
+        is (TokenKind::LeftShift
+        | TokenKind::RightShift
+        | TokenKind::UnsignedRightShift) {
     let op_token = self.peek()
     self.advance()
     let right = self.parse_additive()
     let operator = match op_token.kind {
-      TokenKind::LShift => BinaryOperator::LeftShift
-      TokenKind::RShift => BinaryOperator::RightShift
-      TokenKind::URShift => BinaryOperator::UnsignedRightShift
+      TokenKind::LeftShift => BinaryOperator::LeftShift
+      TokenKind::RightShift => BinaryOperator::RightShift
+      TokenKind::UnsignedRightShift => BinaryOperator::UnsignedRightShift
       _ => BinaryOperator::LeftShift // Should not happen
     }
     left = Expression::BinaryExpression({ operator, left, right })
@@ -391,12 +390,12 @@ fn Parser::parse_additive(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_multiplicative(self : Parser) -> Expression {
-  let mut left = self.parse_bitwise_and()
+  let mut left = self.parse_unary()
   while self.peek().kind
         is (TokenKind::Star | TokenKind::Slash | TokenKind::Percent) {
     let op_token = self.peek()
     self.advance()
-    let right = self.parse_bitwise_and()
+    let right = self.parse_unary()
     let operator = match op_token.kind {
       TokenKind::Star => BinaryOperator::Star
       TokenKind::Slash => BinaryOperator::Slash
@@ -410,11 +409,11 @@ fn Parser::parse_multiplicative(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_bitwise_and(self : Parser) -> Expression {
-  let mut left = self.parse_bitwise_xor()
-  while self.peek().kind == TokenKind::BitAnd {
+  let mut left = self.parse_equality()
+  while self.peek().kind == TokenKind::Ampersand {
     // let op_token = self.peek()
     self.advance()
-    let right = self.parse_bitwise_xor()
+    let right = self.parse_equality()
     let operator = BinaryOperator::BitwiseAnd
     left = Expression::BinaryExpression({ operator, left, right })
   }
@@ -423,11 +422,11 @@ fn Parser::parse_bitwise_and(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_bitwise_xor(self : Parser) -> Expression {
-  let mut left = self.parse_bitwise_or()
-  while self.peek().kind == TokenKind::BitXor {
+  let mut left = self.parse_bitwise_and()
+  while self.peek().kind == TokenKind::Caret {
     // let op_token = self.peek()
     self.advance()
-    let right = self.parse_bitwise_or()
+    let right = self.parse_bitwise_and()
     let operator = BinaryOperator::BitwiseXor
     left = Expression::BinaryExpression({ operator, left, right })
   }
@@ -436,11 +435,11 @@ fn Parser::parse_bitwise_xor(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_bitwise_or(self : Parser) -> Expression {
-  let mut left = self.parse_unary()
-  while self.peek().kind == TokenKind::BitOr {
+  let mut left = self.parse_bitwise_xor()
+  while self.peek().kind == TokenKind::Pipe {
     // let op_token = self.peek()
     self.advance()
-    let right = self.parse_unary()
+    let right = self.parse_bitwise_xor()
     let operator = BinaryOperator::BitwiseOr
     left = Expression::BinaryExpression({ operator, left, right })
   }
@@ -456,8 +455,8 @@ fn Parser::parse_unary(self : Parser) -> Expression {
     | TokenKind::Typeof
     | TokenKind::Plus
     | TokenKind::Minus
-    | TokenKind::BitNot
-    | TokenKind::Not => {
+    | TokenKind::Ampersand
+    | TokenKind::Pipe => {
       self.advance()
       let argument = self.parse_unary()
       let operator = match token.kind {
@@ -466,8 +465,8 @@ fn Parser::parse_unary(self : Parser) -> Expression {
         TokenKind::Typeof => UnaryOperator::Typeof
         TokenKind::Plus => UnaryOperator::Plus
         TokenKind::Minus => UnaryOperator::Minus
-        TokenKind::BitNot => UnaryOperator::BitwiseNot
-        TokenKind::Not => UnaryOperator::Not
+        TokenKind::Ampersand => UnaryOperator::BitwiseNot
+        TokenKind::Pipe => UnaryOperator::Not
         _ => UnaryOperator::Not // Should not happen
       }
       Expression::UnaryExpression({ operator, prefix: true, argument })
@@ -690,14 +689,18 @@ fn Parser::parse_primary(self : Parser) -> Expression {
       self.advance()
       Expression::NullLiteral
     }
-    TokenKind::Identifier => {
-      self.advance()
-      Expression::Identifier(Identifier::{
-        name: token.value.to_string(),
-        optional: false,
-        typeAnnotation: None,
-      })
-    }
+    TokenKind::Identifier =>
+      if token.value == "async" && self.lookahead().kind == TokenKind::Function {
+        self.advance() // consume async
+        self.parse_function_expression(async_=true)
+      } else {
+        self.advance()
+        Expression::Identifier(Identifier::{
+          name: token.value.to_string(),
+          optional: false,
+          typeAnnotation: None,
+        })
+      }
     TokenKind::This => {
       self.advance()
       Expression::ThisExpression
@@ -711,13 +714,28 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     TokenKind::LBracket => self.parse_array_literal()
     TokenKind::LBrace => self.parse_object_literal()
     TokenKind::Function => self.parse_function_expression()
-    _ =>
-      // TODO: Better error reporting
-      Expression::Identifier(Identifier::{
-        name: "Error",
-        optional: false,
-        typeAnnotation: None,
-      })
+    TokenKind::Async =>
+      if self.lookahead().kind is TokenKind::Function {
+        self.advance()
+        self.parse_function_expression(async_=true)
+      } else {
+        self.advance()
+        Expression::Identifier(Identifier::{
+          name: "async",
+          optional: false,
+          typeAnnotation: None,
+        })
+      }
+    // TokenKind::Semicolon => {
+    //   self.advance()
+    //   Expression::EmptyExpression
+    // }
+    _ => {
+      let token = self.peek()
+      self.advance()
+      // println("Unexpected token in parse_primary: \{token.kind}")
+      abort("Unexpected token in parse_primary: \{token.kind}")
+    }
   }
 }
 
@@ -819,8 +837,17 @@ fn Parser::parse_object_literal(self : Parser) -> Expression {
 }
 
 ///|
-fn Parser::parse_function_expression(self : Parser) -> Expression {
+fn Parser::parse_function_expression(
+  self : Parser,
+  async_? : Bool = false,
+) -> Expression {
   self.consume(TokenKind::Function)
+  let generator = if self.peek().kind == TokenKind::Star {
+    self.advance()
+    true
+  } else {
+    false
+  }
   let id = if self.peek().kind == TokenKind::Identifier {
     let token = self.peek()
     self.advance()
@@ -834,12 +861,12 @@ fn Parser::parse_function_expression(self : Parser) -> Expression {
   }
   let params = self.parse_function_params()
   let body = self.parse_block_statement()
-  Expression::FunctionExpression(FunctionExpression::{
+  Expression::FunctionExpression({
     id,
     params,
     body,
-    generator: false,
-    async_: false,
+    generator,
+    async_,
     expression: false,
     typeParameters: None,
     returnType: None,
@@ -877,9 +904,29 @@ fn Parser::parse_function_params(self : Parser) -> Array[Pattern] {
 
 ///|
 fn Parser::parse_statement(self : Parser) -> Statement {
+  // println("DEBUG: parse_statement peek=\(self.peek().kind)")
   match self.peek().kind {
     TokenKind::LBrace => Statement::BlockStatement(self.parse_block_statement())
     TokenKind::Return => self.parse_return_statement()
+    TokenKind::Function => self.parse_function_declaration()
+    TokenKind::Async =>
+      if self.lookahead().kind == TokenKind::Function {
+        self.advance() // consume 'async'
+        self.parse_function_declaration(async_=true)
+      } else {
+        let expr = self.parse_expression()
+        if self.peek().kind == TokenKind::Semicolon {
+          self.advance()
+        }
+        Statement::ExpressionStatement({ expression: expr, directive: None })
+      }
+    TokenKind::Identifier => {
+      let expr = self.parse_expression()
+      if self.peek().kind == TokenKind::Semicolon {
+        self.advance()
+      }
+      Statement::ExpressionStatement({ expression: expr, directive: None })
+    }
     _ => {
       let expr = self.parse_expression()
       if self.peek().kind == TokenKind::Semicolon {
@@ -895,7 +942,7 @@ fn Parser::parse_block_statement(self : Parser) -> BlockStatement {
   self.consume(TokenKind::LBrace)
   let body = []
   while self.peek().kind != TokenKind::RBrace &&
-        self.peek().kind != TokenKind::EOF {
+        self.peek().kind != TokenKind::EndOfFile {
     body.push(self.parse_statement())
   }
   self.consume(TokenKind::RBrace)
@@ -914,4 +961,52 @@ fn Parser::parse_return_statement(self : Parser) -> Statement {
     self.advance()
   }
   Statement::ReturnStatement({ argument: arg })
+}
+
+///|
+fn Parser::lookahead(self : Parser) -> LexToken {
+  if self.pos + 1 < self.tokens.length() {
+    self.tokens[self.pos + 1]
+  } else {
+    self.tokens[self.tokens.length() - 1] // EOF
+  }
+}
+
+///|
+fn Parser::parse_function_declaration(
+  self : Parser,
+  async_? : Bool = false,
+) -> Statement {
+  // println("DEBUG: parse_function_declaration async=\(async_)")
+  self.consume(TokenKind::Function)
+  let generator = if self.peek().kind == TokenKind::Star {
+    self.advance()
+    true
+  } else {
+    false
+  }
+  let id = if self.peek().kind is TokenKind::Identifier {
+    let token = self.peek()
+    self.advance()
+    Identifier::{
+      name: token.value.to_string(),
+      optional: false,
+      typeAnnotation: None,
+    }
+  } else {
+    Identifier::{ name: "", optional: false, typeAnnotation: None }
+  }
+  let params = self.parse_function_params()
+  let body = self.parse_block_statement()
+  Statement::FunctionDeclaration({
+    id,
+    params,
+    body,
+    generator,
+    async_,
+    expression: false,
+    typeParameters: None,
+    returnType: None,
+    declare_: false,
+  })
 }
