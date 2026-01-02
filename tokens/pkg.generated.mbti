@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/bunnyjs/tokens"
+package "oboard/tutujs/tokens"
 
 import(
   "moonbitlang/core/json"
@@ -117,7 +117,7 @@ pub(all) enum TokenKind {
   BarBar
   Illegal
   Question
-  EndOfFile
+  EOF
   Whitespace
   LineTerminator
   Comment

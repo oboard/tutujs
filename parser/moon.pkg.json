@@ -1,6 +1,6 @@
 {
   "import": [
-    "oboard/bunnyjs/tokens",
-    "oboard/bunnyjs/lexer"
+    "oboard/tutujs/tokens",
+    "oboard/tutujs/lexer"
   ]
 }

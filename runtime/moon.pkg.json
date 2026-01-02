@@ -1,6 +1,6 @@
 {
   "import": [
-    "oboard/bunnyjs/parser",
-    "oboard/bunnyjs/lexer"
+    "oboard/tutujs/parser",
+    "oboard/tutujs/lexer"
   ]
 }

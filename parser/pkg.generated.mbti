@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/bunnyjs/parser"
+package "oboard/tutujs/parser"
 
 import(
   "moonbitlang/core/bigint"
   "moonbitlang/core/json"
-  "oboard/bunnyjs/lexer"
+  "oboard/tutujs/lexer"
 )
 
 // Values
@@ -955,7 +955,7 @@ pub(all) enum Expression {
   SequenceExpression(SequenceExpression)
   ParenthesizedExpression(ParenthesizedExpression)
   ThisExpression
-  UnaryExpression(UnaryExpression)
+  PrefixUnaryExpression(PrefixUnaryExpression)
   UpdateExpression(UpdateExpression)
   ArrowFunctionExpression(ArrowFunctionExpression)
   ClassExpression(ClassExpression)
@@ -1789,6 +1789,16 @@ pub impl Show for Position
 pub impl ToJson for Position
 pub impl @json.FromJson for Position
 
+pub struct PrefixUnaryExpression {
+  operator : UnaryOperator
+  prefix : Bool
+  argument : Expression
+}
+pub impl Eq for PrefixUnaryExpression
+pub impl Show for PrefixUnaryExpression
+pub impl ToJson for PrefixUnaryExpression
+pub impl @json.FromJson for PrefixUnaryExpression
+
 pub struct PrivateName {
   id : Identifier
 }
@@ -2387,7 +2397,7 @@ pub(all) enum TsLiteral {
   StringLiteral(String)
   BooleanLiteral(Bool)
   TemplateLiteral(TemplateLiteral)
-  UnaryExpression(UnaryExpression)
+  UnaryExpression(PrefixUnaryExpression)
 }
 pub impl Eq for TsLiteral
 pub impl Show for TsLiteral
@@ -2940,16 +2950,6 @@ pub impl Eq for TypeParameterInstantiationBase
 pub impl Show for TypeParameterInstantiationBase
 pub impl ToJson for TypeParameterInstantiationBase
 pub impl @json.FromJson for TypeParameterInstantiationBase
-
-pub struct UnaryExpression {
-  operator : UnaryOperator
-  prefix : Bool
-  argument : Expression
-}
-pub impl Eq for UnaryExpression
-pub impl Show for UnaryExpression
-pub impl ToJson for UnaryExpression
-pub impl @json.FromJson for UnaryExpression
 
 pub(all) enum UnaryOperator {
   Minus

@@ -1,7 +1,5 @@
 {
   "import": [
-    "oboard/bunnyjs/parser",
-    "oboard/bunnyjs/lexer",
-    "oboard/bunnyjs/runtime"
+    "oboard/tutujs/runtime"
   ]
 }

@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/bunnyjs/lexer"
+package "oboard/tutujs/lexer"
 
 import(
-  "oboard/bunnyjs/tokens"
+  "oboard/tutujs/tokens"
 )
 
 // Values

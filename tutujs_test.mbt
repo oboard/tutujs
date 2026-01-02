@@ -1,6 +1,6 @@
 ///|
 test "arithmetic" {
-  let context = @bunnyjs.Context::new()
+  let context = @tutujs.Context::new()
   @json.inspect(context.eval("1 == 1"), content=["Boolean", true])
   @json.inspect(context.eval("1 === 1"), content=["Boolean", true])
   @json.inspect(context.eval("1 + 1"), content=["Number", 2])
@@ -15,7 +15,7 @@ test "arithmetic" {
 
 ///|
 test "type coercion" {
-  let context = @bunnyjs.Context::new()
+  let context = @tutujs.Context::new()
   fn eval(s : String) {
     context.eval(s)
   }

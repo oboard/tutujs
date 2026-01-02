@@ -1,13 +1,13 @@
 ///|
 test "function declaration and call" {
-  let ctx = @bunnyjs.Context::new()
+  let ctx = @tutujs.Context::new()
   ctx.eval("function f(x) { return x + 1; }") |> ignore
   @json.inspect(ctx.eval("f(1)"), content=["Number", 2])
 }
 
 ///|
 test "function closure" {
-  let ctx = @bunnyjs.Context::new()
+  let ctx = @tutujs.Context::new()
   // Note: FunctionExpression is not fully implemented in Declaration match, but FunctionDeclaration body uses BlockStatement.
   // If I use function expression in return: `return function(y) ...`
   // `Expression` match needs to handle `FunctionExpression`.
