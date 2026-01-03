@@ -25,6 +25,38 @@ pub fn Context::eval(self : Context, code : &Show) -> JSValue {
 }
 
 ///|
+pub fn Context::invoke(
+  self : Context,
+  func : JSFunction,
+  this_val : JSValue,
+  args : Array[JSValue],
+) -> JSValue raise EvalError {
+  match func.body {
+    User(block) => {
+      let new_ctx = new(parent=func.context)
+      new_ctx.scope.set("this", this_val)
+      for i, val in args {
+        if i < func.params.length() {
+          new_ctx.scope.set(func.params[i], val)
+        }
+      }
+      let mut res = JSValue::Undefined
+      try {
+        for stmt in block.body {
+          res = new_ctx.evaluate(Statement(stmt))
+        }
+        res
+      } catch {
+        EvalError::Return(v) => v
+        EvalError::Break(l) => raise EvalError::Break(l)
+        EvalError::Continue(l) => raise EvalError::Continue(l)
+      }
+    }
+    Native(f) => f(self, this_val, args)
+  }
+}
+
+///|
 fn Context::evaluate(
   self : Context,
   node : @parser.NodeType,
@@ -40,13 +72,35 @@ fn Context::evaluate(
               _ => ()
             }
           }
+          let func_proto = match self.resolve("Function") {
+            Function(f) => f.properties.get("prototype")
+            _ => None
+          }
+          let func_props = @hashmap.new()
           let func = JSFunction::{
             name: Some(id.name),
             params: param_names,
-            body,
+            body: User(body),
             context: self,
+            properties: func_props,
+            prototype: func_proto,
           }
-          self.scope.set(id.name, Function(func))
+          let func_val = JSValue::Function(func)
+
+          // Setup prototype property
+          let obj_proto = match self.resolve("Object") {
+            Function(f) => f.properties.get("prototype")
+            _ => None
+          }
+          let proto_props = @hashmap.new()
+          let proto_obj = JSObject::{
+            properties: proto_props,
+            prototype: obj_proto,
+          }
+          let proto_val = JSValue::Object(proto_obj)
+          proto_props.set("constructor", func_val)
+          func_props.set("prototype", proto_val)
+          self.scope.set(id.name, func_val)
           Undefined
         }
         VariableDeclaration({ declarations, .. }) => {
@@ -244,28 +298,76 @@ fn Context::evaluate(
       }
     Expression(expression) =>
       match expression {
+        NewExpression({ callee, arguments, .. }) => {
+          let ctor_val = self.evaluate(Expression(callee))
+          let args_values = []
+          for arg in arguments {
+            args_values.push(self.evaluate(Expression(arg)))
+          }
+          match ctor_val {
+            Function(func) => {
+              let proto = match func.properties.get("prototype") {
+                Some(p) => Some(p)
+                None => Some(Null)
+              }
+              let new_obj = JSValue::Object({
+                properties: @hashmap.new(),
+                prototype: proto,
+              })
+              let res = match func.body {
+                User(block) => {
+                  let new_ctx = new(parent=func.context)
+                  new_ctx.scope.set("this", new_obj)
+                  for i, val in args_values {
+                    if i < func.params.length() {
+                      new_ctx.scope.set(func.params[i], val)
+                    }
+                  }
+                  let mut ret_val = JSValue::Undefined
+                  try {
+                    for stmt in block.body {
+                      ret_val = new_ctx.evaluate(Statement(stmt))
+                    }
+                  } catch {
+                    EvalError::Return(v) => ret_val = v
+                    EvalError::Break(l) => raise EvalError::Break(l)
+                    EvalError::Continue(l) => raise EvalError::Continue(l)
+                  }
+                  ret_val
+                }
+                Native(f) => f(self, new_obj, args_values)
+              }
+              match res {
+                Object(_) | Function(_) => res
+                _ => new_obj
+              }
+            }
+            _ => Undefined
+          }
+        }
         CallExpression({ callee, arguments, .. }) => {
-          let callee_val = self.evaluate(Expression(callee))
+          let (callee_val, this_val) = match callee {
+            MemberExpression({ object, property, computed, .. }) => {
+              let obj_val = self.evaluate(Expression(object))
+              let prop_name = if computed {
+                self.evaluate(Expression(property)).to_string()
+              } else {
+                match property {
+                  Identifier({ name, .. }) => name
+                  _ => "unknown"
+                }
+              }
+              (self.get_property(obj_val, prop_name), obj_val)
+            }
+            _ => (self.evaluate(Expression(callee)), JSValue::Undefined)
+          }
           match callee_val {
             Function(func) => {
-              let new_ctx = new(parent=func.context)
-              for i, arg_expr in arguments {
-                if i < func.params.length() {
-                  let arg_val = self.evaluate(Expression(arg_expr))
-                  new_ctx.scope.set(func.params[i], arg_val)
-                }
+              let args_values = []
+              for arg in arguments {
+                args_values.push(self.evaluate(Expression(arg)))
               }
-              let mut res = JSValue::Undefined
-              try {
-                for stmt in func.body.body {
-                  res = new_ctx.evaluate(Statement(stmt))
-                }
-                res // Return last statement value if no explicit return
-              } catch {
-                EvalError::Return(v) => v
-                EvalError::Break(l) => raise EvalError::Break(l)
-                EvalError::Continue(l) => raise EvalError::Continue(l)
-              }
+              self.invoke(func, this_val, args_values)
             }
             _ => Undefined
           }
@@ -282,8 +384,8 @@ fn Context::evaluate(
           match operator {
             Minus => left - right
             Plus => left + right
-            StrictNotEqual => Boolean(left != right)
-            StrictEqual => Boolean(left == right)
+            StrictNotEqual => Boolean(!left.strict_equal(right))
+            StrictEqual => Boolean(left.strict_equal(right))
             NotEqual => Boolean(!left.unstrict_equal(right))
             Equal => Boolean(left.unstrict_equal(right))
             LessThan => Boolean(left < right)
@@ -322,17 +424,20 @@ fn Context::evaluate(
               }
           }
         }
-        Identifier({ name, .. }) => {
-          let start : Context? = Some(self)
-          loop start {
-            Some(ctx) =>
-              match ctx.scope.get(name) {
-                Some(v) => break v
-                None => continue ctx.parent
-              }
-            None => break Undefined
+        MemberExpression({ object, property, computed, .. }) => {
+          let obj_val = self.evaluate(Expression(object))
+          let prop_name = if computed {
+            self.evaluate(Expression(property)).to_string()
+          } else {
+            match property {
+              Identifier({ name, .. }) => name
+              _ => "unknown"
+            }
           }
+          self.get_property(obj_val, prop_name)
         }
+        Identifier({ name, .. }) => self.resolve(name)
+        ThisExpression => self.resolve("this")
         NumericLiteral({ value }) => Number(value)
         StringLiteral({ value }) => String(value)
         BooleanLiteral({ value }) => Boolean(value)
@@ -425,7 +530,55 @@ fn Context::evaluate(
             }
           }
           arr_props.set("length", Number(len.to_double()))
-          Object({ properties: arr_props, prototype: Some(Null) })
+          let proto = match self.resolve("Array") {
+            Function(f) =>
+              match f.properties.get("prototype") {
+                Some(p) => Some(p)
+                None => Some(Null)
+              }
+            _ => Some(Null)
+          }
+          Object({ properties: arr_props, prototype: proto })
+        }
+        FunctionExpression({ id, params, body, .. }) => {
+          let param_names = []
+          for param in params {
+            match param {
+              Identifier({ name, .. }) => param_names.push(name)
+              _ => ()
+            }
+          }
+          let name = match id {
+            Some(ident) => Some(ident.name)
+            None => None
+          }
+          let func_proto = match self.resolve("Function") {
+            Function(f) => f.properties.get("prototype")
+            _ => None
+          }
+          let func_props = @hashmap.new()
+          let func = JSFunction::{
+            name,
+            params: param_names,
+            body: User(body),
+            context: self,
+            properties: func_props,
+            prototype: func_proto,
+          }
+          let func_val = JSValue::Function(func)
+          let obj_proto = match self.resolve("Object") {
+            Function(f) => f.properties.get("prototype")
+            _ => None
+          }
+          let proto_props = @hashmap.new()
+          let proto_obj = JSObject::{
+            properties: proto_props,
+            prototype: obj_proto,
+          }
+          let proto_val = JSValue::Object(proto_obj)
+          proto_props.set("constructor", func_val)
+          func_props.set("prototype", proto_val)
+          func_val
         }
         ArrowFunctionExpression({ params, body, .. }) => {
           let param_names = []
@@ -447,17 +600,41 @@ fn Context::evaluate(
                 directives: [],
               }
           }
+          let func_proto = match self.resolve("Function") {
+            Function(f) => f.properties.get("prototype")
+            _ => None
+          }
           let func = JSFunction::{
             name: None,
             params: param_names,
-            body: block_body,
+            body: User(block_body),
             context: self,
+            properties: @hashmap.new(),
+            prototype: func_proto,
           }
           Function(func)
         }
         AssignmentExpression({ operator, left, right }) => {
           let val = self.evaluate(Expression(right))
           match left {
+            MemberExpression({ object, property, computed, .. }) => {
+              let obj_val = self.evaluate(Expression(object))
+              let prop_name = if computed {
+                self.evaluate(Expression(property)).to_string()
+              } else {
+                match property {
+                  Identifier({ name, .. }) => name
+                  _ => "unknown"
+                }
+              }
+              match operator {
+                Assign => {
+                  obj_val.set_property(prop_name, val)
+                  val
+                }
+                _ => Undefined
+              }
+            }
             Identifier({ name, .. }) =>
               match operator {
                 Assign => {

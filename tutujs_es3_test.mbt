@@ -102,3 +102,80 @@ test "ternary operator" {
     #|
   @json.inspect(@runtime.Context::new().eval(code), content=["String", "big"])
 }
+
+///|
+test "for loop (fix verification)" {
+  let code =
+    #|
+    #| var sum = 0;
+    #| for (var i = 0; i < 10; i = i + 1) {
+    #|   sum = sum + i;
+    #| }
+    #| sum;
+    #|
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 45])
+}
+
+///|
+test "object properties" {
+  let code =
+    #|
+    #| var o = { x: 1, y: 2 };
+    #| o.z = 3;
+    #| o.x + o.y + o.z;
+    #|
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 6])
+}
+
+///|
+test "fibonacci recursive" {
+  let code =
+    #|
+    #| function fib(n) {
+    #|   if (n < 2) { return n; }
+    #|   return fib(n - 1) + fib(n - 2);
+    #| }
+    #| fib(6);
+    #|
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 8])
+}
+
+///|
+test "array push and pop" {
+  let code =
+    #|
+    #| var arr = [1, 2, 3];
+    #| arr.push(4);
+    #| var last = arr.pop();
+    #| arr.length + last; // 3 + 4 = 7
+    #|
+  @json.inspect(@runtime.Context::create_global().eval(code), content=[
+    "Number", 7,
+  ])
+}
+
+///|
+test "array constructor" {
+  let code =
+    #|
+    #| var arr = new Array(3);
+    #| arr[0] = 10;
+    #| arr.length + arr[0]; // 3 + 10 = 13
+    #|
+  @json.inspect(@runtime.Context::create_global().eval(code), content=[
+    "Number", 13,
+  ])
+}
+
+///|
+test "array literal prototype" {
+  let code =
+    #|
+    #| var arr = [];
+    #| arr.push(1);
+    #| arr[0];
+    #|
+  @json.inspect(@runtime.Context::create_global().eval(code), content=[
+    "Number", 1,
+  ])
+}

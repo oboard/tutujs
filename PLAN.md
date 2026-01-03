@@ -9,11 +9,11 @@
 - [x] `return` Statement
 - [x] `if` / `else` Statements
 - [x] Block Statements `{ ... }`
-- [ ] `while` Loops
-- [ ] `do...while` Loops
-- [ ] `for` Loops
-- [ ] `switch` Statements
-- [ ] `break` / `continue`
+- [x] `while` Loops
+- [x] `do...while` Loops
+- [x] `for` Loops
+- [x] `switch` Statements
+- [x] `break` / `continue`
 - [ ] `try` / `catch` / `throw`
 - [ ] Labelled Statements
 
@@ -37,10 +37,10 @@
 ### Built-in Objects & Runtime
 - [x] Object Literals `{ a: 1 }`
 - [x] Array Literals `[ 1, 2 ]` (Basic implementation)
-- [ ] Prototype Chain Logic
-- [ ] `Object` Constructor & Properties
+- [x] Prototype Chain Logic
+- [x] `Object` Constructor & Properties
 - [ ] `Function` Constructor & Properties
-- [ ] `Array` Constructor & Methods (`push`, `pop`, `join`, etc.)
+- [~] `Array` Constructor & Methods (`push`, `pop` implemented)
 - [ ] `String` Constructor & Methods
 - [ ] `Number` / `Boolean` Constructors
 - [ ] `Math` Object

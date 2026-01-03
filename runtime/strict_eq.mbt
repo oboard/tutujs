@@ -13,8 +13,8 @@ pub fn JSValue::strict_equal(self : JSValue, other : JSValue) -> Bool {
     (Boolean(a), Boolean(b)) => a == b
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(a), Symbol(b)) => a == b
-    (Object(a), Object(b)) => physical_equal(a, b)
-    (Function(a), Function(b)) => physical_equal(a, b)
+    (Object(a), Object(b)) => physical_equal(a.properties, b.properties)
+    (Function(a), Function(b)) => physical_equal(a.properties, b.properties)
     _ => false
   }
 }

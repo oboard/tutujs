@@ -1,4 +1,173 @@
 ///|
+
+///|
+fn Parser::parse_expression_statement(self : Parser) -> ExpressionStatement {
+  let expression = self.parse_expression()
+  if self.peek().kind == TokenKind::Semicolon {
+    self.advance()
+  }
+  { expression, directive: None }
+}
+
+///|
+fn Parser::parse_statement(self : Parser) -> Statement {
+  match self.peek().kind {
+    TokenKind::LBrace => Statement::BlockStatement(self.parse_block_statement())
+    TokenKind::Return => self.parse_return_statement()
+    TokenKind::Function => self.parse_function_declaration()
+    TokenKind::Var | TokenKind::Let | TokenKind::Const =>
+      self.parse_variable_declaration()
+    TokenKind::If => self.parse_if_statement()
+    TokenKind::While => self.parse_while_statement()
+    TokenKind::Do => self.parse_do_while_statement()
+    TokenKind::For => self.parse_for_statement()
+    TokenKind::Switch => self.parse_switch_statement()
+    TokenKind::Break => self.parse_break_statement()
+    TokenKind::Continue => self.parse_continue_statement()
+    TokenKind::Throw => self.parse_throw_statement()
+    TokenKind::Try => self.parse_try_statement()
+    TokenKind::Debugger => self.parse_debugger_statement()
+    TokenKind::With => self.parse_with_statement()
+    TokenKind::Async =>
+      if self.lookahead().kind == TokenKind::Function {
+        self.advance() // consume 'async'
+        self.parse_function_declaration(async_=true)
+      } else {
+        let expr = self.parse_expression()
+        if self.peek().kind == TokenKind::Colon {
+          match expr {
+            Expression::Identifier(id) =>
+              return self.parse_labeled_statement(id)
+            _ => ()
+          }
+        }
+        if self.peek().kind == TokenKind::Semicolon {
+          self.advance()
+        }
+        Statement::ExpressionStatement({ expression: expr, directive: None })
+      }
+    TokenKind::Identifier =>
+      if self.peek_at(1).kind == TokenKind::Colon {
+        let token = self.peek()
+        self.advance() // consume identifier
+        let label = Identifier::{
+          name: token.value.to_string(),
+          optional: false,
+          typeAnnotation: None,
+        }
+        self.parse_labeled_statement(label)
+      } else {
+        Statement::ExpressionStatement(self.parse_expression_statement())
+      }
+    _ => {
+      let expr = self.parse_expression()
+      if self.peek().kind == TokenKind::Semicolon {
+        self.advance()
+      }
+      Statement::ExpressionStatement({ expression: expr, directive: None })
+    }
+  }
+}
+
+///|
+fn Parser::parse_block_statement(self : Parser) -> BlockStatement {
+  self.consume(TokenKind::LBrace)
+  let body = []
+  while self.peek().kind != TokenKind::RBrace &&
+        self.peek().kind != TokenKind::EOF {
+    body.push(self.parse_statement())
+  }
+  self.consume(TokenKind::RBrace)
+  { body, directives: [] }
+}
+
+///|
+fn Parser::parse_return_statement(self : Parser) -> Statement {
+  self.consume(TokenKind::Return)
+  let arg : Expression? = if self.peek().kind == TokenKind::Semicolon {
+    None
+  } else {
+    Option::Some(self.parse_expression())
+  }
+  if self.peek().kind == TokenKind::Semicolon {
+    self.advance()
+  }
+  Statement::ReturnStatement({ argument: arg })
+}
+
+///|
+fn Parser::parse_function_declaration(
+  self : Parser,
+  async_? : Bool = false,
+) -> Statement {
+  // println("DEBUG: parse_function_declaration async=\(async_)")
+  self.consume(TokenKind::Function)
+  let generator = if self.peek().kind == TokenKind::Star {
+    self.advance()
+    true
+  } else {
+    false
+  }
+  let id = if self.peek().kind is TokenKind::Identifier {
+    let token = self.peek()
+    self.advance()
+    Identifier::{
+      name: token.value.to_string(),
+      optional: false,
+      typeAnnotation: None,
+    }
+  } else {
+    Identifier::{ name: "", optional: false, typeAnnotation: None }
+  }
+  let params = self.parse_function_params()
+  let body = self.parse_block_statement()
+  Statement::FunctionDeclaration({
+    id,
+    params,
+    body,
+    generator,
+    async_,
+    expression: false,
+    typeParameters: None,
+    returnType: None,
+    declare_: false,
+  })
+}
+
+///|
+fn Parser::parse_variable_declaration(self : Parser) -> Statement {
+  let kind = match self.peek().kind {
+    TokenKind::Var => VariableKind::Var
+    TokenKind::Let => VariableKind::Let
+    TokenKind::Const => VariableKind::Const
+    _ => abort("Unexpected token in variable declaration")
+  }
+  self.advance()
+  let declarations = []
+  while true {
+    // We use parse_lhs to avoid consuming 'in' operator in for-in loops
+    let expr = self.parse_lhs()
+    let id = self.to_pattern(expr)
+    let init = if self.peek().kind == TokenKind::Equal {
+      self.advance()
+      Some(self.parse_assignment())
+    } else {
+      None
+    }
+    declarations.push(VariableDeclarator::{ id, init, definite: false })
+    if self.peek().kind == TokenKind::Comma {
+      self.advance()
+    } else {
+      break
+    }
+  }
+  if self.peek().kind == TokenKind::Semicolon {
+    self.advance()
+  }
+  Statement::VariableDeclaration({ declarations, kind, declare_: false })
+}
+
+///|
 fn Parser::parse_if_statement(self : Parser) -> Statement {
   self.consume(TokenKind::If)
   self.consume(TokenKind::LParen)
@@ -402,13 +571,4 @@ fn Parser::parse_with_statement(self : Parser) -> Statement {
   self.consume(TokenKind::RParen)
   let body = self.parse_statement()
   Statement::WithStatement({ object, body })
-}
-
-///|
-fn Parser::has_newline_before(self : Parser, token : LexToken) -> Bool {
-  if self.pos > 0 {
-    let prev = self.tokens[self.pos - 1]
-    return prev.line < token.line
-  }
-  false
 }

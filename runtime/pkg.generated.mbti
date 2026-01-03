@@ -9,6 +9,17 @@ import(
 )
 
 // Values
+pub fn create_function_constructor(JSValue) -> JSValue
+
+pub fn create_string_constructor(JSValue) -> JSValue
+
+pub fn init_array_prototype(JSValue) -> Unit
+
+pub fn init_function_prototype(JSValue) -> Unit
+
+pub fn init_object_prototype(JSValue) -> Unit
+
+pub fn init_string_prototype(JSValue) -> Unit
 
 // Errors
 pub suberror EvalError {
@@ -23,9 +34,14 @@ pub(all) struct Context {
   scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
 }
+#as_free_fn(create_global)
+pub fn Context::create_global() -> Self
 pub fn Context::eval(Self, &Show) -> JSValue
+pub fn Context::get_property(Self, JSValue, String) -> JSValue
+pub fn Context::invoke(Self, JSFunction, JSValue, Array[JSValue]) -> JSValue raise EvalError
 #as_free_fn(new)
 pub fn Context::new(parent? : Self) -> Self
+pub fn Context::resolve(Self, String) -> JSValue
 pub impl Compare for Context
 pub impl Eq for Context
 pub impl Hash for Context
@@ -33,11 +49,22 @@ pub impl Show for Context
 pub impl ToJson for Context
 pub impl @json.FromJson for Context
 
+pub(all) enum FunctionBody {
+  User(@parser.BlockStatement)
+  Native((Context, JSValue, Array[JSValue]) -> JSValue)
+}
+pub impl Eq for FunctionBody
+pub impl Show for FunctionBody
+pub impl ToJson for FunctionBody
+pub impl @json.FromJson for FunctionBody
+
 pub(all) struct JSFunction {
   name : String?
   params : Array[String]
-  body : @parser.BlockStatement
+  body : FunctionBody
   context : Context
+  properties : @hashmap.HashMap[String, JSValue]
+  prototype : JSValue?
 }
 pub impl Compare for JSFunction
 pub impl Eq for JSFunction
@@ -71,11 +98,13 @@ pub(all) enum JSValue {
 pub fn JSValue::bitwise_and(Self, Self) -> Self
 pub fn JSValue::bitwise_or(Self, Self) -> Self
 pub fn JSValue::bitwise_xor(Self, Self) -> Self
+pub fn JSValue::get_property(Self, String) -> Self
 pub fn JSValue::instanceof(Self, Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self
 pub fn JSValue::op_in(Self, Self) -> Bool
 pub fn JSValue::right_shift(Self, Self) -> Self
+pub fn JSValue::set_property(Self, String, Self) -> Unit
 pub fn JSValue::strict_equal(Self, Self) -> Bool
 pub fn JSValue::to_int32(Self) -> Int
 pub fn JSValue::unsigned_right_shift(Self, Self) -> Self

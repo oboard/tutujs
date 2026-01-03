@@ -9,7 +9,7 @@ fn start_repl() -> Unit {
   println("Welcome to Tutu.js REPL \{@config.Version}")
   println("Type 'exit' to quit")
   let rl = @readline.new()
-  let vm = @runtime.new()
+  let vm = @runtime.create_global()
   fn next_with_input(accumulated_input : String, brace_counter : Int) {
     let prompt = if brace_counter > 0 { "| " } else { "> " }
     rl.question(prompt, fn(input : String) {

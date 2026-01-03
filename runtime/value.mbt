@@ -28,12 +28,49 @@ pub impl Show for JSValue with output(self, logger) {
 }
 
 ///|
+pub(all) enum FunctionBody {
+  User(@parser.BlockStatement)
+  Native((Context, JSValue, Array[JSValue]) -> JSValue)
+} derive(Show)
+
+///|
+pub impl Eq for FunctionBody with equal(_, _) {
+  false // Functions are not structurally equal usually
+}
+
+///|
+pub impl ToJson for FunctionBody with to_json(_) {
+  JSValue::Null.to_json()
+}
+
+///|
+pub impl FromJson for FunctionBody with from_json(_, _) {
+  User(@parser.BlockStatement::{ body: [], directives: [] }) // Dummy
+}
+
+///|
 pub(all) struct JSFunction {
   name : String?
   params : Array[String]
-  body : @parser.BlockStatement
+  body : FunctionBody
   context : Context
-} derive(Show, Eq, ToJson, FromJson)
+  properties : @hashmap.HashMap[String, JSValue]
+  prototype : JSValue? // [[Prototype]]
+} derive(Show, Eq, ToJson)
+
+///|
+pub impl FromJson for JSFunction with from_json(_, _) {
+  // Dummy implementation
+  let ctx = Context::{ scope: @hashmap.new(), parent: None }
+  {
+    name: None,
+    params: [],
+    body: User(@parser.BlockStatement::{ body: [], directives: [] }),
+    context: ctx,
+    properties: @hashmap.new(),
+    prototype: None,
+  }
+}
 
 ///|
 pub(all) struct JSObject {
@@ -74,7 +111,48 @@ pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
   hasher.combine(self.name)
   hasher.combine(self.params)
   hasher.combine(self.context)
-  hasher.combine(self.body.to_json().stringify())
+  match self.body {
+    User(_) => hasher.combine("user")
+    Native(_) => hasher.combine("native")
+  }
+}
+
+///|
+pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
+  match self {
+    Object(obj) =>
+      match obj.properties.get(name) {
+        Some(v) => v
+        None =>
+          match obj.prototype {
+            Some(proto) => proto.get_property(name)
+            None => Undefined
+          }
+      }
+    Function(func) =>
+      match func.properties.get(name) {
+        Some(v) => v
+        None =>
+          match func.prototype {
+            Some(proto) => proto.get_property(name)
+            None => Undefined
+          }
+      }
+    _ => Undefined // TODO: Primitives wrapping
+  }
+}
+
+///|
+pub fn JSValue::set_property(
+  self : JSValue,
+  name : String,
+  value : JSValue,
+) -> Unit {
+  match self {
+    Object(obj) => obj.properties.set(name, value)
+    Function(func) => func.properties.set(name, value)
+    _ => () // Cannot set property on non-object
+  }
 }
 
 ///|
