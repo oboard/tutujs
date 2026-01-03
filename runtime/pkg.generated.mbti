@@ -17,6 +17,7 @@ pub(all) struct Context {
   parent : Context?
 }
 pub fn Context::eval(Self, &Show) -> JSValue
+#as_free_fn(new)
 pub fn Context::new(parent? : Self) -> Self
 pub impl Compare for Context
 pub impl Eq for Context
@@ -26,7 +27,7 @@ pub impl ToJson for Context
 pub impl @json.FromJson for Context
 
 pub(all) struct JSFunction {
-  name : String
+  name : String?
   params : Array[String]
   body : @parser.BlockStatement
   context : Context
@@ -60,7 +61,16 @@ pub(all) enum JSValue {
   Null
   Undefined
 }
+pub fn JSValue::bitwise_and(Self, Self) -> Self
+pub fn JSValue::bitwise_or(Self, Self) -> Self
+pub fn JSValue::bitwise_xor(Self, Self) -> Self
+pub fn JSValue::instanceof(Self, Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
+pub fn JSValue::left_shift(Self, Self) -> Self
+pub fn JSValue::op_in(Self, Self) -> Bool
+pub fn JSValue::right_shift(Self, Self) -> Self
+pub fn JSValue::to_int32(Self) -> Int
+pub fn JSValue::unsigned_right_shift(Self, Self) -> Self
 pub fn JSValue::unstrict_equal(Self, Self) -> Bool
 pub impl Add for JSValue
 pub impl Compare for JSValue

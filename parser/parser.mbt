@@ -56,7 +56,22 @@ fn Parser::consume(self : Parser, kind : TokenKind) -> Unit {
 
 ///|
 fn Parser::parse_expression(self : Parser) -> Expression {
-  self.parse_assignment()
+  self.parse_sequence_expression()
+}
+
+///|
+fn Parser::parse_sequence_expression(self : Parser) -> Expression {
+  let left = self.parse_assignment()
+  if self.peek().kind == TokenKind::Comma {
+    let expressions = [left]
+    while self.peek().kind == TokenKind::Comma {
+      self.advance()
+      expressions.push(self.parse_assignment())
+    }
+    Expression::SequenceExpression({ expressions, })
+  } else {
+    left
+  }
 }
 
 ///|
@@ -64,6 +79,37 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
   let left = self.parse_conditional()
   let token = self.peek()
   match token.kind {
+    TokenKind::Arrow => {
+      self.advance()
+      let params = match left {
+        Identifier(id) => [Pattern::Identifier(id)]
+        SequenceExpression(seq) => {
+          let params = []
+          for expr in seq.expressions {
+            params.push(self.to_pattern(expr))
+          }
+          params
+        }
+        _ => [self.to_pattern(left)]
+      }
+      let body = if self.peek().kind == TokenKind::LBrace {
+        FunctionBody::BlockStatement(self.parse_block_statement())
+      } else {
+        FunctionBody::Expression(self.parse_assignment())
+      }
+      Expression::ArrowFunctionExpression({
+        params,
+        body,
+        generator: false,
+        async_: false,
+        expression: match body {
+          FunctionBody::Expression(_) => true
+          _ => false
+        },
+        typeParameters: None,
+        returnType: None,
+      })
+    }
     TokenKind::Equal => {
       self.advance()
       let right = self.parse_assignment()
@@ -707,9 +753,14 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     }
     TokenKind::LParen => {
       self.advance()
-      let expr = self.parse_expression()
-      self.consume(TokenKind::RParen)
-      expr
+      if self.peek().kind == TokenKind::RParen {
+        self.advance()
+        Expression::SequenceExpression({ expressions: [] })
+      } else {
+        let expr = self.parse_expression()
+        self.consume(TokenKind::RParen)
+        expr
+      }
     }
     TokenKind::LBracket => self.parse_array_literal()
     TokenKind::LBrace => self.parse_object_literal()
@@ -909,6 +960,8 @@ fn Parser::parse_statement(self : Parser) -> Statement {
     TokenKind::LBrace => Statement::BlockStatement(self.parse_block_statement())
     TokenKind::Return => self.parse_return_statement()
     TokenKind::Function => self.parse_function_declaration()
+    TokenKind::Var | TokenKind::Let | TokenKind::Const =>
+      self.parse_variable_declaration()
     TokenKind::Async =>
       if self.lookahead().kind == TokenKind::Function {
         self.advance() // consume 'async'
@@ -1009,4 +1062,38 @@ fn Parser::parse_function_declaration(
     returnType: None,
     declare_: false,
   })
+}
+
+///|
+fn Parser::parse_variable_declaration(self : Parser) -> Statement {
+  let kind = match self.peek().kind {
+    TokenKind::Var => VariableKind::Var
+    TokenKind::Let => VariableKind::Let
+    TokenKind::Const => VariableKind::Const
+    _ => abort("Unexpected token in variable declaration")
+  }
+  self.advance()
+  let declarations = []
+  while true {
+    // We use parse_conditional because parse_assignment would consume the '='
+    // which is needed for the initialization part of the variable declaration
+    let expr = self.parse_conditional()
+    let id = self.to_pattern(expr)
+    let init = if self.peek().kind == TokenKind::Equal {
+      self.advance()
+      Some(self.parse_assignment())
+    } else {
+      None
+    }
+    declarations.push(VariableDeclarator::{ id, init, definite: false })
+    if self.peek().kind == TokenKind::Comma {
+      self.advance()
+    } else {
+      break
+    }
+  }
+  if self.peek().kind == TokenKind::Semicolon {
+    self.advance()
+  }
+  Statement::VariableDeclaration({ declarations, kind, declare_: false })
 }

@@ -220,7 +220,6 @@ pub(all) enum BinaryOperator {
   Minus
   Multiply
   Divide
-  Modulo
   BitwiseOr
   BitwiseXor
   BitwiseAnd
@@ -241,7 +240,7 @@ pub impl Show for BindExpression
 pub impl ToJson for BindExpression
 pub impl @json.FromJson for BindExpression
 
-pub struct BlockStatement {
+pub(all) struct BlockStatement {
   body : Array[Statement]
   directives : Array[Directive]
 }
@@ -1851,7 +1850,7 @@ pub impl Show for RestElement
 pub impl ToJson for RestElement
 pub impl @json.FromJson for RestElement
 
-pub struct ReturnStatement {
+pub(all) struct ReturnStatement {
   argument : Expression?
 }
 pub impl Eq for ReturnStatement

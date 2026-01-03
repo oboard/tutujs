@@ -19,7 +19,8 @@ pub impl Show for JSValue with output(self, logger) {
     Boolean(b) => b.output(logger)
     BigInt(i) => i.output(logger)
     Symbol(s) => logger.write_string("Symbol(" + s + ")")
-    Function(f) => logger.write_string("Function: " + f.name)
+    Function(f) =>
+      logger.write_string("Function: " + f.name.unwrap_or("anonymous"))
     Object(_) => logger.write_string("[object Object]")
     Null => logger.write_string("null")
     Undefined => logger.write_string("undefined")
@@ -28,7 +29,7 @@ pub impl Show for JSValue with output(self, logger) {
 
 ///|
 pub(all) struct JSFunction {
-  name : String
+  name : String?
   params : Array[String]
   body : @parser.BlockStatement
   context : Context
@@ -61,6 +62,8 @@ pub impl Compare for JSFunction with compare(_, _) -> Int {
 ///|
 pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
   hasher.combine(self.name)
+  hasher.combine(self.params)
+  hasher.combine(self.context)
   hasher.combine(self.body.to_json().stringify())
 }
 
@@ -76,5 +79,16 @@ pub fn JSValue::is_truthy(self : JSValue) -> Bool {
     Object(_) => true
     Null => false
     Undefined => false
+  }
+}
+
+///|
+pub fn JSValue::to_int32(self : JSValue) -> Int {
+  match self {
+    Number(n) => n.to_int()
+    Boolean(true) => 1
+    Boolean(false) => 0
+    String(s) => @strconv.parse_int(s.to_string()) catch { _ => 0 }
+    _ => 0
   }
 }

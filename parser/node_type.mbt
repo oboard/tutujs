@@ -214,7 +214,7 @@ pub(all) enum FunctionBody {
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
-pub struct BlockStatement {
+pub(all) struct BlockStatement {
   body : Array[Statement]
   directives : Array[Directive]
 } derive(Show, Eq, ToJson, FromJson)
@@ -422,7 +422,7 @@ pub struct ContinueStatement {
 
 ///|
 /// Return语句
-pub struct ReturnStatement {
+pub(all) struct ReturnStatement {
   argument : Expression?
 } derive(Show, Eq, ToJson, FromJson)
 
@@ -734,7 +734,6 @@ pub(all) enum BinaryOperator {
   Minus
   Multiply
   Divide
-  Modulo
   BitwiseOr
   BitwiseXor
   BitwiseAnd
