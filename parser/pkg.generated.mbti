@@ -1144,6 +1144,15 @@ pub impl Show for FlowVarianceKind
 pub impl ToJson for FlowVarianceKind
 pub impl @json.FromJson for FlowVarianceKind
 
+pub(all) enum ForInLeft {
+  VariableDeclaration(VariableDeclaration)
+  Pattern(Pattern)
+}
+pub impl Eq for ForInLeft
+pub impl Show for ForInLeft
+pub impl ToJson for ForInLeft
+pub impl @json.FromJson for ForInLeft
+
 pub(all) enum ForInOf {
   ForInStatement(ForInStatement)
   ForOfStatement(ForOfStatement)
@@ -1154,7 +1163,7 @@ pub impl ToJson for ForInOf
 pub impl @json.FromJson for ForInOf
 
 pub struct ForInStatement {
-  left : VariableDeclaration
+  left : ForInLeft
   right : Expression
   body : Statement
   await_ : Bool
@@ -1163,6 +1172,15 @@ pub impl Eq for ForInStatement
 pub impl Show for ForInStatement
 pub impl ToJson for ForInStatement
 pub impl @json.FromJson for ForInStatement
+
+pub(all) enum ForInit {
+  VariableDeclaration(VariableDeclaration)
+  Expression(Expression)
+}
+pub impl Eq for ForInit
+pub impl Show for ForInit
+pub impl ToJson for ForInit
+pub impl @json.FromJson for ForInit
 
 pub(all) enum ForLike {
   ForStatement(ForStatement)
@@ -1173,8 +1191,17 @@ pub impl Show for ForLike
 pub impl ToJson for ForLike
 pub impl @json.FromJson for ForLike
 
+pub(all) enum ForOfLeft {
+  VariableDeclaration(VariableDeclaration)
+  Pattern(Pattern)
+}
+pub impl Eq for ForOfLeft
+pub impl Show for ForOfLeft
+pub impl ToJson for ForOfLeft
+pub impl @json.FromJson for ForOfLeft
+
 pub struct ForOfStatement {
-  left : VariableDeclaration
+  left : ForOfLeft
   right : Expression
   body : Statement
   await_ : Bool
@@ -1185,7 +1212,7 @@ pub impl ToJson for ForOfStatement
 pub impl @json.FromJson for ForOfStatement
 
 pub struct ForStatement {
-  init : VariableDeclaration?
+  init : ForInit?
   test_ : Expression?
   update : Expression?
   body : Statement

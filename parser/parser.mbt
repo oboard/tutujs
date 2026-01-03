@@ -32,6 +32,16 @@ pub fn Parser::parse_program(self : Parser) -> Program {
 }
 
 ///|
+fn Parser::peek_at(self : Parser, offset : Int) -> LexToken {
+  let idx = self.pos + offset
+  if idx < self.tokens.length() {
+    self.tokens[idx]
+  } else {
+    self.tokens[self.tokens.length() - 1] // EOF
+  }
+}
+
+///|
 fn Parser::peek(self : Parser) -> LexToken {
   if self.pos < self.tokens.length() {
     self.tokens[self.pos]
@@ -380,6 +390,9 @@ fn Parser::parse_relational(self : Parser) -> Expression {
         | TokenKind::In
         | TokenKind::Instanceof) {
     let op_token = self.peek()
+    if op_token.kind == TokenKind::In {
+      // In operator is always allowed in this context based on current requirements
+    }
     self.advance()
     let right = self.parse_shift()
     let operator = match op_token.kind {
@@ -954,6 +967,15 @@ fn Parser::parse_function_params(self : Parser) -> Array[Pattern] {
 }
 
 ///|
+fn Parser::parse_expression_statement(self : Parser) -> ExpressionStatement {
+  let expression = self.parse_expression()
+  if self.peek().kind == TokenKind::Semicolon {
+    self.advance()
+  }
+  { expression, directive: None }
+}
+
+///|
 fn Parser::parse_statement(self : Parser) -> Statement {
   // println("DEBUG: parse_statement peek=\(self.peek().kind)")
   match self.peek().kind {
@@ -962,24 +984,48 @@ fn Parser::parse_statement(self : Parser) -> Statement {
     TokenKind::Function => self.parse_function_declaration()
     TokenKind::Var | TokenKind::Let | TokenKind::Const =>
       self.parse_variable_declaration()
+    TokenKind::If => self.parse_if_statement()
+    TokenKind::While => self.parse_while_statement()
+    TokenKind::Do => self.parse_do_while_statement()
+    TokenKind::For => self.parse_for_statement()
+    TokenKind::Switch => self.parse_switch_statement()
+    TokenKind::Break => self.parse_break_statement()
+    TokenKind::Continue => self.parse_continue_statement()
+    TokenKind::Throw => self.parse_throw_statement()
+    TokenKind::Try => self.parse_try_statement()
+    TokenKind::Debugger => self.parse_debugger_statement()
+    TokenKind::With => self.parse_with_statement()
     TokenKind::Async =>
       if self.lookahead().kind == TokenKind::Function {
         self.advance() // consume 'async'
         self.parse_function_declaration(async_=true)
       } else {
         let expr = self.parse_expression()
+        if self.peek().kind == TokenKind::Colon {
+          match expr {
+            Expression::Identifier(id) =>
+              return self.parse_labeled_statement(id)
+            _ => ()
+          }
+        }
         if self.peek().kind == TokenKind::Semicolon {
           self.advance()
         }
         Statement::ExpressionStatement({ expression: expr, directive: None })
       }
-    TokenKind::Identifier => {
-      let expr = self.parse_expression()
-      if self.peek().kind == TokenKind::Semicolon {
-        self.advance()
+    TokenKind::Identifier =>
+      if self.peek_at(1).kind == TokenKind::Colon {
+        let token = self.peek()
+        self.advance() // consume identifier
+        let label = Identifier::{
+          name: token.value.to_string(),
+          optional: false,
+          typeAnnotation: None,
+        }
+        self.parse_labeled_statement(label)
+      } else {
+        Statement::ExpressionStatement(self.parse_expression_statement())
       }
-      Statement::ExpressionStatement({ expression: expr, directive: None })
-    }
     _ => {
       let expr = self.parse_expression()
       if self.peek().kind == TokenKind::Semicolon {
@@ -1075,9 +1121,8 @@ fn Parser::parse_variable_declaration(self : Parser) -> Statement {
   self.advance()
   let declarations = []
   while true {
-    // We use parse_conditional because parse_assignment would consume the '='
-    // which is needed for the initialization part of the variable declaration
-    let expr = self.parse_conditional()
+    // We use parse_lhs to avoid consuming 'in' operator in for-in loops
+    let expr = self.parse_lhs()
     let id = self.to_pattern(expr)
     let init = if self.peek().kind == TokenKind::Equal {
       self.advance()

@@ -368,9 +368,27 @@ pub struct DoWhileStatement {
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
+pub(all) enum ForInit {
+  VariableDeclaration(VariableDeclaration)
+  Expression(Expression)
+} derive(Show, Eq, ToJson, FromJson)
+
+///|
+pub(all) enum ForInLeft {
+  VariableDeclaration(VariableDeclaration)
+  Pattern(Pattern)
+} derive(Show, Eq, ToJson, FromJson)
+
+///|
+pub(all) enum ForOfLeft {
+  VariableDeclaration(VariableDeclaration)
+  Pattern(Pattern)
+} derive(Show, Eq, ToJson, FromJson)
+
+///|
 /// For语句
 pub struct ForStatement {
-  init : VariableDeclaration?
+  init : ForInit?
   test_ : Expression?
   update : Expression?
   body : Statement
@@ -379,7 +397,7 @@ pub struct ForStatement {
 ///|
 /// ForIn语句
 pub struct ForInStatement {
-  left : VariableDeclaration
+  left : ForInLeft
   right : Expression
   body : Statement
   await_ : Bool
@@ -388,7 +406,7 @@ pub struct ForInStatement {
 ///|
 /// ForOf语句
 pub struct ForOfStatement {
-  left : VariableDeclaration
+  left : ForOfLeft
   right : Expression
   body : Statement
   await_ : Bool

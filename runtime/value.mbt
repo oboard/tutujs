@@ -37,9 +37,19 @@ pub(all) struct JSFunction {
 
 ///|
 pub(all) struct JSObject {
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue? // Optional prototype? Or just JSValue
-} derive(Show, Eq, ToJson, FromJson)
+} derive(Show, Eq)
+
+///|
+pub impl ToJson for JSObject with to_json(_) {
+  JSValue::Null.to_json()
+}
+
+///|
+pub impl FromJson for JSObject with from_json(_, _) {
+  { properties: @hashmap.new(), prototype: None }
+}
 
 ///|
 pub impl Compare for JSObject with compare(_, _) -> Int {
@@ -48,7 +58,7 @@ pub impl Compare for JSObject with compare(_, _) -> Int {
 
 ///|
 pub impl Hash for JSObject with hash_combine(self, hasher) -> Unit {
-  self.properties.each((k, v) => {
+  self.properties.each(fn(k, v) {
     hasher.combine(k)
     hasher.combine(v)
   })

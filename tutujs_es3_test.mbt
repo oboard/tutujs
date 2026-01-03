@@ -8,10 +8,7 @@ test "while loop" {
     #| }
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "Number",
-    "value": 3,
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -27,10 +24,7 @@ test "while loop with break" {
     #| }
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "Number",
-    "value": 3,
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -48,10 +42,7 @@ test "while loop with continue" {
     #| }
     #| sum; // 1 + 3 + 4 + 5 = 13
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "Number",
-    "value": 13,
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 13])
 }
 
 ///|
@@ -64,10 +55,7 @@ test "do...while loop" {
     #| } while (i < 3);
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "Number",
-    "value": 3,
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -80,10 +68,7 @@ test "for loop" {
     #| }
     #| sum;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "Number",
-    "value": 6,
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 6])
 }
 
 ///|
@@ -104,10 +89,7 @@ test "switch statement" {
     #| }
     #| result;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "String",
-    "value": "two",
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["String", "two"])
 }
 
 ///|
@@ -118,8 +100,5 @@ test "ternary operator" {
     #| let y = x > 5 ? "big" : "small";
     #| y;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content={
-    "kind": "String",
-    "value": "big",
-  })
+  @json.inspect(@runtime.Context::new().eval(code), content=["String", "big"])
 }

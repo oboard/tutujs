@@ -3,6 +3,7 @@ package "oboard/tutujs/runtime"
 
 import(
   "moonbitlang/core/bigint"
+  "moonbitlang/core/hashmap"
   "moonbitlang/core/json"
   "oboard/tutujs/parser"
 )
@@ -19,7 +20,7 @@ pub impl Show for EvalError
 
 // Types and methods
 pub(all) struct Context {
-  scope : Map[String, JSValue]
+  scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
 }
 pub fn Context::eval(Self, &Show) -> JSValue
@@ -46,7 +47,7 @@ pub impl ToJson for JSFunction
 pub impl @json.FromJson for JSFunction
 
 pub(all) struct JSObject {
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue?
 }
 pub impl Compare for JSObject

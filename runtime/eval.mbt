@@ -149,17 +149,25 @@ fn Context::evaluate(
         ForStatement({ init, test_, update, body }) => {
           // Init
           match init {
-            Some(decl) =>
-              self.evaluate(Declaration(VariableDeclaration(decl))) |> ignore
+            Some(init_node) =>
+              match init_node {
+                VariableDeclaration(decl) =>
+                  self.evaluate(Declaration(VariableDeclaration(decl)))
+                  |> ignore
+                Expression(expr) => self.evaluate(Expression(expr)) |> ignore
+              }
             None => ()
           }
           while true {
             // Test
             match test_ {
-              Some(expr) =>
-                if not(self.evaluate(Expression(expr)).is_truthy()) {
+              Some(expr) => {
+                let test_val = self.evaluate(Expression(expr))
+                // println("Test: " + test_val.to_string())
+                if not(test_val.is_truthy()) {
                   break
                 }
+              }
               None => ()
             }
             // Body
@@ -178,7 +186,10 @@ fn Context::evaluate(
             }
             // Update
             match update {
-              Some(expr) => self.evaluate(Expression(expr)) |> ignore
+              Some(expr) =>
+                // println("Update before: " + expr.to_string())
+                self.evaluate(Expression(expr)) |> ignore
+              // println("Update after")
               None => ()
             }
           }
@@ -322,6 +333,10 @@ fn Context::evaluate(
             None => break Undefined
           }
         }
+        NumericLiteral({ value }) => Number(value)
+        StringLiteral({ value }) => String(value)
+        BooleanLiteral({ value }) => Boolean(value)
+        NullLiteral => Null
         PrefixUnaryExpression({ operator, argument, .. }) => {
           let val = self.evaluate(Expression(argument))
           match operator {
@@ -371,7 +386,7 @@ fn Context::evaluate(
           }
         }
         ObjectExpression({ properties }) => {
-          let obj_props = Map::new()
+          let obj_props = @hashmap.new()
           for prop in properties {
             match prop {
               ObjectProperty({ key, value, computed, .. }) => {
@@ -397,7 +412,7 @@ fn Context::evaluate(
           Object({ properties: obj_props, prototype: Some(Null) })
         }
         ArrayLiteralExpression({ elements }) => {
-          let arr_props = Map::new()
+          let arr_props = @hashmap.new()
           let mut len = 0
           for element in elements {
             match element {
@@ -440,6 +455,92 @@ fn Context::evaluate(
           }
           Function(func)
         }
+        AssignmentExpression({ operator, left, right }) => {
+          let val = self.evaluate(Expression(right))
+          match left {
+            Identifier({ name, .. }) =>
+              match operator {
+                Assign => {
+                  let curr : Context? = Some(self)
+                  let mut found = false
+                  loop curr {
+                    Some(ctx) =>
+                      match ctx.scope.get(name) {
+                        Some(_) => {
+                          ctx.scope.set(name, val)
+                          found = true
+                          break
+                        }
+                        None => continue ctx.parent
+                      }
+                    None => break
+                  }
+                  if not(found) {
+                    let mut root = self
+                    loop root.parent {
+                      Some(p) => {
+                        root = p
+                        continue p.parent
+                      }
+                      None => break
+                    }
+                    root.scope.set(name, val)
+                  }
+                  val
+                }
+                _ => Undefined
+              }
+            _ => Undefined
+          }
+        }
+        UpdateExpression({ operator, prefix, argument }) =>
+          match argument {
+            Identifier({ name, .. }) => {
+              let curr : Context? = Some(self)
+              let mut target_ctx : Context? = None
+              let mut current_val = JSValue::Undefined
+              loop curr {
+                Some(ctx) =>
+                  match ctx.scope.get(name) {
+                    Some(v) => {
+                      target_ctx = Some(ctx)
+                      current_val = v
+                      break
+                    }
+                    None => continue ctx.parent
+                  }
+                None => break
+              }
+              let num_val = match current_val {
+                Number(n) => n
+                _ => 0.0
+              }
+              let new_val = match operator {
+                Increment => num_val + 1.0
+                Decrement => num_val - 1.0
+              }
+              match target_ctx {
+                Some(ctx) => ctx.scope.set(name, Number(new_val))
+                None => {
+                  let mut root = self
+                  loop root.parent {
+                    Some(p) => {
+                      root = p
+                      continue p.parent
+                    }
+                    None => break
+                  }
+                  root.scope.set(name, Number(new_val))
+                }
+              }
+              if prefix {
+                Number(new_val)
+              } else {
+                Number(num_val)
+              }
+            }
+            _ => Undefined
+          }
         _ => Undefined
       }
     Pattern(_) => Undefined

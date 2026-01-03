@@ -32,6 +32,7 @@ pub(all) enum TokenKind {
   Instanceof
   Let
   New
+  Of
   Return
   Super
   Switch
