@@ -1,18 +1,34 @@
 ///|
+pub suberror EvalError {
+  Return(JSValue)
+  Break(String?)
+  Continue(String?)
+} derive(Show)
+
+///|
 pub fn Context::eval(self : Context, code : &Show) -> JSValue {
   let lex = code.to_string() |> @lexer.parse
-  println(lex)
+  // println(lex)
   let ast = lex |> @parser.parse
-  println(ast)
+  // println(ast)
   let mut res = JSValue::Undefined
   for node in ast.body {
-    res = self.evaluate(Statement(node))
+    try {
+      res = self.evaluate(Statement(node))
+    } catch {
+      EvalError::Return(v) => return v // Top-level return
+      EvalError::Break(_) => () // Illegal at top-level in strict JS, but lenient here
+      EvalError::Continue(_) => () // Illegal
+    }
   }
   res
 }
 
 ///|
-fn Context::evaluate(self : Context, node : @parser.NodeType) -> JSValue {
+fn Context::evaluate(
+  self : Context,
+  node : @parser.NodeType,
+) -> JSValue raise EvalError {
   match node {
     Declaration(declaration) =>
       match declaration {
@@ -54,17 +70,160 @@ fn Context::evaluate(self : Context, node : @parser.NodeType) -> JSValue {
       match statement {
         ExpressionStatement({ expression, .. }) =>
           self.evaluate(Expression(expression))
-        ReturnStatement({ argument }) =>
-          match argument {
+        ReturnStatement({ argument }) => {
+          let val = match argument {
             Some(arg) => self.evaluate(Expression(arg))
             None => Undefined
           }
+          raise EvalError::Return(val)
+        }
+        IfStatement({ test_, consequent, alternate }) =>
+          if self.evaluate(Expression(test_)).is_truthy() {
+            self.evaluate(Statement(consequent))
+          } else {
+            match alternate {
+              Some(stmt) => self.evaluate(Statement(stmt))
+              None => Undefined
+            }
+          }
+        BreakStatement({ label }) => {
+          let l = match label {
+            Some(id) => Some(id.name)
+            None => None
+          }
+          raise EvalError::Break(l)
+        }
+        ContinueStatement({ label }) => {
+          let l = match label {
+            Some(id) => Some(id.name)
+            None => None
+          }
+          raise EvalError::Continue(l)
+        }
         BlockStatement({ body, .. }) => {
           let mut res = JSValue::Undefined
           for stmt in body {
             res = self.evaluate(Statement(stmt))
           }
           res
+        }
+        WhileStatement({ test_, body }) => {
+          while self.evaluate(Expression(test_)).is_truthy() {
+            try self.evaluate(Statement(body)) |> ignore catch {
+              EvalError::Break(label) =>
+                match label {
+                  Some(_) => raise EvalError::Break(label)
+                  None => break
+                }
+              EvalError::Continue(label) =>
+                match label {
+                  Some(_) => raise EvalError::Continue(label)
+                  None => continue
+                }
+              EvalError::Return(v) => raise EvalError::Return(v)
+            }
+          }
+          Undefined
+        }
+        DoWhileStatement({ body, test_ }) => {
+          while true {
+            try self.evaluate(Statement(body)) |> ignore catch {
+              EvalError::Break(label) =>
+                match label {
+                  Some(_) => raise EvalError::Break(label)
+                  None => break
+                }
+              EvalError::Continue(label) =>
+                match label {
+                  Some(_) => raise EvalError::Continue(label)
+                  None => continue
+                }
+              EvalError::Return(v) => raise EvalError::Return(v)
+            }
+            if not(self.evaluate(Expression(test_)).is_truthy()) {
+              break
+            }
+          }
+          Undefined
+        }
+        ForStatement({ init, test_, update, body }) => {
+          // Init
+          match init {
+            Some(decl) =>
+              self.evaluate(Declaration(VariableDeclaration(decl))) |> ignore
+            None => ()
+          }
+          while true {
+            // Test
+            match test_ {
+              Some(expr) =>
+                if not(self.evaluate(Expression(expr)).is_truthy()) {
+                  break
+                }
+              None => ()
+            }
+            // Body
+            try self.evaluate(Statement(body)) |> ignore catch {
+              EvalError::Break(label) =>
+                match label {
+                  Some(_) => raise EvalError::Break(label)
+                  None => break
+                }
+              EvalError::Continue(label) =>
+                match label {
+                  Some(_) => raise EvalError::Continue(label)
+                  None => ()
+                }
+              EvalError::Return(v) => raise EvalError::Return(v)
+            }
+            // Update
+            match update {
+              Some(expr) => self.evaluate(Expression(expr)) |> ignore
+              None => ()
+            }
+          }
+          Undefined
+        }
+        SwitchStatement({ discriminant, cases }) => {
+          let val = self.evaluate(Expression(discriminant))
+          let mut match_found = false
+          for case_ in cases {
+            if match_found {
+              // Fallthrough execution
+              for stmt in case_.consequent {
+                try self.evaluate(Statement(stmt)) |> ignore catch {
+                  EvalError::Break(_) => break // Break breaks out of switch
+                  // Continue inside switch applies to enclosing loop, propagate it? 
+                  // JS semantics: continue in switch applies to loop.
+                  EvalError::Continue(l) => raise EvalError::Continue(l)
+                  EvalError::Return(v) => raise EvalError::Return(v)
+                }
+              }
+            } else {
+              let should_exec = match case_.test_ {
+                Some(test_expr) => {
+                  let test_val = self.evaluate(Expression(test_expr))
+                  val.strict_equal(test_val)
+                }
+                None => true // Default case
+              }
+              if should_exec {
+                match_found = true
+                for stmt in case_.consequent {
+                  try self.evaluate(Statement(stmt)) |> ignore catch {
+                    EvalError::Break(_) => return Undefined // Break switch
+                    EvalError::Continue(l) => raise EvalError::Continue(l)
+                    EvalError::Return(v) => raise EvalError::Return(v)
+                  }
+                }
+              }
+            }
+            // If we broke out of inner loop (Wait, break in Moonbit breaks the loop 'for case_ in cases')
+            // We need to verify if 'Break' caught was for switch or loop.
+            // My implementation above catches Break and returns Undefined, which stops the 'for case_ in cases' loop.
+            // Correct.
+          }
+          Undefined
         }
         FunctionDeclaration(decl) =>
           self.evaluate(Declaration(FunctionDeclaration(decl)))
@@ -86,52 +245,26 @@ fn Context::evaluate(self : Context, node : @parser.NodeType) -> JSValue {
                 }
               }
               let mut res = JSValue::Undefined
-              let mut returned = false
-              for stmt in func.body.body {
-                match stmt {
-                  ReturnStatement({ argument }) => {
-                    res = match argument {
-                      Some(arg) => new_ctx.evaluate(Expression(arg))
-                      None => Undefined
-                    }
-                    returned = true
-                    break
-                  }
-                  // Handle block statements that might contain returns
-                  BlockStatement({ body, .. }) => {
-                    let mut block_returned = false
-                    let mut block_res = JSValue::Undefined
-                    for s in body {
-                      match s {
-                        ReturnStatement({ argument }) => {
-                          block_res = match argument {
-                            Some(arg) => new_ctx.evaluate(Expression(arg))
-                            None => Undefined
-                          }
-                          block_returned = true
-                          break
-                        }
-                        _ => new_ctx.evaluate(Statement(s)) |> ignore
-                      }
-                    }
-                    if block_returned {
-                      res = block_res
-                      returned = true
-                      break
-                    }
-                  }
-                  _ => new_ctx.evaluate(Statement(stmt)) |> ignore
+              try {
+                for stmt in func.body.body {
+                  res = new_ctx.evaluate(Statement(stmt))
                 }
-              }
-              if returned {
-                res
-              } else {
-                Undefined
+                res // Return last statement value if no explicit return
+              } catch {
+                EvalError::Return(v) => v
+                EvalError::Break(l) => raise EvalError::Break(l)
+                EvalError::Continue(l) => raise EvalError::Continue(l)
               }
             }
             _ => Undefined
           }
         }
+        ConditionalExpression({ test_, consequent, alternate }) =>
+          if self.evaluate(Expression(test_)).is_truthy() {
+            self.evaluate(Expression(consequent))
+          } else {
+            self.evaluate(Expression(alternate))
+          }
         BinaryExpression({ operator, left, right }) => {
           let left = self.evaluate(Expression(left))
           let right = self.evaluate(Expression(right))
@@ -307,14 +440,8 @@ fn Context::evaluate(self : Context, node : @parser.NodeType) -> JSValue {
           }
           Function(func)
         }
-        StringLiteral({ value }) => String(value)
-        NumericLiteral({ value }) => Number(value)
-        BooleanLiteral({ value }) => Boolean(value)
-        NullLiteral => Null
-        RegExpLiteral(_) =>
-          Object({ properties: Map::new(), prototype: Some(Null) })
         _ => Undefined
       }
-    _ => Undefined
+    Pattern(_) => Undefined
   }
 }

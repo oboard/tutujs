@@ -10,6 +10,12 @@ import(
 // Values
 
 // Errors
+pub suberror EvalError {
+  Return(JSValue)
+  Break(String?)
+  Continue(String?)
+}
+pub impl Show for EvalError
 
 // Types and methods
 pub(all) struct Context {
@@ -69,6 +75,7 @@ pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self
 pub fn JSValue::op_in(Self, Self) -> Bool
 pub fn JSValue::right_shift(Self, Self) -> Self
+pub fn JSValue::strict_equal(Self, Self) -> Bool
 pub fn JSValue::to_int32(Self) -> Int
 pub fn JSValue::unsigned_right_shift(Self, Self) -> Self
 pub fn JSValue::unstrict_equal(Self, Self) -> Bool
