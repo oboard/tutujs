@@ -89,14 +89,13 @@ pub fn Context::create_global() -> Context {
   })
   let object_fn_props = @hashmap.new()
   object_fn_props.set("prototype", object_proto_val)
-  let object_fn = JSFunction::{
-    name: Some("Object"),
-    params: [],
-    body: object_fn_body,
-    context: ctx,
-    properties: object_fn_props,
-    prototype: Some(func_proto_val),
-  }
+  let object_fn = JSFunction::new(
+    name="Object",
+    body=object_fn_body,
+    context=ctx,
+    properties=object_fn_props,
+    prototype=func_proto_val,
+  )
   let object_fn_val = JSValue::Function(object_fn)
 
   // Object.prototype.constructor = Object
@@ -140,14 +139,13 @@ pub fn Context::create_global() -> Context {
   })
   let array_fn_props = @hashmap.new()
   array_fn_props.set("prototype", array_proto_val)
-  let array_fn = JSFunction::{
-    name: Some("Array"),
-    params: [],
-    body: array_fn_body,
-    context: ctx,
-    properties: array_fn_props,
-    prototype: Some(func_proto_val),
-  }
+  let array_fn = JSFunction::new(
+    name="Array",
+    body=array_fn_body,
+    context=ctx,
+    properties=array_fn_props,
+    prototype=func_proto_val,
+  )
   let array_fn_val = JSValue::Function(array_fn)
 
   // Array.prototype.constructor = Array

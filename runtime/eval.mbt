@@ -77,13 +77,24 @@ fn Context::evaluate(
             _ => None
           }
           let func_props = @hashmap.new()
-          let func = JSFunction::{
-            name: Some(id.name),
-            params: param_names,
-            body: User(body),
-            context: self,
-            properties: func_props,
-            prototype: func_proto,
+          let func = match func_proto {
+            Some(proto) =>
+              JSFunction::new(
+                name=id.name,
+                params=param_names,
+                body=User(body),
+                context=self,
+                properties=func_props,
+                prototype=proto,
+              )
+            None =>
+              JSFunction::new(
+                name=id.name,
+                params=param_names,
+                body=User(body),
+                context=self,
+                properties=func_props,
+              )
           }
           let func_val = JSValue::Function(func)
 

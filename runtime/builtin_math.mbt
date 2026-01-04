@@ -39,17 +39,7 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
     })
   }
   let install_method = fn(name : String, func : FunctionBody) {
-    math_props.set(
-      name,
-      JSValue::Function(JSFunction::{
-        name: Some(name),
-        params: [],
-        body: func,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }),
-    )
+    math_props.set(name, JSValue::Function(JSFunction::new(name~, body=func)))
   }
 
   // abs

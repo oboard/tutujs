@@ -18,26 +18,12 @@ pub fn init_object_prototype(object_proto_val : JSValue) -> Unit {
           },
         )
       })
-      let to_string_obj = JSFunction::{
-        name: Some("toString"),
-        params: [],
-        body: to_string_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
       obj.properties.set("toString", JSValue::Function(to_string_obj))
 
       // valueOf
       let value_of_fn = Native(fn(_ctx, this_val, _args) { this_val })
-      let value_of_obj = JSFunction::{
-        name: Some("valueOf"),
-        params: [],
-        body: value_of_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
       obj.properties.set("valueOf", JSValue::Function(value_of_obj))
 
       // hasOwnProperty
@@ -53,14 +39,11 @@ pub fn init_object_prototype(object_proto_val : JSValue) -> Unit {
           Boolean(false)
         }
       })
-      let has_own_property_obj = JSFunction::{
-        name: Some("hasOwnProperty"),
-        params: ["prop"],
-        body: has_own_property_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let has_own_property_obj = JSFunction::new(
+        name="hasOwnProperty",
+        params=["prop"],
+        body=has_own_property_fn,
+      )
       obj.properties.set(
         "hasOwnProperty",
         JSValue::Function(has_own_property_obj),

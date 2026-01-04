@@ -6,33 +6,19 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
       let value_of_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           Number(n) => JSValue::Number(n)
-          Object(o) =>
-            match o.properties.get("PrimitiveValue") {
-              Some(Number(n)) => JSValue::Number(n)
-              _ => JSValue::Number(0.0) // Should throw TypeError
-            }
+          Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) =>
+            JSValue::Number(n)
           _ => JSValue::Number(0.0) // Should throw TypeError
         }
       })
-      let value_of_obj = JSFunction::{
-        name: Some("valueOf"),
-        params: [],
-        body: value_of_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
       obj.properties.set("valueOf", JSValue::Function(value_of_obj))
 
       // toString
-      let to_string_fn = Native(fn(_ctx, this_val, args) {
+      let to_string_fn = Native(fn(_ctx, this_val, _args) {
         let val = match this_val {
           Number(n) => n
-          Object(o) =>
-            match o.properties.get("PrimitiveValue") {
-              Some(Number(n)) => n
-              _ => @double.not_a_number // Should throw TypeError
-            }
+          Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) => n
           _ => @double.not_a_number // Should throw TypeError
         }
 
@@ -40,25 +26,14 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
         // For now we just return standard string representation
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::{
-        name: Some("toString"),
-        params: [],
-        body: to_string_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
       obj.properties.set("toString", JSValue::Function(to_string_obj))
 
       // toFixed
       let to_fixed_fn = Native(fn(_ctx, this_val, args) {
         let val = match this_val {
           Number(n) => n
-          Object(o) =>
-            match o.properties.get("PrimitiveValue") {
-              Some(Number(n)) => n
-              _ => 0.0
-            }
+          Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) => n
           _ => 0.0
         }
         let f = if args.length() > 0 {
@@ -139,14 +114,7 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
           _ => JSValue::String("RangeError: Internal error in toFixed")
         }
       })
-      let to_fixed_obj = JSFunction::{
-        name: Some("toFixed"),
-        params: [],
-        body: to_fixed_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let to_fixed_obj = JSFunction::new(name="toFixed", body=to_fixed_fn)
       obj.properties.set("toFixed", JSValue::Function(to_fixed_obj))
     }
     _ => ()
@@ -194,14 +162,7 @@ pub fn create_number_constructor(proto : JSValue) -> JSValue {
       JSValue::Number(val)
     }
   })
-  let ctor_obj = JSFunction::{
-    name: Some("Number"),
-    params: [],
-    body: ctor_fn,
-    context: Context::new(),
-    properties: @hashmap.new(),
-    prototype: None,
-  }
+  let ctor_obj = JSFunction::new(name="Number", body=ctor_fn)
   ctor_obj.properties.set("prototype", proto)
   ctor_obj.properties.set("MAX_VALUE", JSValue::Number(1.7976931348623157e308))
   ctor_obj.properties.set("MIN_VALUE", JSValue::Number(5.0e-324))

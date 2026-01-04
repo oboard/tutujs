@@ -6,33 +6,20 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           String(s) => JSValue::String(s)
-          Object(o) =>
-            match o.properties.get("PrimitiveValue") {
-              Some(String(s)) => JSValue::String(s)
-              _ => JSValue::String("[object String]") // Fallback
-            }
+          Object({ properties: { "PrimitiveValue": String(s), .. }, .. }) =>
+            JSValue::String(s)
           _ => JSValue::String("")
         }
       })
-      let to_string_obj = JSFunction::{
-        name: Some("toString"),
-        params: [],
-        body: to_string_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
       obj.properties.set("toString", JSValue::Function(to_string_obj))
 
       // valueOf
       let value_of_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           String(s) => JSValue::String(s)
-          Object(o) =>
-            match o.properties.get("PrimitiveValue") {
-              Some(String(s)) => JSValue::String(s)
-              _ => JSValue::String("") // Should throw TypeError in strict compliance
-            }
+          Object({ properties: { "PrimitiveValue": String(s), .. }, .. }) =>
+            JSValue::String(s)
           _ => JSValue::String("")
         }
       })
@@ -66,14 +53,7 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
           JSValue::String("")
         }
       })
-      let char_at_obj = JSFunction::{
-        name: Some("charAt"),
-        params: [],
-        body: char_at_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let char_at_obj = JSFunction::new(name="charAt", body=char_at_fn)
       obj.properties.set("charAt", JSValue::Function(char_at_obj))
     }
     _ => ()
@@ -110,14 +90,7 @@ pub fn create_string_constructor(proto : JSValue) -> JSValue {
       JSValue::String(val)
     }
   })
-  let ctor_obj = JSFunction::{
-    name: Some("String"),
-    params: [],
-    body: ctor_fn,
-    context: Context::new(),
-    properties: @hashmap.new(),
-    prototype: None,
-  }
+  let ctor_obj = JSFunction::new(name="String", body=ctor_fn)
   ctor_obj.properties.set("prototype", proto)
   JSValue::Function(ctor_obj)
 }

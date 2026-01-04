@@ -17,14 +17,7 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
             JSValue::String("function() { [native code] }")
         }
       })
-      let to_string_obj = JSFunction::{
-        name: Some("toString"),
-        params: [],
-        body: to_string_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
       obj.properties.set("toString", JSValue::Function(to_string_obj))
 
       // call (ES3)
@@ -49,14 +42,7 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined // TypeError
         }
       })
-      let call_obj = JSFunction::{
-        name: Some("call"),
-        params: [],
-        body: call_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let call_obj = JSFunction::new(name="call", body=call_fn)
       obj.properties.set("call", JSValue::Function(call_obj))
 
       // apply (ES3)
@@ -95,14 +81,7 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let apply_obj = JSFunction::{
-        name: Some("apply"),
-        params: [],
-        body: apply_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let apply_obj = JSFunction::new(name="apply", body=apply_fn)
       obj.properties.set("apply", JSValue::Function(apply_obj))
     }
     _ => ()
@@ -163,14 +142,7 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
       JSValue::Undefined
     }
   })
-  let ctor_obj = JSFunction::{
-    name: Some("Function"),
-    params: [], // Varargs effectively
-    body: ctor_fn,
-    context: Context::new(), // Global scope usually
-    properties: @hashmap.new(),
-    prototype: Some(proto),
-  }
+  let ctor_obj = JSFunction::new(name="Function", body=ctor_fn, prototype=proto)
   ctor_obj.properties.set("prototype", proto)
   JSValue::Function(ctor_obj)
 }

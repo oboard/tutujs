@@ -20,14 +20,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => Number(0.0) // Should throw TypeError?
         }
       })
-      let push_obj = JSFunction::{
-        name: Some("push"),
-        params: [],
-        body: push_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let push_obj = JSFunction::new(name="push", body=push_fn)
       obj.properties.set("push", JSValue::Function(push_obj))
 
       // pop
@@ -52,14 +45,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => Undefined
         }
       })
-      let pop_obj = JSFunction::{
-        name: Some("pop"),
-        params: [],
-        body: pop_fn,
-        context: Context::new(),
-        properties: @hashmap.new(),
-        prototype: None,
-      }
+      let pop_obj = JSFunction::new(name="pop", body=pop_fn)
       obj.properties.set("pop", JSValue::Function(pop_obj))
     }
     _ => ()
