@@ -30,20 +30,20 @@
 - [x] `in`
 - [x] `instanceof` (Basic stub implemented)
 - [ ] Conditional (Ternary) `? :`
-- [ ] `new`
-- [ ] `this`
-- [ ] `delete`
+- [x] `new`
+- [x] `this`
+- [x] `delete`
 
 ### Built-in Objects & Runtime
 - [x] Object Literals `{ a: 1 }`
 - [x] Array Literals `[ 1, 2 ]` (Basic implementation)
 - [x] Prototype Chain Logic
 - [x] `Object` Constructor & Properties
-- [ ] `Function` Constructor & Properties
-- [~] `Array` Constructor & Methods (`push`, `pop` implemented)
-- [ ] `String` Constructor & Methods
-- [ ] `Number` / `Boolean` Constructors
-- [ ] `Math` Object
+- [x] `Function` Constructor & Properties
+- [x] `Array` Constructor & Methods (`push`, `pop` implemented)
+- [x] `String` Constructor & Methods
+- [x] `Number` / `Boolean` Constructors
+- [x] `Math` Object
 - [ ] `Date` Object 
 - [ ] `RegExp` Object
 - [ ] `Error` Constructors (`Error`, `TypeError`, etc.)
@@ -55,7 +55,8 @@
 - [ ] Strict Mode Support
 - [ ] `Object` Methods (`keys`, `create`, `defineProperty`, `freeze`, etc.)
 - [ ] `Array` Iteration Methods (`forEach`, `map`, `filter`, `reduce`, `every`, `some`)
-- [ ] `Function.prototype.bind`, `call`, `apply`
+- [x] `Function.prototype.call`, `apply`
+- [ ] `Function.prototype.bind`
 
 ## 3. ES6 / ES2015 (Modern Era)
 

@@ -581,14 +581,14 @@ fn Context::evaluate(
             _ => None
           }
           let func_props = @hashmap.new()
-          let func = JSFunction::{
-            name,
-            params: param_names,
-            body: User(body),
-            context: self,
-            properties: func_props,
-            prototype: func_proto,
-          }
+          let func = JSFunction::new(
+            name?=name,
+            params=param_names,
+            body=User(body),
+            context=self,
+            properties=func_props,
+            prototype?=func_proto,
+          )
           let func_val = JSValue::Function(func)
           let obj_proto = match self.resolve("Object") {
             Function(f) => f.properties.get("prototype")
@@ -628,14 +628,12 @@ fn Context::evaluate(
             Function(f) => f.properties.get("prototype")
             _ => None
           }
-          let func = JSFunction::{
-            name: None,
-            params: param_names,
-            body: User(block_body),
-            context: self,
-            properties: @hashmap.new(),
-            prototype: func_proto,
-          }
+          let func = JSFunction::new(
+            params=param_names,
+            body=User(block_body),
+            context=self,
+            prototype?=func_proto,
+          )
           Function(func)
         }
         AssignmentExpression({ operator, left, right }) => {
