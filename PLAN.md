@@ -50,11 +50,11 @@
 
 ## 2. ES5 (Stability & APIs)
 
-- [ ] Property Accessors (Getters/Setters)
-- [ ] `JSON` Object (`parse`, `stringify`)
-- [ ] Strict Mode Support
-- [ ] `Object` Methods (`keys`, `create`, `defineProperty`, `freeze`, etc.)
-- [ ] `Array` Iteration Methods (`forEach`, `map`, `filter`, `reduce`, `every`, `some`)
+- [x] Property Accessors (Getters/Setters)
+- [x] `JSON` Object (`parse`, `stringify`)
+- [x] Strict Mode Support
+- [x] `Object` Methods (`keys`, `create`, `defineProperty`, `freeze`, etc.)
+- [x] `Array` Iteration Methods (`forEach`, `map`, `filter`, `reduce`, `every`, `some`)
 - [x] `Function.prototype.call`, `apply`
 - [ ] `Function.prototype.bind`
 

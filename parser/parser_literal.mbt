@@ -1,4 +1,4 @@
-///|
+//|
 
 ///|
 fn Parser::parse_primary(self : Parser) -> Expression {
@@ -81,7 +81,6 @@ fn Parser::parse_primary(self : Parser) -> Expression {
   }
 }
 
-///|
 fn Parser::parse_array_literal(self : Parser) -> Expression {
   self.consume(TokenKind::LBracket)
   let elements : Array[ArrayElement] = []
@@ -126,51 +125,118 @@ fn Parser::parse_object_literal(self : Parser) -> Expression {
         self.advance()
       }
     } else {
-      // Parse Key
-      let (key, computed) = if self.peek().kind == TokenKind::LBracket {
-        self.advance()
-        let expr = self.parse_assignment()
-        self.consume(TokenKind::RBracket)
-        (expr, true)
-      } else {
-        (self.parse_identifier_name(), false)
+      // Parse Key (LOOKAHEAD for Accessor)
+      // Check if it's get/set
+      let mut is_accessor = false
+      let mut accessor_kind = MethodKind::Get
+      let token = self.peek()
+      if token.kind == TokenKind::Identifier &&
+        (token.value == "get" || token.value == "set") {
+        // Check next token
+        let next_token = self.lookahead()
+        match next_token.kind {
+          TokenKind::Identifier
+          | TokenKind::StringLiteral
+          | TokenKind::NumericLiteral
+          | TokenKind::LBracket => {
+            is_accessor = true
+            accessor_kind = if token.value == "get" {
+              MethodKind::Get
+            } else {
+              MethodKind::Set
+            }
+          }
+          _ => ()
+        }
       }
-      if self.peek().kind == TokenKind::Colon {
+      if is_accessor {
+        // Consume 'get' or 'set'
         self.advance()
-        let value = self.parse_assignment()
+        let (real_key, real_computed) = if self.peek().kind ==
+          TokenKind::LBracket {
+          self.advance()
+          let expr = self.parse_assignment()
+          self.consume(TokenKind::RBracket)
+          (expr, true)
+        } else {
+          (self.parse_identifier_name(), false)
+        }
+        let params = self.parse_function_params()
+        let body = self.parse_block_statement()
         properties.push(
-          ObjectMember::ObjectProperty(ObjectProperty::{
-            key,
-            value,
-            shorthand: false,
-            computed,
+          ObjectMember::ObjectMethod(ObjectMethod::{
+            key: real_key,
+            kind: accessor_kind,
+            static_: false,
+            computed: real_computed,
+            params,
+            body,
+            generator: false,
+            async_: false,
+            value: real_key, // Placeholder
             decorators: [],
+            typeParameters: None,
+            variance: None,
           }),
         )
-        if self.peek().kind == TokenKind::Comma {
-          self.advance()
-        }
       } else {
-        // Shorthand or Method
-        // TODO: Handle methods
-        match key {
-          Identifier(_) =>
-            properties.push(
-              ObjectMember::ObjectProperty(ObjectProperty::{
-                key,
-                value: key,
-                shorthand: true,
-                computed,
-                decorators: [],
-              }),
-            )
-          _ =>
-            // Error or method?
-            ()
-        }
-        if self.peek().kind == TokenKind::Comma {
+        // Not accessor, parse key normally
+        let (key, computed) = if self.peek().kind == TokenKind::LBracket {
           self.advance()
+          let expr = self.parse_assignment()
+          self.consume(TokenKind::RBracket)
+          (expr, true)
+        } else {
+          (self.parse_identifier_name(), false)
         }
+
+        // Check for Method definition (shorthand method)
+        if self.peek().kind == TokenKind::LParen {
+          let params = self.parse_function_params()
+          let body = self.parse_block_statement()
+          properties.push(
+            ObjectMember::ObjectMethod(ObjectMethod::{
+              key,
+              kind: MethodKind::Method,
+              static_: false,
+              computed,
+              params,
+              body,
+              generator: false,
+              async_: false,
+              value: key, // Placeholder
+              decorators: [],
+              typeParameters: None,
+              variance: None,
+            }),
+          )
+        } else if self.peek().kind == TokenKind::Colon {
+          self.advance()
+          let value = self.parse_assignment()
+          properties.push(
+            ObjectMember::ObjectProperty(ObjectProperty::{
+              key,
+              value,
+              shorthand: false,
+              computed,
+              decorators: [],
+            }),
+          )
+        } else {
+          // Shorthand property
+          properties.push(
+            ObjectMember::ObjectProperty(ObjectProperty::{
+              key,
+              value: key, // Value is same as key expression (Identifier)
+              shorthand: true,
+              computed,
+              decorators: [],
+            }),
+          )
+        }
+      }
+      if self.peek().kind == TokenKind::Comma {
+        self.advance()
       }
     }
   }

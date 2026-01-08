@@ -24,11 +24,21 @@ pub fn parse(tokens : Array[LexToken]) -> Program {
 ///|
 pub fn Parser::parse_program(self : Parser) -> Program {
   let body = []
+  let directives = []
   while self.peek().kind != TokenKind::EOF {
     let stmt = self.parse_statement()
     body.push(stmt)
+    match stmt {
+      Statement::ExpressionStatement(expr_stmt) => {
+        match expr_stmt.directive {
+          Some(d) => directives.push(d)
+          None => ()
+        }
+      }
+      _ => ()
+    }
   }
-  { sourceType: Module, body, directives: [], interpreter: None }
+  { sourceType: Module, body, directives, interpreter: None }
 }
 
 ///|

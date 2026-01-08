@@ -1,7 +1,7 @@
 ///|
 
 ///|
-fn Parser::parse_expression(self : Parser) -> Expression {
+pub fn Parser::parse_expression(self : Parser) -> Expression {
   self.parse_sequence_expression()
 }
 

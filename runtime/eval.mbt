@@ -12,6 +12,18 @@ pub fn Context::eval(self : Context, code : &Show) -> JSValue {
   // println(lex)
   let ast = lex |> @parser.parse
   // println(ast)
+  // Check for "use strict" in global scope
+  let mut strict = false
+  for d in ast.directives {
+    if d.value.value == "use strict" {
+      strict = true
+      break
+    }
+  }
+  if strict {
+    self.strict = true
+  }
+
   let mut res = JSValue::Undefined
   for node in ast.body {
     try {
@@ -35,7 +47,16 @@ pub fn Context::invoke(
 ) -> JSValue raise EvalError {
   match func.body {
     User(block) => {
-      let new_ctx = new(parent=func.context)
+      // Check for "use strict" in function body
+      let mut strict_directive = false
+      for d in block.directives {
+        if d.value.value == "use strict" {
+          strict_directive = true
+          break
+        }
+      }
+      let strict = func.strict || strict_directive
+      let new_ctx = new(parent=func.context, strict=strict)
       new_ctx.scope.set("this", this_val)
       for i, val in args {
         if i < func.params.length() {
@@ -91,6 +112,7 @@ fn Context::evaluate(
                 context=self,
                 properties=func_props,
                 prototype=proto,
+                strict=self.strict,
               )
             None =>
               JSFunction::new(
@@ -99,6 +121,7 @@ fn Context::evaluate(
                 body=User(body),
                 context=self,
                 properties=func_props,
+                strict=self.strict,
               )
           }
           let func_val = JSValue::Function(func)
@@ -432,7 +455,7 @@ fn Context::evaluate(
               })
               let res = match func.body {
                 User(block) => {
-                  let new_ctx = new(parent=func.context)
+                  let new_ctx = new(parent=func.context, strict=func.strict)
                   new_ctx.scope.set("this", new_obj)
                   for i, val in args_values {
                     if i < func.params.length() {
@@ -676,6 +699,70 @@ fn Context::evaluate(
                 let val = self.evaluate(Expression(value))
                 obj_props.set(key_str, val)
               }
+              ObjectMethod({ key, kind, computed, params, body, .. }) => {
+                let key_str = if computed {
+                  let k = self.evaluate(Expression(key))
+                  match k {
+                    String(s) => s.to_string()
+                    _ => k.to_string()
+                  }
+                } else {
+                  match key {
+                    Identifier({ name, .. }) => name
+                    StringLiteral({ value }) => value.to_string()
+                    _ => "unknown"
+                  }
+                }
+                let param_names = []
+                for param in params {
+                  match param {
+                    Identifier({ name, .. }) => param_names.push(name)
+                    _ => ()
+                  }
+                }
+                let func_val = JSFunction::new(
+                  name=key_str,
+                  params=param_names,
+                  body=User(body),
+                  context=self,
+                  strict=self.strict,
+                )
+                match kind {
+                  Get => {
+                    let existing = obj_props.get(key_str)
+                    match existing {
+                      Some(Internal(Accessor(_, setter))) =>
+                        obj_props.set(
+                          key_str,
+                          Internal(Accessor(Some(func_val), setter)),
+                        )
+                      _ =>
+                        obj_props.set(
+                          key_str,
+                          Internal(Accessor(Some(func_val), None)),
+                        )
+                    }
+                  }
+                  Set => {
+                    let existing = obj_props.get(key_str)
+                    match existing {
+                      Some(Internal(Accessor(getter, _))) =>
+                        obj_props.set(
+                          key_str,
+                          Internal(Accessor(getter, Some(func_val))),
+                        )
+                      _ =>
+                        obj_props.set(
+                          key_str,
+                          Internal(Accessor(None, Some(func_val))),
+                        )
+                    }
+                  }
+                  Method =>
+                    obj_props.set(key_str, JSValue::Function(func_val))
+                  _ => ()
+                }
+              }
               _ => ()
             }
           }
@@ -729,6 +816,7 @@ fn Context::evaluate(
             context=self,
             properties=func_props,
             prototype?=func_proto,
+            strict=self.strict,
           )
           let func_val = JSValue::Function(func)
           let obj_proto = match self.resolve("Object") {
@@ -774,6 +862,7 @@ fn Context::evaluate(
             body=User(block_body),
             context=self,
             prototype?=func_proto,
+            strict=self.strict,
           )
           Function(func)
         }
@@ -792,7 +881,7 @@ fn Context::evaluate(
               }
               match operator {
                 Assign => {
-                  obj_val.set_property(prop_name, val)
+                  obj_val.set_property(prop_name, val, strict=self.strict)
                   val
                 }
                 _ => Undefined

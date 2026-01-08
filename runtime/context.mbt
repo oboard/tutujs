@@ -3,6 +3,7 @@ pub(all) struct Context {
   scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
   mut pending_labels : Array[String]
+  mut strict : Bool
 } derive(Show)
 
 ///|
@@ -23,7 +24,7 @@ pub impl FromJson for Context with from_json(_, _) {
 
 ///|
 #as_free_fn(new)
-pub fn Context::new(parent? : Context) -> Context {
+pub fn Context::new(parent? : Context, strict? : Bool) -> Context {
   let scope = @hashmap.new()
   match parent {
     None => {
@@ -32,7 +33,15 @@ pub fn Context::new(parent? : Context) -> Context {
     }
     Some(_) => ()
   }
-  { scope, parent, pending_labels: [] }
+  let is_strict = match strict {
+    Some(s) => s
+    None =>
+      match parent {
+        Some(p) => p.strict
+        None => false
+      }
+  }
+  { scope, parent, pending_labels: [], strict: is_strict }
 }
 
 ///|
@@ -72,32 +81,7 @@ pub fn Context::create_global() -> Context {
   init_function_prototype(func_proto_val)
 
   // Object Constructor
-  let object_fn_body = Native(fn(_ctx, _this_val, args) {
-    if args.length() > 0 {
-      let val = args[0]
-      match val {
-        Object(_) => val
-        Null | Undefined =>
-          Object({
-            properties: @hashmap.new(),
-            prototype: Some(object_proto_val),
-          })
-        _ => val // TODO: Box primitive
-      }
-    } else {
-      Object({ properties: @hashmap.new(), prototype: Some(object_proto_val) })
-    }
-  })
-  let object_fn_props = @hashmap.new()
-  object_fn_props.set("prototype", object_proto_val)
-  let object_fn = JSFunction::new(
-    name="Object",
-    body=object_fn_body,
-    context=ctx,
-    properties=object_fn_props,
-    prototype=func_proto_val,
-  )
-  let object_fn_val = JSValue::Function(object_fn)
+  let object_fn_val = create_object_constructor(object_proto_val, func_proto_val)
 
   // Object.prototype.constructor = Object
   object_proto_props.set("constructor", object_fn_val)
@@ -206,6 +190,10 @@ pub fn Context::create_global() -> Context {
   // RegExp Object
   let regexp_val = create_regexp_object(object_proto_val)
   ctx.scope.set("RegExp", regexp_val)
+
+  // JSON Object
+  let json_val = create_json_object(object_proto_val)
+  ctx.scope.set("JSON", json_val)
   ctx
 }
 

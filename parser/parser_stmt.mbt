@@ -3,10 +3,21 @@
 ///|
 fn Parser::parse_expression_statement(self : Parser) -> ExpressionStatement {
   let expression = self.parse_expression()
+  let mut directive = None
   if self.peek().kind == TokenKind::Semicolon {
     self.advance()
   }
-  { expression, directive: None }
+  match expression {
+    Expression::StringLiteral(s) => {
+      if s.value == "use strict" {
+        directive = Some(
+          Directive::{ value: DirectiveLiteral::{ value: s.value.to_string() } },
+        )
+      }
+    }
+    _ => ()
+  }
+  { expression, directive }
 }
 
 ///|
@@ -59,13 +70,7 @@ fn Parser::parse_statement(self : Parser) -> Statement {
       } else {
         Statement::ExpressionStatement(self.parse_expression_statement())
       }
-    _ => {
-      let expr = self.parse_expression()
-      if self.peek().kind == TokenKind::Semicolon {
-        self.advance()
-      }
-      Statement::ExpressionStatement({ expression: expr, directive: None })
-    }
+    _ => Statement::ExpressionStatement(self.parse_expression_statement())
   }
 }
 
@@ -73,12 +78,23 @@ fn Parser::parse_statement(self : Parser) -> Statement {
 fn Parser::parse_block_statement(self : Parser) -> BlockStatement {
   self.consume(TokenKind::LBrace)
   let body = []
+  let directives = []
   while self.peek().kind != TokenKind::RBrace &&
         self.peek().kind != TokenKind::EOF {
-    body.push(self.parse_statement())
+    let stmt = self.parse_statement()
+    body.push(stmt)
+    match stmt {
+      Statement::ExpressionStatement(expr_stmt) => {
+        match expr_stmt.directive {
+          Some(d) => directives.push(d)
+          None => ()
+        }
+      }
+      _ => ()
+    }
   }
   self.consume(TokenKind::RBrace)
-  { body, directives: [] }
+  { body, directives }
 }
 
 ///|

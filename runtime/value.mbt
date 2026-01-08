@@ -16,6 +16,7 @@ pub(all) enum JSValue {
 pub(all) enum JSInternal {
   Date(@time.ZonedDateTime)
   RegExp(@regexp.Regexp, String)
+  Accessor(JSFunction?, JSFunction?) // Getter, Setter
 }
 
 ///|
@@ -23,6 +24,7 @@ pub impl Eq for JSInternal with equal(self, other) {
   match (self, other) {
     (Date(d1), Date(d2)) => d1.to_string() == d2.to_string()
     (RegExp(_, s1), RegExp(_, s2)) => s1 == s2
+    (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
     _ => false
   }
 }
@@ -47,6 +49,10 @@ pub impl Hash for JSInternal with hash_combine(self, hasher) {
   match self {
     Date(d) => hasher.combine(d.to_string())
     RegExp(_, s) => hasher.combine(s)
+    Accessor(g, s) => {
+      hasher.combine(g)
+      hasher.combine(s)
+    }
   }
 }
 
@@ -55,6 +61,7 @@ pub impl Show for JSInternal with output(self, logger) {
   match self {
     Date(d) => logger.write_string("Date(" + d.to_string() + ")")
     RegExp(_, s) => logger.write_string("RegExp(/" + s + "/)")
+    Accessor(_, _) => logger.write_string("[Accessor]")
   }
 }
 
@@ -110,6 +117,7 @@ pub(all) struct JSFunction {
   context : Context
   properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue? // [[Prototype]]
+  strict : Bool
 } derive(Show, Eq, ToJson)
 
 ///|
@@ -120,6 +128,7 @@ pub fn JSFunction::new(
   context? : Context,
   properties? : @hashmap.HashMap[String, JSValue],
   prototype? : JSValue,
+  strict? : Bool,
 ) -> JSFunction {
   {
     name,
@@ -128,13 +137,19 @@ pub fn JSFunction::new(
     context: context.unwrap_or(Context::new()),
     properties: properties.unwrap_or(@hashmap.new()),
     prototype,
+    strict: strict.unwrap_or(false),
   }
 }
 
 ///|
 pub impl FromJson for JSFunction with from_json(_, _) {
   // Dummy implementation
-  let ctx = Context::{ scope: @hashmap.new(), parent: None, pending_labels: [] }
+  let ctx = Context::{
+    scope: @hashmap.new(),
+    parent: None,
+    pending_labels: [],
+    strict: false,
+  }
   {
     name: None,
     params: [],
@@ -142,6 +157,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     context: ctx,
     properties: @hashmap.new(),
     prototype: None,
+    strict: false,
   }
 }
 
@@ -205,7 +221,8 @@ pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
 }
 
 ///|
-pub fn JSFunction::op_set(
+#alias("_[_]=_")
+pub fn JSFunction::set(
   self : JSFunction,
   key : String,
   value : JSValue,
@@ -214,7 +231,8 @@ pub fn JSFunction::op_set(
 }
 
 ///|
-pub fn JSFunction::op_get(self : JSFunction, key : String) -> JSValue {
+#alias("_[_]")
+pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
   match self.properties.get(key) {
     Some(v) => v
     None => Undefined
@@ -222,11 +240,20 @@ pub fn JSFunction::op_get(self : JSFunction, key : String) -> JSValue {
 }
 
 ///|
+#alias("_[_]")
 pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
   match self {
     Object(obj) =>
       match obj.properties.get(name) {
-        Some(v) => v
+        Some(v) =>
+          match v {
+            Internal(Accessor(Some(getter), _)) =>
+              getter.context.invoke(getter, self, []) catch {
+                _ => Undefined
+              }
+            Internal(Accessor(None, _)) => Undefined
+            _ => v
+          }
         None =>
           match obj.prototype {
             Some(proto) => proto.get_property(name)
@@ -251,11 +278,32 @@ pub fn JSValue::set_property(
   self : JSValue,
   name : String,
   value : JSValue,
-) -> Unit {
+  strict? : Bool = false,
+) -> Unit raise EvalError {
   match self {
-    Object(obj) => obj.properties.set(name, value)
+    Object({ properties, .. }) =>
+      match properties.get(name) {
+        Some(Internal(Accessor(_, Some(setter)))) => {
+          let _ = setter.context.invoke(setter, self, [value]) catch {
+            _ => Undefined
+          }
+
+        }
+        Some(Internal(Accessor(_, None))) =>
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String("TypeError: Cannot assign to read only property"),
+            )
+          }
+        _ => properties.set(name, value)
+      }
     Function(func) => func.properties.set(name, value)
-    _ => () // Cannot set property on non-object
+    _ =>
+      if strict {
+        raise EvalError::Throw(
+          JSValue::String("TypeError: Cannot set property on non-object"),
+        )
+      }
   }
 }
 
