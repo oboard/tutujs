@@ -797,7 +797,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
 
 ///|
 pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
-  println("DEBUG: init_array_constructor called")
+  // println("DEBUG: init_array_constructor called")
   match array_ctor {
     Function(obj) => {
       let func_proto = obj.prototype
@@ -854,18 +854,18 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           _ => 0
         }
         let len = if len < 0 { 0 } else { len }
-        println("DEBUG: Array.from len=" + len.to_string())
+        // println("DEBUG: Array.from len=" + len.to_string())
 
         // Debug items properties
-        match items {
-          Object(obj) => {
-            println("DEBUG: items keys:")
-            obj.properties.each(fn(k, v) {
-              println("  key: " + k + ", value: " + v.to_string())
-            })
-          }
-          _ => println("DEBUG: items is not an Object")
-        }
+        // match items {
+        //   Object(obj) => {
+        //     println("DEBUG: items keys:")
+        //     obj.properties.each(fn(k, v) {
+        //       println("  key: " + k + ", value: " + v.to_string())
+        //     })
+        //   }
+        //   _ => println("DEBUG: items is not an Object")
+        // }
 
         // Construct new_array
         let new_array_val = match this_val {
@@ -913,14 +913,6 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         for k = 0; k < len; k = k + 1 {
           let key = k.to_string()
           let val = items.get_property(key)
-          println(
-            "DEBUG: Array.from k=" +
-            k.to_string() +
-            " key=" +
-            key +
-            " val=" +
-            val.to_string(),
-          )
           let mapped_val = match map_fn {
             Some(f) =>
               ctx.invoke(f, this_arg, [val, JSValue::Number(k.to_double())]) catch {

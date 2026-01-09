@@ -646,6 +646,15 @@ fn Parser::parse_identifier_name(self : Parser) -> Expression {
         typeAnnotation: None,
       })
     }
+    TokenKind::StringLiteral => {
+      self.advance()
+      Expression::StringLiteral({ value: token.value })
+    }
+    TokenKind::NumericLiteral => {
+      self.advance()
+      let val = @strconv.parse_double(token.value) catch { _ => 0.0 }
+      Expression::NumericLiteral({ value: val })
+    }
     _ =>
       // Allow keywords as identifier names in member access (e.g. promise.catch)
       if token.kind.is_keyword() {

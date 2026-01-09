@@ -736,6 +736,14 @@ fn Context::evaluate(
                   match key {
                     Identifier({ name, .. }) => name
                     StringLiteral({ value }) => value.to_string()
+                    NumericLiteral({ value }) => {
+                      let i = value.to_int()
+                      if i.to_double() == value {
+                        i.to_string()
+                      } else {
+                        value.to_string()
+                      }
+                    }
                     _ => "unknown"
                   }
                 }
@@ -818,6 +826,9 @@ fn Context::evaluate(
               Expression(expr) => {
                 let val = self.evaluate(Expression(expr))
                 arr_props.set(len.to_string(), val)
+                len += 1
+              }
+              OmittedExpression => {
                 len += 1
               }
               _ => ()

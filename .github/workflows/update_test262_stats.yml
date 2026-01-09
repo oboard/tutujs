@@ -24,7 +24,7 @@ jobs:
         id: run_tests
         # Run tests and capture output, allow failure
         run: |
-          moon test --package oboard/tutujs/test --target js > test_output.txt 2>&1 || true
+          moon test --package oboard/tutujs/test --target wasm > test_output.txt 2>&1 || true
           cat test_output.txt # Show output in CI logs
 
       - name: Calculate Statistics

@@ -158,7 +158,7 @@ pub fn create_object_constructor(
   // Object.preventExtensions
   let prevent_extensions_fn = Native(fn(_ctx, _this_val, args) {
     if args is [Object({ properties, .. } as o), ..] {
-      println("DEBUG: preventExtensions called")
+      // println("DEBUG: preventExtensions called")
       properties["__internal_extensible__"] = JSValue::Boolean(false)
       JSValue::Object(o)
     } else if args is [val, ..] {
