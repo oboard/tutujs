@@ -62,7 +62,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
       obj["pop"] = JSValue::Function(pop_obj)
 
       // forEach
-      let for_each_fn = Native(fn(ctx, this_val, args) {
+      let for_each_fn = Native(fn(ctx, this_val, args) raise EvalError {
         match this_val {
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
@@ -88,7 +88,9 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
               }
               JSValue::Undefined
             } else {
-              JSValue::Undefined
+              raise EvalError::Throw(
+                String("TypeError: forEach() expects a function as first argument"),
+              )
             }
           _ => JSValue::Undefined
         }
@@ -139,7 +141,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
       obj["map"] = JSValue::Function(map_obj)
 
       // filter
-      let filter_fn = Native(fn(ctx, this_val, args) {
+      let filter_fn = Native(fn(ctx, this_val, args) raise EvalError {
         match this_val {
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
@@ -174,7 +176,9 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
               new_array["length"] = JSValue::Number(new_len)
               JSValue::Object(new_array)
             } else {
-              JSValue::Undefined
+              raise EvalError::Throw(
+                String("TypeError: filter() expects a function as first argument"),
+              )
             }
           _ => JSValue::Undefined
         }
@@ -183,7 +187,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
       obj["filter"] = JSValue::Function(filter_obj)
 
       // reduce
-      let reduce_fn = Native(fn(ctx, this_val, args) {
+      let reduce_fn = Native(fn(ctx, this_val, args) raise EvalError {
         match this_val {
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
@@ -208,9 +212,9 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
                   k = k + 1
                 }
                 if not(k_present) {
-                  // TypeError: Reduce of empty array with no initial value
-                  // For now return Undefined
-                  return JSValue::Undefined
+                  raise EvalError::Throw(
+                    String("TypeError: Reduce of empty array with no initial value"),
+                  )
                 }
               }
               while k < len {
@@ -229,7 +233,9 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
               }
               accumulator
             } else {
-              JSValue::Undefined
+              raise EvalError::Throw(
+                String("TypeError: reduce() expects a function as first argument"),
+              )
             }
           _ => JSValue::Undefined
         }
@@ -238,7 +244,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
       obj["reduce"] = JSValue::Function(reduce_obj)
 
       // every
-      let every_fn = Native(fn(ctx, this_val, args) {
+      let every_fn = Native(fn(ctx, this_val, args) raise EvalError {
         match this_val {
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
@@ -269,7 +275,9 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
                 },
               )
             } else {
-              JSValue::Boolean(true)
+              raise EvalError::Throw(
+                String("TypeError: every() expects a function as first argument"),
+              )
             }
           _ => JSValue::Boolean(true)
         }
@@ -350,16 +358,13 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
 
       // toString
       let to_string_fn = Native(fn(ctx, this_val, _args) {
-        match this_val {
-          Object(obj_val) =>
-            match obj_val.properties.get("join") {
-              Some(Function(join_func)) =>
-                ctx.invoke(join_func, this_val, []) catch {
-                  _ => JSValue::String("[object Array]")
-                }
-              _ => JSValue::String("[object Object]")
+        match this_val.get_property("join") {
+          Function(join_func) => {
+            ctx.invoke(join_func, this_val, []) catch {
+              _ => JSValue::String("[object Array]")
             }
-          _ => JSValue::String("")
+          }
+          _ => JSValue::String("[object Object]")
         }
       })
       let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
