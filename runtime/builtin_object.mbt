@@ -9,14 +9,21 @@ pub fn init_object_prototype(
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         JSValue::String(
           match this_val {
-            Object(_) => "[object Object]"
-            Function(_) => "[object Function]" // Functions are objects too but usually have specific tag
-            String(_) => "[object String]" // Boxed string? No, primitive string. 
-            // Primitive values don't have methods unless boxed. 
-            // But if I call "str".toString(), it boxes it.
-            // In my eval, MemberExpression on primitive boxes it? 
-            // Currently I don't support boxing primitives on property access in eval.
-            // So this_val will be Object if it's a method call on object.
+            Object({ properties, .. }) =>
+              if properties.contains("PrimitiveValue") {
+                match properties.get("PrimitiveValue") {
+                  Some(String(_)) => "[object String]"
+                  Some(Number(_)) => "[object Number]"
+                  Some(Boolean(_)) => "[object Boolean]"
+                  _ => "[object Object]"
+                }
+              } else {
+                "[object Object]"
+              }
+            Function(_) => "[object Function]"
+            String(_) => "[object String]"
+            Number(_) => "[object Number]"
+            Boolean(_) => "[object Boolean]"
             _ => "[object Object]"
           },
         )
@@ -57,6 +64,91 @@ pub fn init_object_prototype(
         prototype=func_proto,
       )
       obj["hasOwnProperty"] = JSValue::Function(has_own_property_obj)
+
+      // isPrototypeOf
+      let is_prototype_of_fn = Native(fn(_ctx, this_val, args) {
+        if args is [arg, ..] {
+          match arg {
+            Object(o) => {
+              let mut proto = o.prototype
+              while true {
+                match proto {
+                  Some(p) => {
+                    if p.strict_equal(this_val) {
+                      return Boolean(true)
+                    }
+                    match p {
+                      Object(po) => proto = po.prototype
+                      Function(pf) => proto = pf.prototype
+                      _ => break
+                    }
+                  }
+                  None => break
+                }
+              }
+              Boolean(false)
+            }
+            Function(f) => {
+              let mut proto = f.prototype
+              while true {
+                match proto {
+                  Some(p) => {
+                    if p.strict_equal(this_val) {
+                      return Boolean(true)
+                    }
+                    match p {
+                      Object(po) => proto = po.prototype
+                      Function(pf) => proto = pf.prototype
+                      _ => break
+                    }
+                  }
+                  None => break
+                }
+              }
+              Boolean(false)
+            }
+            _ => Boolean(false)
+          }
+        } else {
+          Boolean(false)
+        }
+      })
+      let is_prototype_of_obj = JSFunction::new(
+        name="isPrototypeOf",
+        params=["object"],
+        body=is_prototype_of_fn,
+        prototype=func_proto,
+      )
+      obj["isPrototypeOf"] = JSValue::Function(is_prototype_of_obj)
+
+      // propertyIsEnumerable
+      let property_is_enumerable_fn = Native(fn(_ctx, this_val, args) {
+        if args is [prop, ..] {
+          let key = prop.to_string()
+          match this_val {
+            Object({ properties, .. }) | Function({ properties, .. }) => {
+              // Hack: hide prototype, length, name, arguments, caller
+              if key == "prototype" || key == "length" || key == "name" || key == "arguments" || key == "caller" {
+                Boolean(false)
+              } else {
+                Boolean(properties.contains(key) && not(key.starts_with("__")))
+              }
+            }
+            _ => Boolean(false)
+          }
+        } else {
+          Boolean(false)
+        }
+      })
+      let property_is_enumerable_obj = JSFunction::new(
+        name="propertyIsEnumerable",
+        params=["prop"],
+        body=property_is_enumerable_fn,
+        prototype=func_proto,
+      )
+      obj["propertyIsEnumerable"] = JSValue::Function(
+        property_is_enumerable_obj,
+      )
     }
     _ => ()
   }

@@ -141,7 +141,9 @@ pub fn Context::create_global() -> Context {
   init_string_prototype(string_proto_val)
 
   // String Constructor
-  let string_ctor_val = create_string_constructor(string_proto_val)
+  let string_ctor_val = create_string_constructor(
+    string_proto_val, func_proto_val,
+  )
   string_proto_props.set("constructor", string_ctor_val)
   ctx.scope.set("String", string_ctor_val)
 
@@ -155,7 +157,9 @@ pub fn Context::create_global() -> Context {
   init_number_prototype(number_proto_val)
 
   // Number Constructor
-  let number_ctor_val = create_number_constructor(number_proto_val)
+  let number_ctor_val = create_number_constructor(
+    number_proto_val, func_proto_val,
+  )
   number_proto_props.set("constructor", number_ctor_val)
   ctx.scope.set("Number", number_ctor_val)
 
@@ -173,7 +177,9 @@ pub fn Context::create_global() -> Context {
   init_boolean_prototype(boolean_proto_val)
 
   // Boolean Constructor
-  let boolean_ctor_val = create_boolean_constructor(boolean_proto_val)
+  let boolean_ctor_val = create_boolean_constructor(
+    boolean_proto_val, func_proto_val,
+  )
   boolean_proto_props.set("constructor", boolean_ctor_val)
   ctx.scope.set("Boolean", boolean_ctor_val)
 

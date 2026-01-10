@@ -33,7 +33,10 @@ pub fn init_boolean_prototype(boolean_proto_val : JSValue) -> Unit {
 }
 
 ///|
-pub fn create_boolean_constructor(proto : JSValue) -> JSValue {
+pub fn create_boolean_constructor(
+  proto : JSValue,
+  func_proto : JSValue,
+) -> JSValue {
   let ctor_fn = Native(fn(_ctx, this_val, args) {
     let val = if args is [arg0, ..] { arg0.is_truthy() } else { false }
     let is_constructor = match (this_val, proto) {
@@ -54,7 +57,12 @@ pub fn create_boolean_constructor(proto : JSValue) -> JSValue {
       JSValue::Boolean(val)
     }
   })
-  let ctor_obj = JSFunction::new(name="Boolean", body=ctor_fn)
+  let ctor_obj = JSFunction::new(
+    name="Boolean",
+    params=["value"],
+    body=ctor_fn,
+    prototype=func_proto,
+  )
   ctor_obj["prototype"] = proto
   JSValue::Function(ctor_obj)
 }

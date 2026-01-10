@@ -10,7 +10,7 @@ import(
 )
 
 // Values
-pub fn create_boolean_constructor(JSValue) -> JSValue
+pub fn create_boolean_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_console_object(JSValue) -> JSValue
 
@@ -28,13 +28,13 @@ pub fn create_math_object(JSValue) -> JSValue
 
 pub fn create_native_error_constructor(String, JSValue, JSValue) -> JSValue
 
-pub fn create_number_constructor(JSValue) -> JSValue
+pub fn create_number_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_object_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_regexp_object(JSValue, JSValue) -> JSValue
 
-pub fn create_string_constructor(JSValue) -> JSValue
+pub fn create_string_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_symbol_constructor(JSValue, JSValue) -> JSValue
 

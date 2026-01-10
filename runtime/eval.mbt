@@ -676,12 +676,20 @@ fn Context::evaluate(
                   }
                   match obj_val {
                     Object(obj) => {
-                      obj.properties.remove(prop_name)
-                      Boolean(true)
+                      if prop_name == "prototype" {
+                         Boolean(false)
+                      } else {
+                        obj.properties.remove(prop_name)
+                        Boolean(true)
+                      }
                     }
                     Function(func) => {
-                      func.properties.remove(prop_name)
-                      Boolean(true)
+                      if prop_name == "prototype" || prop_name == "length" || prop_name == "name" || prop_name == "arguments" || prop_name == "caller" {
+                        Boolean(false)
+                      } else {
+                        func.properties.remove(prop_name)
+                        Boolean(true)
+                      }
                     }
                     _ => Boolean(true)
                   }

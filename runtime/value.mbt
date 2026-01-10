@@ -130,12 +130,17 @@ pub fn JSFunction::new(
   prototype? : JSValue,
   strict? : Bool,
 ) -> JSFunction {
+  let params = params.unwrap_or([])
+  let properties = properties.unwrap_or({})
+  if not(properties.contains("length")) {
+    properties.set("length", JSValue::Number(params.length().to_double()))
+  }
   {
     name,
-    params: params.unwrap_or([]),
+    params,
     body,
     context: context.unwrap_or(Context::new()),
-    properties: properties.unwrap_or({}),
+    properties,
     prototype,
     strict: strict.unwrap_or(false),
   }

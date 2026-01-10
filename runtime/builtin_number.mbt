@@ -122,7 +122,10 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
 }
 
 ///|
-pub fn create_number_constructor(proto : JSValue) -> JSValue {
+pub fn create_number_constructor(
+  proto : JSValue,
+  func_proto : JSValue,
+) -> JSValue {
   let ctor_fn = Native(fn(_ctx, this_val, args) {
     let val = if args is [arg0, ..] {
       match arg0 {
@@ -155,7 +158,12 @@ pub fn create_number_constructor(proto : JSValue) -> JSValue {
     }
     JSValue::Number(val)
   })
-  let ctor_obj = JSFunction::new(name="Number", body=ctor_fn)
+  let ctor_obj = JSFunction::new(
+    name="Number",
+    params=["value"],
+    body=ctor_fn,
+    prototype=func_proto,
+  )
   ctor_obj["prototype"] = proto
   ctor_obj["MAX_VALUE"] = JSValue::Number(1.7976931348623157e308)
   ctor_obj["MIN_VALUE"] = JSValue::Number(5.0e-324)

@@ -2,6 +2,8 @@
 pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
   match string_proto_val {
     Object(obj) => {
+      // PrimitiveValue = ""
+      obj.properties["PrimitiveValue"] = JSValue::String("")
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
@@ -48,13 +50,50 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
       })
       let char_at_obj = JSFunction::new(name="charAt", body=char_at_fn)
       obj["charAt"] = JSValue::Function(char_at_obj)
+
+      // split
+      let split_fn = Native(fn(ctx, this_val, args) {
+        let s = match this_val {
+          String(str) => str
+          Object({ properties: { "PrimitiveValue": String(str), .. }, .. }) =>
+            str
+          _ => ""
+        }
+        let _separator = if args.length() > 0 {
+          args[0]
+        } else {
+          JSValue::Undefined
+        }
+        let _limit = if args.length() > 1 {
+          args[1]
+        } else {
+          JSValue::Undefined
+        }
+        let array_proto = match ctx.resolve("Array") {
+          Function(f) => f.properties.get("prototype")
+          _ => None
+        }
+        let arr_obj = JSObject::{ properties: {}, prototype: array_proto }
+        arr_obj.properties["length"] = JSValue::Number(1.0)
+        arr_obj.properties["0"] = JSValue::String(s)
+        JSValue::Object(arr_obj)
+      })
+      let split_obj = JSFunction::new(
+        name="split",
+        params=["separator", "limit"],
+        body=split_fn,
+      )
+      obj["split"] = JSValue::Function(split_obj)
     }
     _ => ()
   }
 }
 
 ///|
-pub fn create_string_constructor(proto : JSValue) -> JSValue {
+pub fn create_string_constructor(
+  proto : JSValue,
+  func_proto : JSValue,
+) -> JSValue {
   let ctor_fn = Native(fn(_ctx, this_val, args) {
     let val = if args is [arg, ..] { arg.to_string() } else { "" }
     let is_constructor = match this_val {
@@ -77,7 +116,12 @@ pub fn create_string_constructor(proto : JSValue) -> JSValue {
     }
     JSValue::String(val)
   })
-  let ctor_obj = JSFunction::new(name="String", body=ctor_fn)
+  let ctor_obj = JSFunction::new(
+    name="String",
+    params=["value"],
+    body=ctor_fn,
+    prototype=func_proto,
+  )
   ctor_obj["prototype"] = proto
   JSValue::Function(ctor_obj)
 }
