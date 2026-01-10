@@ -1,5 +1,8 @@
 ///|
-pub fn init_object_prototype(object_proto_val : JSValue) -> Unit {
+pub fn init_object_prototype(
+  object_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match object_proto_val {
     Object(obj) => {
       // toString
@@ -18,12 +21,20 @@ pub fn init_object_prototype(object_proto_val : JSValue) -> Unit {
           },
         )
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
 
       // valueOf
       let value_of_fn = Native(fn(_ctx, this_val, _args) { this_val })
-      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
+      let value_of_obj = JSFunction::new(
+        name="valueOf",
+        body=value_of_fn,
+        prototype=func_proto,
+      )
       obj["valueOf"] = JSValue::Function(value_of_obj)
 
       // hasOwnProperty
@@ -43,6 +54,7 @@ pub fn init_object_prototype(object_proto_val : JSValue) -> Unit {
         name="hasOwnProperty",
         params=["prop"],
         body=has_own_property_fn,
+        prototype=func_proto,
       )
       obj["hasOwnProperty"] = JSValue::Function(has_own_property_obj)
     }
@@ -88,7 +100,11 @@ pub fn create_object_constructor(
       JSValue::Undefined // TypeError
     }
   })
-  let keys_obj = JSFunction::new(name="keys", body=keys_fn)
+  let keys_obj = JSFunction::new(
+    name="keys",
+    body=keys_fn,
+    prototype=func_proto,
+  )
   object_fn["keys"] = JSValue::Function(keys_obj)
 
   // Object.create
@@ -103,7 +119,11 @@ pub fn create_object_constructor(
       JSValue::Undefined // TypeError
     }
   })
-  let create_obj = JSFunction::new(name="create", body=create_fn)
+  let create_obj = JSFunction::new(
+    name="create",
+    body=create_fn,
+    prototype=func_proto,
+  )
   object_fn["create"] = JSValue::Function(create_obj)
 
   // Object.defineProperty (Simplified but handles accessors)
@@ -141,6 +161,7 @@ pub fn create_object_constructor(
   let define_property_obj = JSFunction::new(
     name="defineProperty",
     body=define_property_fn,
+    prototype=func_proto,
   )
   object_fn["defineProperty"] = JSValue::Function(define_property_obj)
 
@@ -152,7 +173,11 @@ pub fn create_object_constructor(
       JSValue::Undefined
     }
   })
-  let freeze_obj = JSFunction::new(name="freeze", body=freeze_fn)
+  let freeze_obj = JSFunction::new(
+    name="freeze",
+    body=freeze_fn,
+    prototype=func_proto,
+  )
   object_fn["freeze"] = JSValue::Function(freeze_obj)
 
   // Object.preventExtensions
@@ -170,6 +195,7 @@ pub fn create_object_constructor(
   let prevent_extensions_obj = JSFunction::new(
     name="preventExtensions",
     body=prevent_extensions_fn,
+    prototype=func_proto,
   )
   object_fn["preventExtensions"] = JSValue::Function(prevent_extensions_obj)
   JSValue::Function(object_fn)

@@ -4,22 +4,12 @@ pub(all) struct Context {
   parent : Context?
   mut pending_labels : Array[String]
   mut strict : Bool
-} derive(Show)
+} derive(FromJson, ToJson, Show)
 
 ///|
 pub impl Eq for Context with equal(_, _) {
   // Simple reference equality check if possible, or always false for now
   false
-}
-
-///|
-pub impl ToJson for Context with to_json(_) {
-  JSValue::Null.to_json()
-}
-
-///|
-pub impl FromJson for Context with from_json(_, _) {
-  Context::new()
 }
 
 ///|
@@ -69,7 +59,6 @@ pub fn Context::create_global() -> Context {
     prototype: None,
   }
   let object_proto_val = JSValue::Object(object_proto)
-  init_object_prototype(object_proto_val)
 
   // Function.prototype
   let func_proto_props = {}
@@ -78,6 +67,7 @@ pub fn Context::create_global() -> Context {
     prototype: Some(object_proto_val),
   }
   let func_proto_val = JSValue::Object(func_proto)
+  init_object_prototype(object_proto_val, func_proto_val)
   init_function_prototype(func_proto_val)
 
   // Object Constructor

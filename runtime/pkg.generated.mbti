@@ -48,7 +48,7 @@ pub fn init_function_prototype(JSValue) -> Unit
 
 pub fn init_number_prototype(JSValue) -> Unit
 
-pub fn init_object_prototype(JSValue) -> Unit
+pub fn init_object_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_string_prototype(JSValue) -> Unit
 
