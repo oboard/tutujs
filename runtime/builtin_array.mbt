@@ -826,10 +826,17 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           match arg_map_fn {
             Function(f) => Some(f)
             Undefined => None
-            _ =>
-              raise EvalError::Throw(
-                String("TypeError: Array.from map function must be callable"),
-              )
+            _ => {
+              let msg = "Array.from map function must be callable"
+              let err = match ctx.resolve("TypeError") {
+                Function(f) =>
+                  ctx.invoke(f, JSValue::Undefined, [JSValue::String(msg)]) catch {
+                    _ => JSValue::String("TypeError: " + msg)
+                  }
+                _ => JSValue::String("TypeError: " + msg)
+              }
+              raise EvalError::Throw(err)
+            }
           }
         } else {
           None
@@ -848,24 +855,113 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
             )
           _ => ()
         }
+
+        // Check for iterator
+        let iterator_method = match ctx.resolve("Symbol") {
+          Function(f) =>
+            match f.properties.get("iterator") {
+              Some(sym) => items.get_property(sym.to_string())
+              None => JSValue::Undefined
+            }
+          _ => JSValue::Undefined
+        }
+        if iterator_method is Function(iter_fn) {
+          let iterator = ctx.invoke(iter_fn, items, []) catch { e => raise e }
+          let new_array_val = match this_val {
+            Function(ctor) => {
+              let proto = match ctor.properties.get("prototype") {
+                Some(p) => p
+                None =>
+                  match ctx.resolve("Object") {
+                    Function(f) => f.properties.get("prototype").unwrap()
+                    _ => JSValue::Undefined
+                  }
+              }
+              let obj = JSObject::{ properties: {}, prototype: Some(proto) }
+              let this_obj = JSValue::Object(obj)
+              let res = ctx.invoke(ctor, this_obj, []) catch { _ => this_obj }
+              match res {
+                Object(_) | Function(_) => res
+                _ => this_obj
+              }
+            }
+            _ => {
+              let proto = match ctx.resolve("Array") {
+                Function(f) => f.properties.get("prototype")
+                _ => None
+              }
+              JSValue::Object(JSObject::{ properties: {}, prototype: proto })
+            }
+          }
+          let new_array_obj = match new_array_val {
+            Object(o) => o
+            _ =>
+              raise EvalError::Throw(
+                JSValue::String(
+                  "TypeError: Array.from result must be an object",
+                ),
+              )
+          }
+          let mut k = 0
+          while true {
+            let next_method = iterator.get_property("next")
+            let next_result = match next_method {
+              Function(f) => ctx.invoke(f, iterator, []) catch { e => raise e }
+              _ =>
+                raise EvalError::Throw(
+                  JSValue::String("TypeError: Iterator next must be callable"),
+                )
+            }
+            match next_result {
+              Object(_) => ()
+              _ =>
+                raise EvalError::Throw(
+                  JSValue::String(
+                    "TypeError: Iterator result must be an object",
+                  ),
+                )
+            }
+            let done = next_result.get_property("done").is_truthy()
+            if done {
+              new_array_obj.properties["length"] = JSValue::Number(
+                k.to_double(),
+              )
+              break
+            }
+            let value = next_result.get_property("value")
+            let mapped_val = match map_fn {
+              Some(f) =>
+                ctx.invoke(f, this_arg, [value, JSValue::Number(k.to_double())]) catch {
+                  e => raise e
+                }
+              None => value
+            }
+
+            // CreateDataPropertyOrThrow
+            let key = k.to_string()
+            let extensible = match
+              new_array_obj.properties.get("__internal_extensible__") {
+              Some(Boolean(false)) => false
+              _ => true
+            }
+            if not(extensible) && not(new_array_obj.properties.contains(key)) {
+              raise EvalError::Throw(
+                JSValue::String(
+                  "TypeError: Cannot define property on non-extensible object",
+                ),
+              )
+            }
+            new_array_obj.properties[key] = mapped_val
+            k = k + 1
+          }
+          return new_array_val
+        }
         let len_val = items.get_property("length")
         let len = match len_val {
           Number(n) => n.to_int()
           _ => 0
         }
         let len = if len < 0 { 0 } else { len }
-        // println("DEBUG: Array.from len=" + len.to_string())
-
-        // Debug items properties
-        // match items {
-        //   Object(obj) => {
-        //     println("DEBUG: items keys:")
-        //     obj.properties.each(fn(k, v) {
-        //       println("  key: " + k + ", value: " + v.to_string())
-        //     })
-        //   }
-        //   _ => println("DEBUG: items is not an Object")
-        // }
 
         // Construct new_array
         let new_array_val = match this_val {
@@ -913,6 +1009,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         for k = 0; k < len; k = k + 1 {
           let key = k.to_string()
           let val = items.get_property(key)
+          // println("DEBUG: Array.from k=" + key + " val=" + val.to_string())
           let mapped_val = match map_fn {
             Some(f) =>
               ctx.invoke(f, this_arg, [val, JSValue::Number(k.to_double())]) catch {

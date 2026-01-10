@@ -36,6 +36,8 @@ pub fn create_regexp_object(JSValue, JSValue) -> JSValue
 
 pub fn create_string_constructor(JSValue) -> JSValue
 
+pub fn create_symbol_constructor(JSValue, JSValue) -> JSValue
+
 pub fn format_js_error(JSValue) -> String
 
 pub fn init_array_constructor(JSValue) -> Unit
@@ -51,6 +53,8 @@ pub fn init_number_prototype(JSValue) -> Unit
 pub fn init_object_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_string_prototype(JSValue) -> Unit
+
+pub fn init_symbol_prototype(JSValue) -> Unit
 
 // Errors
 pub suberror EvalError {

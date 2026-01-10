@@ -189,6 +189,22 @@ pub fn Context::create_global() -> Context {
   let json_val = create_json_object(object_proto_val)
   ctx.scope.set("JSON", json_val)
 
+  // Symbol.prototype
+  let symbol_proto_props = {}
+  let symbol_proto = JSObject::{
+    properties: symbol_proto_props,
+    prototype: Some(object_proto_val),
+  }
+  let symbol_proto_val = JSValue::Object(symbol_proto)
+  init_symbol_prototype(symbol_proto_val)
+
+  // Symbol Constructor
+  let symbol_ctor_val = create_symbol_constructor(
+    symbol_proto_val, func_proto_val,
+  )
+  symbol_proto_props.set("constructor", symbol_ctor_val)
+  ctx.scope.set("Symbol", symbol_ctor_val)
+
   // Error.prototype
   let error_proto_val = create_error_prototype(object_proto_val)
 

@@ -4,9 +4,9 @@
   
   <!-- Progress Circle -->
   <circle cx="60.0" cy="60.0" r="55.0" fill="none" stroke="#ff4d4f" stroke-width="10"
-          stroke-dasharray="345.57519189487726" stroke-dashoffset="259.52057316166054" transform="rotate(-90 60.0 60.0)" stroke-linecap="round" />
+          stroke-dasharray="345.57519189487726" stroke-dashoffset="260.87729012367066" transform="rotate(-90 60.0 60.0)" stroke-linecap="round" />
   
   <!-- Text -->
-  <text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial, sans-serif" font-size="20" fill="#333" font-weight="bold">24.9%</text>
-  <text x="50%" y="65%" text-anchor="middle" dy=".3em" font-family="Arial, sans-serif" font-size="10" fill="#666">444/1783</text>
+  <text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial, sans-serif" font-size="20" fill="#333" font-weight="bold">24.5%</text>
+  <text x="50%" y="65%" text-anchor="middle" dy=".3em" font-family="Arial, sans-serif" font-size="10" fill="#666">437/1783</text>
 </svg>
