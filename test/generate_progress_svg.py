@@ -1,7 +1,7 @@
 import sys
 import math
 
-def generate_progress_svg(passed, total, filename="test262_progress.svg"):
+def generate_progress_svg(total, passed, filename="test262_progress.svg"):
     if total == 0:
         percentage = 0
     else:
@@ -25,7 +25,7 @@ def generate_progress_svg(passed, total, filename="test262_progress.svg"):
 
     svg_content = f"""<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" xmlns="http://www.w3.org/2000/svg">
   <!-- Background Circle -->
-  <circle cx="{center}" cy="{center}" r="{radius}" fill="none" stroke="#f0f0f0" stroke-width="{stroke_width}" />
+  <circle cx="{center}" cy="{center}" r="{radius}" fill="#ffffff" stroke="#f0f0f0" stroke-width="{stroke_width}" />
   
   <!-- Progress Circle -->
   <circle cx="{center}" cy="{center}" r="{radius}" fill="none" stroke="{color}" stroke-width="{stroke_width}"
@@ -43,14 +43,14 @@ def generate_progress_svg(passed, total, filename="test262_progress.svg"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python3 generate_progress_svg.py <passed> <total> [filename]")
+        print("Usage: python3 generate_progress_svg.py <total> <passed> [filename]")
         sys.exit(1)
     
     try:
-        passed_arg = int(sys.argv[1])
-        total_arg = int(sys.argv[2])
+        total_arg = int(sys.argv[1])
+        passed_arg = int(sys.argv[2])
         out_file = sys.argv[3] if len(sys.argv) > 3 else "test262_progress.svg"
-        generate_progress_svg(passed_arg, total_arg, out_file)
+        generate_progress_svg(total_arg, passed_arg, out_file)
     except ValueError:
-        print("Error: passed and total must be integers")
+        print("Error: total and passed must be integers")
         sys.exit(1)
