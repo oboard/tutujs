@@ -1,7 +1,7 @@
 import os
 import re
 
-TEST262_DIR = 'test262'
+TEST262_DIR = 'test/test262'
 TEST_DIR = os.path.join(TEST262_DIR, 'test/built-ins')
 HARNESS_DIR = os.path.join(TEST262_DIR, 'harness')
 OUTPUT_PREFIX = 'test/test262_built_ins_'
@@ -139,13 +139,7 @@ def generate_tests():
                             continue
                             
                         out.write(f'test "{test_name}" {{\n')
-                        out.write('  let ctx = @runtime.Context::create_global()\n')
-                        out.write('  let code =\n')
-                        out.write(mbt_code)
-                        out.write('  match ctx.eval_safe(code) {\n')
-                        out.write('    Ok(_) => ()\n')
-                        out.write('    Err(msg) => fail("Test failed: " + @runtime.format_js_error(msg))\n')
-                        out.write('  }\n')
+                        out.write(f'  test_from("{filepath}")\n')
                         out.write('}\n\n')
                         count += 1
                         if count >= 100: # Limit per file
