@@ -4,7 +4,7 @@ import re
 TEST262_DIR = 'test262'
 TEST_DIR = os.path.join(TEST262_DIR, 'test/built-ins')
 HARNESS_DIR = os.path.join(TEST262_DIR, 'harness')
-OUTPUT_PREFIX = 'test262_built_ins_'
+OUTPUT_PREFIX = 'test/test262_built_ins_'
 
 # Map subdirectories to output filenames
 GROUPS = {
