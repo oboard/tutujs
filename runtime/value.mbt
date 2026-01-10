@@ -175,10 +175,7 @@ pub fn JSObject::op_set(self : JSObject, key : String, value : JSValue) -> Unit 
 
 ///|
 pub fn JSObject::op_get(self : JSObject, key : String) -> JSValue {
-  match self.properties.get(key) {
-    Some(v) => v
-    None => Undefined
-  }
+  JSValue::Object(self).get_property(key)
 }
 
 ///|
