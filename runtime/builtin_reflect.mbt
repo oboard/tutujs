@@ -15,14 +15,26 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
     let args_list = args[1]
     let _new_target = if args.length() > 2 { args[2] } else { target }
     match target {
-      Function(_) => ()
+      Function(func) =>
+        if not(func.is_constructor) {
+          ctx.throw_type_error(
+            "Reflect.construct: target must be a constructor",
+          )
+          return JSValue::Undefined
+        }
       _ => {
         ctx.throw_type_error("Reflect.construct: target must be a constructor")
         return JSValue::Undefined
       }
     }
     match _new_target {
-      Function(_) => ()
+      Function(func) =>
+        if not(func.is_constructor) {
+          ctx.throw_type_error(
+            "Reflect.construct: newTarget must be a constructor",
+          )
+          return JSValue::Undefined
+        }
       _ => {
         ctx.throw_type_error(
           "Reflect.construct: newTarget must be a constructor",

@@ -41,6 +41,7 @@ pub fn create_symbol_constructor(
     name="Symbol",
     body=ctor_fn,
     prototype=func_proto_val,
+    is_constructor=true,
   )
   let ctor_val = JSValue::Function(ctor)
   match ctor_val {

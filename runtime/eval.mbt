@@ -678,6 +678,13 @@ fn Context::evaluate(
           }
           match ctor_val {
             Function(func) => {
+              if not(func.is_constructor) {
+                self.throw_type_error(
+                  self.evaluate(Expression(callee)).to_string() +
+                  " is not a constructor",
+                )
+                return Undefined
+              }
               let proto = match func.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
@@ -884,7 +891,7 @@ fn Context::evaluate(
                       _ => "unknown"
                     }
                   }
-                  match obj_val {
+                  let res = match obj_val {
                     Object(obj) => {
                       let is_string_obj = obj.properties.contains(
                           "PrimitiveValue",
@@ -921,17 +928,26 @@ fn Context::evaluate(
                       }
                     }
                     Function(func) =>
-                      if prop_name == "prototype" ||
-                        prop_name == "length" ||
-                        prop_name == "name" ||
-                        prop_name == "arguments" ||
-                        prop_name == "caller" {
+                      if prop_name == "prototype" {
                         Boolean(false)
                       } else {
                         func.properties.remove(prop_name)
                         Boolean(true)
                       }
                     _ => Boolean(true)
+                  }
+                  if self.strict {
+                    match res {
+                      Boolean(false) => {
+                        self.throw_type_error(
+                          "Cannot delete property in strict mode",
+                        )
+                        Boolean(false)
+                      }
+                      _ => res
+                    }
+                  } else {
+                    res
                   }
                 }
                 Identifier({ name, .. }) => {
@@ -1170,6 +1186,7 @@ fn Context::evaluate(
             context=self,
             prototype?=func_proto,
             strict=self.strict,
+            is_constructor=false,
           )
           Function(func)
         }

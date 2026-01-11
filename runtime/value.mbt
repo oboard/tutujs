@@ -118,6 +118,7 @@ pub(all) struct JSFunction {
   properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue? // [[Prototype]]
   strict : Bool
+  is_constructor : Bool
 } derive(Show, Eq, ToJson)
 
 ///|
@@ -129,11 +130,27 @@ pub fn JSFunction::new(
   properties? : @hashmap.HashMap[String, JSValue],
   prototype? : JSValue,
   strict? : Bool,
+  is_constructor? : Bool,
 ) -> JSFunction {
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or(@hashmap.new())
   if not(properties.contains("length")) {
     properties.set("length", JSValue::Number(params.length().to_double()))
+  }
+  match name {
+    Some(n) =>
+      if not(properties.contains("name")) {
+        properties.set("name", JSValue::String(n))
+      }
+    None => ()
+  }
+  let is_ctor = match is_constructor {
+    Some(b) => b
+    None =>
+      match body {
+        User(_) => true // User functions are constructors by default (except arrow/methods, handled by parser/eval)
+        Native(_) => false // Native functions are NOT constructors by default
+      }
   }
   {
     name,
@@ -143,6 +160,7 @@ pub fn JSFunction::new(
     properties,
     prototype,
     strict: strict.unwrap_or(false),
+    is_constructor: is_ctor,
   }
 }
 
@@ -163,6 +181,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     properties: @hashmap.new(),
     prototype: None,
     strict: false,
+    is_constructor: true,
   }
 }
 

@@ -170,6 +170,7 @@ pub fn create_number_constructor(
     params=["value"],
     body=ctor_fn,
     prototype=func_proto,
+    is_constructor=true,
   )
   ctor_obj["prototype"] = proto
   ctor_obj["MAX_VALUE"] = JSValue::Number(1.7976931348623157e308)

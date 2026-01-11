@@ -174,6 +174,7 @@ pub fn create_string_constructor(
     params=["value"],
     body=ctor_fn,
     prototype=func_proto,
+    is_constructor=true,
   )
   ctor_obj["prototype"] = proto
   JSValue::Function(ctor_obj)

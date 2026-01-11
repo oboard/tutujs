@@ -216,6 +216,7 @@ pub fn create_object_constructor(
     name="Object",
     body=object_fn_body,
     prototype=func_proto,
+    is_constructor=true,
   )
   object_fn["prototype"] = proto
 
@@ -468,12 +469,13 @@ pub fn create_object_constructor(
               desc["enumerable"] = JSValue::Boolean(true)
               desc["configurable"] = JSValue::Boolean(true)
               if is_func {
-                if prop is ("length" | "name") {
+                if prop == "length" || prop == "name" {
+                  // println("DEBUG: Override length/name for func. prop=" + prop)
                   desc["writable"] = JSValue::Boolean(false)
                   desc["enumerable"] = JSValue::Boolean(false)
                   desc["configurable"] = JSValue::Boolean(true)
                 }
-                if prop is ("caller" | "arguments") {
+                if prop == "caller" || prop == "arguments" {
                   desc["enumerable"] = JSValue::Boolean(false)
                   desc["configurable"] = JSValue::Boolean(false)
                 }
@@ -513,6 +515,9 @@ pub fn create_object_constructor(
                   | "isFinite") {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
+              }
+              if is_func && (prop == "length" || prop == "name") {
+                // println("DEBUG: func " + prop + " configurable=" + desc["configurable"].to_string())
               }
             }
           }

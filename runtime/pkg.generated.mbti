@@ -121,10 +121,11 @@ pub(all) struct JSFunction {
   properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue?
   strict : Bool
+  is_constructor : Bool
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue
-pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool) -> Self
+pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool) -> Self
 #alias("_[_]=_")
 pub fn JSFunction::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSFunction

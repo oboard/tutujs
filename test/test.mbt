@@ -9,6 +9,9 @@ fn test_from(path : String) -> Unit raise Error {
     e => fail("Read file error" + e.to_string())
   }
   let mut harness_code = assert_js + "\n" + sta_js + "\n"
+  if code.contains("onlyStrict") {
+    harness_code = "\"use strict\";\n" + harness_code
+  }
   if code.contains("propertyHelper.js") {
     let ph = @fs.read_file_to_string(harness_dir + "propertyHelper.js") catch {
       _ => ""

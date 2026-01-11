@@ -50,7 +50,12 @@ pub fn create_error_constructor(
     let obj = JSObject::{ properties: obj_props, prototype: Some(error_proto) }
     JSValue::Object(obj)
   })
-  let ctor = JSFunction::new(name~, body=ctor_fn, prototype=func_proto)
+  let ctor = JSFunction::new(
+    name~,
+    body=ctor_fn,
+    prototype=func_proto,
+    is_constructor=true,
+  )
   ctor["prototype"] = error_proto
   let ctor_val = JSValue::Function(ctor)
 

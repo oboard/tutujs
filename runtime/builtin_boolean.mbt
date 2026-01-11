@@ -6,13 +6,18 @@ pub fn init_boolean_prototype(
   match boolean_proto_val {
     Object(obj) => {
       // valueOf
-      let value_of_fn = Native(fn(_ctx, this_val, _args) {
+      let value_of_fn = Native(fn(ctx, this_val, _args) {
         JSValue::Boolean(
           match this_val {
             Boolean(b) => b
             Object({ properties: { "PrimitiveValue": Boolean(b), .. }, .. }) =>
               b
-            _ => false // Should throw TypeError
+            _ => {
+              ctx.throw_type_error(
+                "Boolean.prototype.valueOf requires that 'this' be a Boolean",
+              )
+              return Undefined
+            }
           },
         )
       })
@@ -21,14 +26,19 @@ pub fn init_boolean_prototype(
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj["valueOf"] = JSValue::Function(value_of_obj)
+      obj.properties.set("valueOf", JSValue::Function(value_of_obj))
 
       // toString
-      let to_string_fn = Native(fn(_ctx, this_val, _args) {
+      let to_string_fn = Native(fn(ctx, this_val, _args) {
         let val = match this_val {
           Boolean(b) => b
           Object({ properties: { "PrimitiveValue": Boolean(b), .. }, .. }) => b
-          _ => false
+          _ => {
+            ctx.throw_type_error(
+              "Boolean.prototype.toString requires that 'this' be a Boolean",
+            )
+            return Undefined
+          }
         }
         JSValue::String(val.to_string())
       })
@@ -73,6 +83,7 @@ pub fn create_boolean_constructor(
     params=["value"],
     body=ctor_fn,
     prototype=func_proto,
+    is_constructor=true,
   )
   ctor_obj["prototype"] = proto
   JSValue::Function(ctor_obj)

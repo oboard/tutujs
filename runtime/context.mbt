@@ -133,6 +133,7 @@ pub fn Context::create_global() -> Context {
     context=ctx,
     properties=array_fn_props,
     prototype=func_proto_val,
+    is_constructor=true,
   )
   let array_fn_val = JSValue::Function(array_fn)
   init_array_constructor(array_fn_val)
@@ -179,6 +180,7 @@ pub fn Context::create_global() -> Context {
 
   // Boolean.prototype
   let boolean_proto_props = @hashmap.new()
+  boolean_proto_props.set("PrimitiveValue", JSValue::Boolean(false))
   let boolean_proto = JSObject::{
     properties: boolean_proto_props,
     prototype: Some(object_proto_val),

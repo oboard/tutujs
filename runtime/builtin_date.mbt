@@ -111,6 +111,7 @@ pub fn create_date_object(object_proto : JSValue) -> JSValue {
     body=date_ctor_fn,
     properties=date_ctor_props,
     prototype=object_proto,
+    is_constructor=true,
   )
   let date_ctor_val = JSValue::Function(date_ctor)
   date_proto_props.set("constructor", date_ctor_val)

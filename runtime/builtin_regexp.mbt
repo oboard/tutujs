@@ -100,6 +100,7 @@ pub fn create_regexp_object(
     body=regexp_ctor_fn,
     properties=regexp_ctor_props,
     prototype=object_proto,
+    is_constructor=true,
   )
   let regexp_ctor_val = JSValue::Function(regexp_ctor)
   regexp_proto_props.set("constructor", regexp_ctor_val)

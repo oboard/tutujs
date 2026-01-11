@@ -208,7 +208,12 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
       JSValue::Undefined
     }
   })
-  let ctor_obj = JSFunction::new(name="Function", body=ctor_fn, prototype=proto)
+  let ctor_obj = JSFunction::new(
+    name="Function",
+    body=ctor_fn,
+    prototype=proto,
+    is_constructor=true,
+  )
   ctor_obj["prototype"] = proto
   JSValue::Function(ctor_obj)
 }
