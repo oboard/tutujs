@@ -463,10 +463,8 @@ pub fn create_object_constructor(
         _ => return JSValue::Undefined // TypeError in spec
       }
       let prop = match prop_arg {
-        // Symbol(_, desc) => desc // DON'T use description, use to_string() to match map keys!
         _ => prop_arg.to_string()
       }
-      // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
       if prop == "length" && not(is_string_obj) {
         // Force check PrimitiveValue
         let has_prim = obj_props.contains("PrimitiveValue")
@@ -522,19 +520,23 @@ pub fn create_object_constructor(
             _ => {
               let is_symbol_to_string_tag = prop.contains("toStringTag")
               if is_symbol_to_string_tag {
-                desc["writable"] = JSValue::Boolean(false)
-                desc["enumerable"] = JSValue::Boolean(false)
-                desc["configurable"] = JSValue::Boolean(true)
-                desc["value"] = val
-                return JSValue::Object(desc)
+                let d_props = @hashmap.new()
+                d_props.set("writable", JSValue::Boolean(false))
+                d_props.set("enumerable", JSValue::Boolean(false))
+                d_props.set("configurable", JSValue::Boolean(true))
+                d_props.set("value", val)
+                return JSValue::Object(JSObject::new(properties=d_props, prototype=proto))
               }
               let is_symbol_iterator = prop.contains("iterator")
               if is_symbol_iterator {
-                desc["writable"] = JSValue::Boolean(true)
-                desc["enumerable"] = JSValue::Boolean(false)
-                desc["configurable"] = JSValue::Boolean(true)
-                desc["value"] = val
-                return JSValue::Object(desc)
+                let d_props = @hashmap.new()
+                d_props.set("writable", JSValue::Boolean(true))
+                d_props.set("enumerable", JSValue::Boolean(false))
+                d_props.set("configurable", JSValue::Boolean(true))
+                d_props.set("value", val)
+                return JSValue::Object(
+                  JSObject::new(properties=d_props, prototype=proto),
+                )
               }
               desc["value"] = val
               desc["writable"] = JSValue::Boolean(true)

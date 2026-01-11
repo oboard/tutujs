@@ -39,7 +39,7 @@ pub fn create_map_constructor(
           match iterator_method {
             Function(iter_fn) => {
               let iterator = match ctx.invoke(iter_fn, iterable, []) {
-                Object(_) as obj => obj
+                Object(_) | Function(_) as obj => obj
                 _ => {
                   ctx.throw_type_error("Iterator is not an object")
                   return Undefined
@@ -57,14 +57,14 @@ pub fn create_map_constructor(
                   e => raise e
                 }
                 match next_res {
-                  Object(_) as res_obj => {
-                    let done = res_obj.get_property_throw("done") catch {
-                      e => {
-                        iterator_close(ctx, iterator)
-                        raise e
+                  Object(_) | Function(_) as res_obj => {
+                    let done = res_obj.get_property_throw("done").is_truthy() catch {
+                        e => {
+                          iterator_close(ctx, iterator)
+                          raise e
+                        }
                       }
-                    }
-                    if done.is_truthy() {
+                    if done {
                       break
                     }
                     let value = res_obj.get_property_throw("value") catch {
@@ -74,7 +74,7 @@ pub fn create_map_constructor(
                       }
                     }
                     match value {
-                      Object(_) as item_obj => {
+                      Object(_) | Function(_) as item_obj => {
                         let key = item_obj.get_property_throw("0") catch {
                           e => {
                             iterator_close(ctx, iterator)
@@ -91,7 +91,6 @@ pub fn create_map_constructor(
                           ctx.invoke(adder, this_val, [key, val]) |> ignore
                         catch {
                           e => {
-                            let _ = e
                             iterator_close(ctx, iterator)
                             raise e
                           }
@@ -100,14 +99,12 @@ pub fn create_map_constructor(
                       _ => {
                         iterator_close(ctx, iterator)
                         ctx.throw_type_error("Iterator value is not an object")
-                        break
                       }
                     }
                   }
                   _ => {
                     iterator_close(ctx, iterator)
                     ctx.throw_type_error("Iterator result is not an object")
-                    break
                   }
                 }
               }
@@ -142,7 +139,11 @@ fn iterator_close(ctx : Context, iterator : JSValue) -> Unit {
   let return_val = iterator.get_property("return")
   match return_val {
     Function(f) => {
-      let _ = ctx.invoke(f, iterator, []) catch { _ => Undefined }
+      let _ = ctx.invoke(f, iterator, []) catch {
+        _ => {
+          Undefined
+        }
+      }
       ()
     }
     _ => ()

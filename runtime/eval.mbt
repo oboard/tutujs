@@ -77,15 +77,42 @@ pub fn Context::eval_safe(
 pub fn format_js_error(val : JSValue) -> String {
   match val {
     Object(obj) => {
-      let name = match obj.op_get("name") {
-        String(s) => s.to_string()
-        _ => "Error"
+      // Try calling toString()
+      let to_string = obj.properties.get("toString")
+      match to_string {
+        Some(Function(_f)) => {
+          // We can't easily invoke here because it might throw and we don't have a Context.
+          // But we can try to get properties directly.
+          let name = match obj.properties.get("name") {
+            Some(String(s)) => s.to_string()
+            _ => "Error"
+          }
+          let message = match obj.properties.get("message") {
+            Some(String(s)) => s.to_string()
+            _ => ""
+          }
+          if message == "" {
+            name
+          } else {
+            name + ": " + message
+          }
+        }
+        _ => {
+          let name = match obj.properties.get("name") {
+            Some(String(s)) => s.to_string()
+            _ => "Error"
+          }
+          let message = match obj.properties.get("message") {
+            Some(String(s)) => s.to_string()
+            _ => ""
+          }
+          if message == "" {
+            name
+          } else {
+            name + ": " + message
+          }
+        }
       }
-      let message = match obj.op_get("message") {
-        String(s) => s.to_string()
-        _ => ""
-      }
-      name + ": " + message
     }
     String(s) => s.to_string()
     _ => val.to_string()
@@ -1214,7 +1241,7 @@ fn Context::evaluate(
           Function(func)
         }
         AssignmentExpression({ operator, left, right }) => {
-          let val = self.evaluate(Expression(right))
+          let right_val = self.evaluate(Expression(right))
           match left {
             MemberExpression({ object, property, computed, .. }) => {
               let obj_val = self.evaluate(Expression(object))
@@ -1226,46 +1253,83 @@ fn Context::evaluate(
                   _ => "unknown"
                 }
               }
-              match operator {
-                Assign => {
-                  obj_val.set_property(prop_name, val, strict=self.strict)
-                  val
-                }
+              let current = if operator == Assign {
+                JSValue::Undefined
+              } else {
+                obj_val.get_property(prop_name)
+              }
+              let new_val = match operator {
+                Assign => right_val
+                Plus => current + right_val
+                MinusAssign => current - right_val
+                MultiplyAssign => current * right_val
+                DivideAssign => current / right_val
+                PercentAssign => current % right_val
+                ModuloAssign => current % right_val
+                ExponentAssign => current.pow(right_val)
+                BitwiseAndAssign => current.bitwise_and(right_val)
+                BitwiseOrAssign => current.bitwise_or(right_val)
+                BitwiseXorAssign => current.bitwise_xor(right_val)
+                LeftShiftAssign => current.left_shift(right_val)
+                RightShiftAssign => current.right_shift(right_val)
+                UnsignedRightShiftAssign =>
+                  current.unsigned_right_shift(right_val)
                 _ => Undefined
               }
+              obj_val.set_property(prop_name, new_val, strict=self.strict)
+              new_val
             }
-            Identifier({ name, .. }) =>
-              match operator {
-                Assign => {
-                  let curr : Context? = Some(self)
-                  let mut found = false
-                  loop curr {
-                    Some(ctx) =>
-                      match ctx.scope.get(name) {
-                        Some(_) => {
-                          ctx.scope.set(name, val)
-                          found = true
-                          break
-                        }
-                        None => continue ctx.parent
-                      }
-                    None => break
-                  }
-                  if not(found) {
-                    let mut root = self
-                    loop root.parent {
-                      Some(p) => {
-                        root = p
-                        continue p.parent
-                      }
-                      None => break
-                    }
-                    root.scope.set(name, val)
-                  }
-                  val
-                }
+            Identifier({ name, .. }) => {
+              let current = if operator == Assign {
+                JSValue::Undefined
+              } else {
+                self.resolve(name)
+              }
+              let val = match operator {
+                Assign => right_val
+                Plus => current + right_val
+                MinusAssign => current - right_val
+                MultiplyAssign => current * right_val
+                DivideAssign => current / right_val
+                PercentAssign => current % right_val
+                ModuloAssign => current % right_val
+                ExponentAssign => current.pow(right_val)
+                BitwiseAndAssign => current.bitwise_and(right_val)
+                BitwiseOrAssign => current.bitwise_or(right_val)
+                BitwiseXorAssign => current.bitwise_xor(right_val)
+                LeftShiftAssign => current.left_shift(right_val)
+                RightShiftAssign => current.right_shift(right_val)
+                UnsignedRightShiftAssign =>
+                  current.unsigned_right_shift(right_val)
                 _ => Undefined
               }
+              let curr : Context? = Some(self)
+              let mut found = false
+              loop curr {
+                Some(ctx) =>
+                  match ctx.scope.get(name) {
+                    Some(_) => {
+                      ctx.scope.set(name, val)
+                      found = true
+                      break
+                    }
+                    None => continue ctx.parent
+                  }
+                None => break
+              }
+              if not(found) {
+                let mut root = self
+                loop root.parent {
+                  Some(p) => {
+                    root = p
+                    continue p.parent
+                  }
+                  None => break
+                }
+                root.scope.set(name, val)
+              }
+              val
+            }
             _ => Undefined
           }
         }

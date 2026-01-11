@@ -86,7 +86,7 @@ pub fn init_global_functions(ctx : Context) -> Unit {
   ctx.scope.set("parseFloat", JSValue::Function(parse_float_obj))
 
   // TypedArrays (Dummies)
-  let typed_array_fn = Native(fn(_ctx, _this, args) {
+  let typed_array_fn = Native(fn(_ctx, _this, _args) {
     let obj = JSObject::new()
     JSValue::Object(obj)
   })

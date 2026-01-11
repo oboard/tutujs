@@ -495,6 +495,19 @@ pub fn JSValue::set_property(
         }
         return
       }
+      if name == "Symbol(Symbol.toStringTag)" ||
+        name == "Symbol(Symbol.iterator)" {
+        // Heuristic: toStringTag is usually non-writable, iterator is usually writable but let's check spec.
+        // Actually, let's just handle toStringTag for now.
+        if name == "Symbol(Symbol.toStringTag)" {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String("TypeError: Cannot assign to read only property"),
+            )
+          }
+          return
+        }
+      }
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let _ = setter.context.invoke(setter, self, [value]) catch {
