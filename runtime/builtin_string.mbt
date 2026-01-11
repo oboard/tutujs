@@ -152,6 +152,15 @@ pub fn create_string_constructor(
         Object({ properties, .. }) => {
           properties["PrimitiveValue"] = JSValue::String(val_str)
           properties["length"] = JSValue::Number(val_str.length().to_double())
+          // Populate indices for enumeration
+          for i = 0; i < val_str.length(); i = i + 1 {
+            // We need to store them in properties so for-in loop can see them.
+            try {
+              properties[i.to_string()] = JSValue::String(val_str[i:i + 1])
+            } catch {
+              _ => ()
+            }
+          }
         }
         _ => ()
       }

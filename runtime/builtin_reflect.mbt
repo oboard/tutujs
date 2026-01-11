@@ -68,8 +68,13 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         let proto = match _new_target {
           Function(f) =>
             match f.properties.get("prototype") {
-              Some(p) => Some(p)
-              None => Some(Null)
+              Some(Object(_) as p) => Some(p)
+              _ =>
+                // Fallback to target's prototype (intrinsicDefaultProto)
+                match func.properties.get("prototype") {
+                  Some(p) => Some(p)
+                  None => Some(Null)
+                }
             }
           _ => Some(Null)
         }

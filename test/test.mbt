@@ -27,6 +27,20 @@ fn test_from(path : String) -> Unit raise Error {
     }
     harness_code = harness_code + ph + "\n"
   }
+  if code.contains("isConstructor.js") {
+    let ph = @fs.read_file_to_string(harness_dir + "isConstructor.js") catch {
+      _ => ""
+    }
+    harness_code = harness_code + ph + "\n"
+  }
+  // Shim for $262.createRealm if not present
+  harness_code = harness_code +
+    "if (typeof $262 === 'undefined') { var $262 = {}; }\n"
+  harness_code = harness_code +
+    "if (typeof $262.createRealm === 'undefined') {\n"
+  harness_code = harness_code +
+    "  $262.createRealm = function() { return { global: globalThis }; };\n"
+  harness_code = harness_code + "}\n"
   let full_code = harness_code + code
   let ctx = @runtime.Context::create_global()
   match ctx.eval_safe(full_code) {

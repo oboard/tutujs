@@ -227,9 +227,48 @@ pub fn create_object_constructor(
         prototype: Some(proto),
       } // Should be Array.prototype ideally
       let mut i = 0.0
+      // Handle String exotic object indices
+      let is_string_obj = properties.contains("PrimitiveValue") &&
+        (match properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        let len = match properties.get("length") {
+          Some(Number(n)) => n.to_int()
+          _ => 0
+        }
+        for idx = 0; idx < len; idx = idx + 1 {
+          keys_array[i.to_string()] = JSValue::String(idx.to_string())
+          i = i + 1.0
+        }
+      }
       for k, _ in properties {
-        keys_array[i.to_string()] = JSValue::String(k)
-        i = i + 1.0
+        if not(k.has_prefix("__")) && k != "PrimitiveValue" && k != "length" {
+          // For String objects, we already added indices. 
+          // But indices are not in properties map usually.
+          // If they are, we should avoid duplicates?
+          // Assuming they are NOT in map.
+          keys_array[i.to_string()] = JSValue::String(k)
+          i = i + 1.0
+        } else if not(is_string_obj) || (k != "PrimitiveValue" && k != "length") {
+          // Logic simplification:
+          // If is_string_obj, skip PrimitiveValue and length (length is non-enumerable anyway but keys() skips non-enumerable)
+          // Wait, keys() should only return ENUMERABLE properties.
+          // My implementation iterates ALL properties in HashMap.
+          // I need to check enumerable!
+          // But my HashMap doesn't store attributes.
+          // I assumed all properties in HashMap are enumerable except internal ones.
+          // But 'length' on String is NOT enumerable.
+          // So I must skip 'length' explicitly for String objects?
+          // Or generally? Array length is also non-enumerable.
+          // I should probably have a better way to check enumerability.
+          // For now, hardcode skipping 'length' and 'PrimitiveValue'.
+          if k != "length" && k != "PrimitiveValue" {
+            keys_array[i.to_string()] = JSValue::String(k)
+            i = i + 1.0
+          }
+        }
       }
       keys_array["length"] = JSValue::Number(i)
       JSValue::Object(keys_array)
@@ -366,6 +405,18 @@ pub fn create_object_constructor(
         _ => return JSValue::Undefined // TypeError in spec
       }
       let prop = prop_arg.to_string()
+      if prop == "length" && not(is_string_obj) {
+        // Force check PrimitiveValue
+        let has_prim = obj_props.contains("PrimitiveValue")
+        if has_prim {
+          // If it has PrimitiveValue but is_string_obj is false, it must be that match failed.
+          match obj_props.get("PrimitiveValue") {
+            Some(String(_)) => () // Should be true
+            Some(_) => () // Not a string?
+            None => ()
+          }
+        }
+      }
       if is_string_obj {
         let len = match obj_props.get("length") {
           Some(Number(n)) => n.to_int()
@@ -437,7 +488,6 @@ pub fn create_object_constructor(
                 }
               }
               if is_string_obj && prop == "length" {
-                abort("DEBUG: Entered length block")
                 desc["writable"] = JSValue::Boolean(false)
                 desc["enumerable"] = JSValue::Boolean(false)
                 desc["configurable"] = JSValue::Boolean(false)
@@ -483,6 +533,28 @@ pub fn create_object_constructor(
     get_own_property_descriptor_obj,
   )
 
+  // Object.getPrototypeOf
+  let get_prototype_of_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object({ prototype, .. }) | Function({ prototype, .. }) =>
+          match prototype {
+            Some(p) => p
+            None => Null
+          }
+        _ => JSValue::Undefined // Should throw TypeError for non-object
+      }
+    } else {
+      JSValue::Undefined // TypeError
+    }
+  })
+  let get_prototype_of_obj = JSFunction::new(
+    name="getPrototypeOf",
+    body=get_prototype_of_fn,
+    prototype=func_proto,
+  )
+  object_fn["getPrototypeOf"] = JSValue::Function(get_prototype_of_obj)
+
   // Object.getOwnPropertyNames
   let get_own_property_names_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, ..] {
@@ -495,8 +567,24 @@ pub fn create_object_constructor(
         prototype: Some(proto),
       } // Array.prototype
       let mut i = 0.0
+      // Handle String indices
+      let is_string_obj = obj_props.contains("PrimitiveValue") &&
+        (match obj_props.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        let len = match obj_props.get("length") {
+          Some(Number(n)) => n.to_int()
+          _ => 0
+        }
+        for idx = 0; idx < len; idx = idx + 1 {
+          names_array[i.to_string()] = JSValue::String(idx.to_string())
+          i = i + 1.0
+        }
+      }
       for k, _ in obj_props {
-        if not(k.has_prefix("__")) {
+        if not(k.has_prefix("__")) && k != "PrimitiveValue" {
           names_array[i.to_string()] = JSValue::String(k)
           i = i + 1.0
         }
