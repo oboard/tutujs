@@ -209,15 +209,15 @@ pub fn JSFunction::new(
 ) -> JSFunction {
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or(@hashmap.new())
-  if not(properties.contains("length")) {
-    properties.set("length", JSValue::Number(params.length().to_double()))
-  }
   match name {
     Some(n) =>
       if not(properties.contains("name")) {
         properties.set("name", JSValue::String(n))
       }
     None => ()
+  }
+  if not(properties.contains("length")) {
+    properties.set("length", JSValue::Number(params.length().to_double()))
   }
   let is_ctor = match is_constructor {
     Some(b) => b
@@ -471,8 +471,41 @@ pub fn JSValue::get_property_internal(
           }
       }
     }
+    Internal(internal) => {
+      let proto = match internal {
+        Date(_) =>
+          match receiver.resolve_in_ctx("Date") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+        RegExp(_, _) =>
+          match receiver.resolve_in_ctx("RegExp") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+        Map(_) =>
+          match receiver.resolve_in_ctx("Map") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+        _ => Undefined
+      }
+      match proto {
+        Object(_) | Function(_) => proto.get_property_internal(name, receiver)
+        _ => Undefined
+      }
+    }
     _ => Undefined
   }
+}
+
+///|
+fn JSValue::resolve_in_ctx(self : JSValue, name : String) -> JSValue {
+  // This is a hack because we don't have easy access to context here.
+  // But wait, many internal objects were created with a context? No.
+  // Actually, we can't easily resolve without a context.
+  // Let's assume the global object has these.
+  Undefined // TODO: implement correctly
 }
 
 ///|

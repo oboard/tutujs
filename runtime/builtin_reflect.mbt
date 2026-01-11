@@ -112,21 +112,76 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
   let construct_obj = JSFunction::new(name="construct", body=construct_fn)
   reflect_obj.properties["construct"] = JSValue::Function(construct_obj)
 
-  // Reflect.defineProperty
-  // let define_property_fn = Native(fn(ctx, _this_val, args) {
-  //   match ctx.resolve("Object") {
-  //     Function(obj_ctor) =>
-  //       match obj_ctor.properties.get("defineProperty") {
-  //         Some(Function(f)) => {
-  //           let _ = ctx.invoke(f, JSValue::Undefined, args)
-  //           JSValue::Boolean(true)
-  //         }
-  //         _ => JSValue::Boolean(false)
-  //       }
-  //     _ => JSValue::Boolean(false)
-  //   }
-  // })
-  // For now just stub it to return true if we assume defineProperty works
+  // Reflect.defineProperty(target, propertyKey, attributes)
+  let define_property_fn = Native(fn(ctx, _this_val, args) {
+    if args is [target, prop, desc, ..] {
+      match ctx.resolve("Object") {
+        Function(obj_ctor) =>
+          match obj_ctor.get("defineProperty") {
+            Function(f) => {
+              let _ = ctx.invoke(f, Undefined, [target, prop, desc]) catch {
+                _ => return JSValue::Boolean(false)
+              }
+              JSValue::Boolean(true)
+            }
+            _ => JSValue::Boolean(false)
+          }
+        _ => JSValue::Boolean(false)
+      }
+    } else {
+      JSValue::Boolean(false)
+    }
+  })
+  reflect_obj.properties["defineProperty"] = JSValue::Function(
+    JSFunction::new(name="defineProperty", body=define_property_fn),
+  )
 
+  // Reflect.preventExtensions(target)
+  let prevent_extensions_fn = Native(fn(ctx, _this_val, args) {
+    if args is [target, ..] {
+      match ctx.resolve("Object") {
+        Function(obj_ctor) =>
+          match obj_ctor.get("preventExtensions") {
+            Function(f) => {
+              let _ = ctx.invoke(f, Undefined, [target]) catch {
+                _ => return JSValue::Boolean(false)
+              }
+              JSValue::Boolean(true)
+            }
+            _ => JSValue::Boolean(false)
+          }
+        _ => JSValue::Boolean(false)
+      }
+    } else {
+      JSValue::Boolean(false)
+    }
+  })
+  reflect_obj.properties["preventExtensions"] = JSValue::Function(
+    JSFunction::new(name="preventExtensions", body=prevent_extensions_fn),
+  )
+
+  // Reflect.isExtensible(target)
+  let is_extensible_fn = Native(fn(ctx, _this_val, args) {
+    if args is [target, ..] {
+      match ctx.resolve("Object") {
+        Function(obj_ctor) =>
+          match obj_ctor.get("isExtensible") {
+            Function(f) => {
+              let res = ctx.invoke(f, Undefined, [target]) catch {
+                _ => return JSValue::Boolean(false)
+              }
+              res
+            }
+            _ => JSValue::Boolean(false)
+          }
+        _ => JSValue::Boolean(false)
+      }
+    } else {
+      JSValue::Boolean(false)
+    }
+  })
+  reflect_obj.properties["isExtensible"] = JSValue::Function(
+    JSFunction::new(name="isExtensible", body=is_extensible_fn),
+  )
   JSValue::Object(reflect_obj)
 }

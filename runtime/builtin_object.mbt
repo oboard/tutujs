@@ -40,6 +40,21 @@ pub fn init_object_prototype(
       )
       obj["valueOf"] = JSValue::Function(value_of_obj)
 
+      // toLocaleString
+      let to_locale_string_fn = Native(fn(ctx, this_val, _args) {
+        let to_string = this_val.get_property("toString")
+        match to_string {
+          Function(f) => ctx.invoke(f, this_val, []) catch { e => raise e }
+          _ => JSValue::String(this_val.to_string())
+        }
+      })
+      let to_locale_string_obj = JSFunction::new(
+        name="toLocaleString",
+        body=to_locale_string_fn,
+        prototype=func_proto,
+      )
+      obj["toLocaleString"] = JSValue::Function(to_locale_string_obj)
+
       // hasOwnProperty
       let has_own_property_fn = Native(fn(_ctx, this_val, args) {
         if args is [prop, ..] {
@@ -615,13 +630,62 @@ pub fn create_object_constructor(
   // Object.getOwnPropertySymbols
   let get_own_property_symbols_fn = Native(fn(ctx, _this_val, args) {
     if args is [obj_arg, ..] {
+      // Proxy trap
+      match obj_arg {
+        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
+        | Function(
+          { proxy_target: Some(target), proxy_handler: Some(handler), .. }
+        ) => {
+          let trap = handler.get_property("ownKeys")
+          match trap {
+            Function(f) => {
+              let keys_list = ctx.invoke(f, handler, [target]) catch {
+                e => raise e
+              }
+              let array_proto = match ctx.resolve("Array") {
+                Function(f) => f.get("prototype")
+                _ => proto
+              }
+              let symbols_array = JSObject::new(
+                properties=@hashmap.new(),
+                prototype=array_proto,
+              )
+              let mut i = 0.0
+              match keys_list {
+                Object({ properties: keys_props, .. }) => {
+                  let len = match keys_props.get("length") {
+                    Some(Number(n)) => n.to_int()
+                    _ => 0
+                  }
+                  for j = 0; j < len; j = j + 1 {
+                    let k = match keys_props.get(j.to_string()) {
+                      Some(v) => v
+                      None => Undefined
+                    }
+                    match k {
+                      Symbol(id, desc) => {
+                        symbols_array[i.to_string()] = k
+                        i = i + 1.0
+                      }
+                      _ => ()
+                    }
+                  }
+                }
+                _ => ()
+              }
+              symbols_array["length"] = JSValue::Number(i)
+              return JSValue::Object(symbols_array)
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
       let obj_props = match obj_arg {
         Object({ properties, .. }) | Function({ properties, .. }) => properties
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
-            ctx.throw_type_error(
-              "Cannot convert undefined or null to object",
-            )
+            ctx.throw_type_error("Cannot convert undefined or null to object")
           }
           // For primitives, return []
           let array_proto = match ctx.resolve("Array") {
@@ -667,9 +731,8 @@ pub fn create_object_constructor(
       symbols_array["length"] = JSValue::Number(i)
       JSValue::Object(symbols_array)
     } else {
-      raise EvalError::Throw(
-        JSValue::String("TypeError: Cannot convert undefined or null to object"),
-      )
+      ctx.throw_type_error("Cannot convert undefined or null to object")
+      JSValue::Undefined
     }
   })
   let get_own_property_symbols_obj = JSFunction::new(
@@ -747,11 +810,7 @@ pub fn create_object_constructor(
         }
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
-            raise EvalError::Throw(
-              JSValue::String(
-                "TypeError: Cannot convert undefined or null to object",
-              ),
-            )
+            ctx.throw_type_error("Cannot convert undefined or null to object")
           }
           return JSValue::Undefined
         }
@@ -958,15 +1017,60 @@ pub fn create_object_constructor(
   // Object.getOwnPropertyNames
   let get_own_property_names_fn = Native(fn(ctx, _this_val, args) {
     if args is [obj_arg, ..] {
+      // Proxy trap
+      match obj_arg {
+        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
+        | Function(
+          { proxy_target: Some(target), proxy_handler: Some(handler), .. }
+        ) => {
+          let trap = handler.get_property("ownKeys")
+          match trap {
+            Function(f) => {
+              let keys_list = ctx.invoke(f, handler, [target]) catch {
+                e => raise e
+              }
+              // Convert keys_list (array-like) to Array of names
+              let array_proto = match ctx.resolve("Array") {
+                Function(f) => f.get("prototype")
+                _ => proto
+              }
+              let names_array = JSObject::new(
+                properties=@hashmap.new(),
+                prototype=array_proto,
+              )
+              let mut i = 0.0
+              match keys_list {
+                Object({ properties: keys_props, .. }) => {
+                  let len = match keys_props.get("length") {
+                    Some(Number(n)) => n.to_int()
+                    _ => 0
+                  }
+                  for j = 0; j < len; j = j + 1 {
+                    let k = match keys_props.get(j.to_string()) {
+                      Some(v) => v.to_string()
+                      None => ""
+                    }
+                    if not(k.has_prefix("Symbol(")) {
+                      names_array[i.to_string()] = JSValue::String(k)
+                      i = i + 1.0
+                    }
+                  }
+                }
+                _ => ()
+              }
+              names_array["length"] = JSValue::Number(i)
+              return JSValue::Object(names_array)
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
       let obj_props = match obj_arg {
         Object({ properties, .. }) | Function({ properties, .. }) => properties
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
-            raise EvalError::Throw(
-              JSValue::String(
-                "TypeError: Cannot convert undefined or null to object",
-              ),
-            )
+            ctx.throw_type_error("Cannot convert undefined or null to object")
           }
           // For primitives, return their keys (e.g. string indices)
           let array_proto = match ctx.resolve("Array") {

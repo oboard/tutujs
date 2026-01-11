@@ -44,7 +44,63 @@ pub fn create_date_object(object_proto : JSValue) -> JSValue {
       _ => false
     }
     if is_constructor_call {
-      let zdt_opt = if args is [arg0, ..] {
+      let zdt_opt = if args is [y_val, m_val, ..] {
+        match (y_val, m_val) {
+          (Number(y), Number(m)) => {
+            let d = if args.length() > 2 {
+              match args[2] {
+                Number(d) => d.to_int()
+                _ => 1
+              }
+            } else {
+              1
+            }
+            let h = if args.length() > 3 {
+              match args[3] {
+                Number(h) => h.to_int()
+                _ => 0
+              }
+            } else {
+              0
+            }
+            let min = if args.length() > 4 {
+              match args[4] {
+                Number(min) => min.to_int()
+                _ => 0
+              }
+            } else {
+              0
+            }
+            let s = if args.length() > 5 {
+              match args[5] {
+                Number(s) => s.to_int()
+                _ => 0
+              }
+            } else {
+              0
+            }
+            let year = if y >= 0.0 && y < 100.0 {
+              y.to_int() + 1900
+            } else {
+              y.to_int()
+            }
+            Some(
+              @time.date_time(
+                year,
+                m.to_int() + 1,
+                d,
+                hour=h,
+                minute=min,
+                second=s,
+                zone~,
+              ),
+            ) catch {
+              _ => None
+            }
+          }
+          _ => None
+        }
+      } else if args is [arg0, ..] {
         match arg0 {
           Number(n) =>
             Some(

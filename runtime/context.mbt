@@ -171,6 +171,22 @@ pub fn Context::create_global() -> Context {
   number_proto_props.set("constructor", number_ctor_val)
   ctx.scope.set("Number", number_ctor_val)
 
+  // BigInt.prototype
+  let bigint_proto_props = @hashmap.new()
+  let bigint_proto = JSObject::new(
+    properties=bigint_proto_props,
+    prototype=object_proto_val,
+  )
+  let bigint_proto_val = JSValue::Object(bigint_proto)
+  init_bigint_prototype(bigint_proto_val, func_proto_val)
+
+  // BigInt Constructor
+  let bigint_ctor_val = create_bigint_constructor(
+    bigint_proto_val, func_proto_val,
+  )
+  bigint_proto_props.set("constructor", bigint_ctor_val)
+  ctx.scope.set("BigInt", bigint_ctor_val)
+
   // Console Object
   let console_val = create_console_object(object_proto_val)
   ctx.scope.set("console", console_val)
