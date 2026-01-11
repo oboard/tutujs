@@ -101,9 +101,9 @@ pub fn init_string_prototype(
           Function(f) => f.properties.get("prototype")
           _ => None
         }
-        let arr_obj = JSObject::{
-          properties: @hashmap.new(),
-          prototype: array_proto,
+        let arr_obj = match array_proto {
+          Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
+          None => JSObject::new(properties=@hashmap.new())
         }
         arr_obj.properties["length"] = JSValue::Number(1.0)
         arr_obj.properties["0"] = JSValue::String(s)
@@ -129,7 +129,7 @@ pub fn create_string_constructor(
   let ctor_fn = Native(fn(ctx, this_val, args) {
     let (val_str, is_symbol) = if args is [arg, ..] {
       match arg {
-        Symbol(s) => ("Symbol(" + s + ")", true)
+        Symbol(_, s) => ("Symbol(" + s + ")", true)
         _ => (js_to_string(ctx, arg) catch { e => raise e }, false)
       }
     } else {

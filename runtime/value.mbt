@@ -1,21 +1,73 @@
+let object_id_counter : Ref[Int] = Ref::new(0)
+fn next_object_id() -> Int {
+  object_id_counter.val = object_id_counter.val + 1
+  object_id_counter.val
+}
+
 ///|
 pub(all) enum JSValue {
   String(StringView)
   Number(Double)
   Boolean(Bool)
   BigInt(BigInt)
-  Symbol(String)
+  Symbol(Int, String)
   Function(JSFunction)
   Object(JSObject)
   Null
   Undefined
   Internal(JSInternal)
-} derive(Eq, ToJson, Compare, FromJson, Hash)
+} derive(ToJson, Compare, FromJson)
+
+///|
+pub impl Eq for JSValue with equal(self, other) {
+  match (self, other) {
+    (Undefined, Undefined) => true
+    (Null, Null) => true
+    (Boolean(a), Boolean(b)) => a == b
+    (Number(a), Number(b)) => 
+      if a.is_nan() && b.is_nan() {
+        true
+      } else {
+        a == b
+      }
+    (String(a), String(b)) => a == b
+    (BigInt(a), BigInt(b)) => a == b
+    (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
+    (Object(a), Object(b)) => a._id == b._id
+    (Function(a), Function(b)) => a._id == b._id
+    (Internal(a), Internal(b)) => a == b
+    _ => false
+  }
+}
+
+///|
+pub impl Hash for JSValue with hash_combine(self, hasher) {
+  match self {
+    Undefined => hasher.combine(0)
+    Null => hasher.combine(1)
+    Boolean(b) => hasher.combine(if b { 2 } else { 3 })
+    Number(n) => 
+       if n.is_nan() {
+          hasher.combine("NaN") // Stable hash for NaN
+       } else if n == 0.0 { // Handle -0.0
+          hasher.combine(0.0) 
+       } else {
+          hasher.combine(n)
+       }
+    String(s) => hasher.combine(s)
+    BigInt(i) => hasher.combine(i)
+    Symbol(id, _) => hasher.combine(id)
+    Object(o) => hasher.combine(o._id)
+    Function(f) => hasher.combine(f._id)
+    Internal(i) => hasher.combine(i)
+  }
+}
 
 ///|
 pub(all) enum JSInternal {
   Date(@time.ZonedDateTime)
   RegExp(@regexp.Regexp, String)
+  Map(@hashmap.HashMap[JSValue, JSValue])
   Accessor(JSFunction?, JSFunction?) // Getter, Setter
 }
 
@@ -25,6 +77,7 @@ pub impl Eq for JSInternal with equal(self, other) {
     (Date(d1), Date(d2)) => d1.to_string() == d2.to_string()
     (RegExp(_, s1), RegExp(_, s2)) => s1 == s2
     (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
+    (Map(m1), Map(m2)) => physical_equal(m1, m2) // Use reference equality for Map internal data
     _ => false
   }
 }
@@ -53,6 +106,7 @@ pub impl Hash for JSInternal with hash_combine(self, hasher) {
       hasher.combine(g)
       hasher.combine(s)
     }
+    Map(_) => hasher.combine("Map") // Maps don't have ID yet in JSInternal, but JSValue::Internal is rarely a key
   }
 }
 
@@ -62,6 +116,7 @@ pub impl Show for JSInternal with output(self, logger) {
     Date(d) => logger.write_string("Date(" + d.to_string() + ")")
     RegExp(_, s) => logger.write_string("RegExp(/" + s + "/)")
     Accessor(_, _) => logger.write_string("[Accessor]")
+    Map(_) => logger.write_string("[Map]")
   }
 }
 
@@ -72,7 +127,7 @@ pub impl Show for JSValue with output(self, logger) {
     Number(n) => n.output(logger)
     Boolean(b) => b.output(logger)
     BigInt(i) => i.output(logger)
-    Symbol(s) => logger.write_string("Symbol(" + s + ")")
+    Symbol(_, s) => logger.write_string("Symbol(" + s + ")")
     Function(f) =>
       logger.write_string("Function: " + f.name.unwrap_or("anonymous"))
     Object(_) => logger.write_string("[object Object]")
@@ -111,6 +166,7 @@ pub impl FromJson for FunctionBody with from_json(_, _) {
 
 ///|
 pub(all) struct JSFunction {
+  _id : Int
   name : String?
   params : Array[String]
   body : FunctionBody
@@ -153,6 +209,7 @@ pub fn JSFunction::new(
       }
   }
   {
+    _id: next_object_id(),
     name,
     params,
     body,
@@ -174,6 +231,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     strict: false,
   }
   {
+    _id: next_object_id(),
     name: None,
     params: [],
     body: User(@parser.BlockStatement::{ body: [], directives: [] }),
@@ -187,10 +245,23 @@ pub impl FromJson for JSFunction with from_json(_, _) {
 
 ///|
 pub(all) struct JSObject {
+  _id : Int
   properties : @hashmap.HashMap[String, JSValue]
   /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
   prototype : JSValue?
 } derive(Show, Eq)
+
+///|
+pub fn JSObject::new(
+   properties? : @hashmap.HashMap[String, JSValue],
+   prototype? : JSValue
+) -> JSObject {
+   {
+      _id: next_object_id(),
+      properties: properties.unwrap_or(@hashmap.new()),
+      prototype
+   }
+}
 
 ///|
 pub fn JSObject::op_set(self : JSObject, key : String, value : JSValue) -> Unit {
@@ -209,7 +280,7 @@ pub impl ToJson for JSObject with to_json(_) {
 
 ///|
 pub impl FromJson for JSObject with from_json(_, _) {
-  { properties: @hashmap.new(), prototype: None }
+  { _id: next_object_id(), properties: @hashmap.new(), prototype: None }
 }
 
 ///|
@@ -219,10 +290,7 @@ pub impl Compare for JSObject with compare(_, _) -> Int {
 
 ///|
 pub impl Hash for JSObject with hash_combine(self, hasher) -> Unit {
-  self.properties.each(fn(k, v) {
-    hasher.combine(k)
-    hasher.combine(v)
-  })
+  hasher.combine(self._id)
 }
 
 ///|
@@ -232,13 +300,7 @@ pub impl Compare for JSFunction with compare(_, _) -> Int {
 
 ///|
 pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
-  hasher.combine(self.name)
-  hasher.combine(self.params)
-  hasher.combine(self.context)
-  match self.body {
-    User(_) => hasher.combine("user")
-    Native(_) => hasher.combine("native")
-  }
+  hasher.combine(self._id)
 }
 
 ///|
@@ -414,7 +476,7 @@ pub fn JSValue::is_truthy(self : JSValue) -> Bool {
     Number(n) => n != 0.0 && not(n.is_nan())
     Boolean(b) => b
     BigInt(i) => i != 0
-    Symbol(_) => true
+    Symbol(_, _) => true
     Function(_) => true
     Object(_) => true
     Null => false
@@ -452,6 +514,6 @@ pub fn JSValue::to_number(self : JSValue) -> Double {
       @strconv.parse_double(i.to_string()) catch {
         _ => @double.not_a_number
       }
-    Symbol(_) => @double.not_a_number // TypeError in JS usually
+    Symbol(_, _) => @double.not_a_number // TypeError in JS usually
   }
 }

@@ -197,9 +197,10 @@ fn Context::evaluate(
             _ => None
           }
           let proto_props = @hashmap.new()
-          let proto_obj = JSObject::{
-            properties: proto_props,
-            prototype: obj_proto,
+          let proto_obj = match obj_proto {
+            Some(p) =>
+              JSObject::new(properties=proto_props, prototype=p)
+            None => JSObject::new(properties=proto_props)
           }
           let proto_val = JSValue::Object(proto_obj)
           proto_props.set("constructor", func_val)
@@ -689,10 +690,14 @@ fn Context::evaluate(
                 Some(p) => Some(p)
                 None => Some(Null)
               }
-              let new_obj = JSValue::Object({
-                properties: @hashmap.new(),
-                prototype: proto,
-              })
+              let new_obj = match proto {
+                Some(p) =>
+                  JSValue::Object(
+                    JSObject::new(properties=@hashmap.new(), prototype=p),
+                  )
+                None =>
+                  JSValue::Object(JSObject::new(properties=@hashmap.new()))
+              }
               let res = match func.body {
                 User(block) => {
                   let new_ctx = new(parent=func.context, strict=func.strict)
@@ -863,10 +868,14 @@ fn Context::evaluate(
                 Some(p) => Some(p)
                 None => Some(Null)
               }
-              let new_obj = JSValue::Object(JSObject::{
-                properties: @hashmap.new(),
-                prototype: proto,
-              })
+              let new_obj = match proto {
+                Some(p) =>
+                  JSValue::Object(
+                    JSObject::new(properties=@hashmap.new(), prototype=p),
+                  )
+                None =>
+                  JSValue::Object(JSObject::new(properties=@hashmap.new()))
+              }
               let args = [pattern_val, flags_val]
               let res = self.invoke(f, new_obj, args)
               match res {
@@ -1088,7 +1097,9 @@ fn Context::evaluate(
               }
             _ => Null
           }
-          Object({ properties: obj_props, prototype: Some(object_proto) })
+          Object(
+            JSObject::new(properties=obj_props, prototype=object_proto),
+          )
         }
         ArrayLiteralExpression({ elements }) => {
           let arr_props = @hashmap.new()
@@ -1113,7 +1124,12 @@ fn Context::evaluate(
               }
             _ => Some(Null)
           }
-          Object({ properties: arr_props, prototype: proto })
+          Object(
+            match proto {
+              Some(p) => JSObject::new(properties=arr_props, prototype=p)
+              None => JSObject::new(properties=arr_props)
+            },
+          )
         }
         FunctionExpression({ id, params, body, .. }) => {
           let param_names = []
@@ -1147,9 +1163,10 @@ fn Context::evaluate(
             _ => None
           }
           let proto_props = @hashmap.new()
-          let proto_obj = JSObject::{
-            properties: proto_props,
-            prototype: obj_proto,
+          let proto_obj = match obj_proto {
+            Some(p) =>
+              JSObject::new(properties=proto_props, prototype=p)
+            None => JSObject::new(properties=proto_props)
           }
           let proto_val = JSValue::Object(proto_obj)
           proto_props.set("constructor", func_val)

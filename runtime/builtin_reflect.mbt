@@ -1,9 +1,9 @@
 ///|
 pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
-  let reflect_obj = JSObject::{
-    properties: @hashmap.new(),
-    prototype: Some(object_proto),
-  }
+  let reflect_obj = JSObject::new(
+    properties=@hashmap.new(),
+    prototype=object_proto,
+  )
 
   // Reflect.construct(target, argumentsList[, newTarget])
   let construct_fn = Native(fn(ctx, _this_val, args) {
@@ -90,10 +90,14 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
             }
           _ => Some(Null)
         }
-        let new_obj = JSValue::Object({
-          properties: @hashmap.new(),
-          prototype: proto,
-        })
+        let new_obj = match proto {
+          Some(p) =>
+            JSValue::Object(
+              JSObject::new(properties=@hashmap.new(), prototype=p),
+            )
+          None =>
+            JSValue::Object(JSObject::new(properties=@hashmap.new()))
+        }
         let res = ctx.invoke(func, new_obj, args_array) catch {
           EvalError::Return(v) => v // Constructors can return object to override 'this'
           e => raise e

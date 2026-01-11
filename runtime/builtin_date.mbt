@@ -1,10 +1,10 @@
 ///|
 pub fn create_date_object(object_proto : JSValue) -> JSValue {
   let date_proto_props = @hashmap.new()
-  let date_proto = JSValue::Object(JSObject::{
-    properties: date_proto_props,
-    prototype: Some(object_proto),
-  })
+  let date_proto = JSValue::Object(JSObject::new(
+    properties=date_proto_props,
+    prototype=object_proto,
+  ))
 
   // Helpers for formatting
   let week_days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

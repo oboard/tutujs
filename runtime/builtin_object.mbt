@@ -205,11 +205,11 @@ pub fn create_object_constructor(
       match val {
         Object(_) => val
         Null | Undefined =>
-          Object({ properties: @hashmap.new(), prototype: Some(proto) })
+          Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
         _ => val // TODO: Box primitive
       }
     } else {
-      Object({ properties: @hashmap.new(), prototype: Some(proto) })
+      Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
     }
   })
   let object_fn = JSFunction::new(
@@ -223,10 +223,10 @@ pub fn create_object_constructor(
   // Object.keys
   let keys_fn = Native(fn(_ctx, _this_val, args) {
     if args is [Object({ properties, .. }), ..] {
-      let keys_array = JSObject::{
-        properties: @hashmap.new(),
-        prototype: Some(proto),
-      } // Should be Array.prototype ideally
+      let keys_array = JSObject::new(
+        properties=@hashmap.new(),
+        prototype=proto,
+      ) // Should be Array.prototype ideally
       let mut i = 0.0
       // Handle String exotic object indices
       let is_string_obj = properties.contains("PrimitiveValue") &&
@@ -289,10 +289,9 @@ pub fn create_object_constructor(
     if args is [proto_arg, ..] {
       match proto_arg {
         Object(_) | Null =>
-          JSValue::Object({
-            properties: @hashmap.new(),
-            prototype: Some(proto_arg),
-          })
+          JSValue::Object(
+            JSObject::new(properties=@hashmap.new(), prototype=proto_arg),
+          )
         _ => JSValue::Undefined // TypeError
       }
     } else {
@@ -435,10 +434,10 @@ pub fn create_object_constructor(
             None => ' '
           }
           let char_str = String::make(1, c)
-          let desc = JSObject::{
-            properties: @hashmap.new(),
-            prototype: Some(proto),
-          }
+          let desc = JSObject::new(
+            properties=@hashmap.new(),
+            prototype=proto,
+          )
           desc["value"] = JSValue::String(char_str)
           desc["writable"] = JSValue::Boolean(false)
           desc["enumerable"] = JSValue::Boolean(true)
@@ -448,10 +447,10 @@ pub fn create_object_constructor(
       }
       match obj_props.get(prop) {
         Some(val) => {
-          let desc = JSObject::{
-            properties: @hashmap.new(),
-            prototype: Some(proto),
-          }
+          let desc = JSObject::new(
+            properties=@hashmap.new(),
+            prototype=proto,
+          )
           match val {
             Internal(Accessor(getter, setter)) => {
               desc["get"] = getter
@@ -512,12 +511,37 @@ pub fn create_object_constructor(
                   | "parseInt"
                   | "parseFloat"
                   | "isNaN"
-                  | "isFinite") {
+                  | "isFinite"
+                  | "Map") {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
               }
               if is_func && (prop == "length" || prop == "name") {
                 // println("DEBUG: func " + prop + " configurable=" + desc["configurable"].to_string())
+              }
+              // Map.prototype methods (heuristic)
+              if prop
+                is ("get"
+                | "set"
+                | "has"
+                | "delete"
+                | "clear"
+                | "size"
+                | "entries"
+                | "keys"
+                | "values"
+                | "forEach"
+                | "getOrInsertComputed") {
+                // Check if object looks like Map.prototype (has Symbol.toStringTag = Map)
+                // Or just blindly force them non-enumerable if they are functions?
+                // This might be too aggressive for user objects.
+                // Better check if it is exactly Map.prototype.
+                // But I don't have access to Map.prototype here easily.
+                // Check for Symbol.toStringTag property.
+                if obj_props.get("Symbol.toStringTag") ==
+                  Some(JSValue::String("Map")) {
+                  desc["enumerable"] = JSValue::Boolean(false)
+                }
               }
             }
           }
@@ -567,10 +591,10 @@ pub fn create_object_constructor(
         Object({ properties, .. }) | Function({ properties, .. }) => properties
         _ => return JSValue::Undefined // TypeError
       }
-      let names_array = JSObject::{
-        properties: @hashmap.new(),
-        prototype: Some(proto),
-      } // Array.prototype
+      let names_array = JSObject::new(
+        properties=@hashmap.new(),
+        prototype=proto,
+      ) // Array.prototype
       let mut i = 0.0
       // Handle String indices
       let is_string_obj = obj_props.contains("PrimitiveValue") &&

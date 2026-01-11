@@ -8,7 +8,7 @@ pub fn init_symbol_prototype(
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
-          Symbol(s) => JSValue::String("Symbol(" + s + ")")
+          Symbol(_, s) => JSValue::String("Symbol(" + s + ")")
           _ => JSValue::String("Symbol()")
         }
       })
@@ -35,7 +35,7 @@ pub fn create_symbol_constructor(
     }
     // Note: This does not guarantee uniqueness, which is not spec compliant.
     // TODO: Implement unique symbols
-    JSValue::Symbol(desc)
+    JSValue::Symbol(next_object_id(), desc)
   })
   let ctor = JSFunction::new(
     name="Symbol",
@@ -47,7 +47,7 @@ pub fn create_symbol_constructor(
   match ctor_val {
     Function(f) => {
       f.properties["prototype"] = symbol_proto_val
-      f.properties["iterator"] = JSValue::Symbol("Symbol.iterator")
+      f.properties["iterator"] = JSValue::Symbol(next_object_id(), "Symbol.iterator")
     }
     _ => ()
   }

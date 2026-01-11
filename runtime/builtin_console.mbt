@@ -24,5 +24,5 @@ pub fn create_console_object(object_proto : JSValue) -> JSValue {
       ),
     ),
   )
-  Object({ properties: props, prototype: Some(object_proto) })
+  Object(JSObject::new(properties=props, prototype=object_proto))
 }

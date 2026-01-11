@@ -123,10 +123,10 @@ pub fn init_array_prototype(
               } else {
                 JSValue::Undefined
               }
-              let new_array = JSObject::{
-                properties: @hashmap.new(),
-                prototype: Some(array_proto_val),
-              }
+              let new_array = JSObject::new(
+                properties=@hashmap.new(),
+                prototype=array_proto_val,
+              )
               new_array["length"] = JSValue::Number(len)
               for i = 0; i < len.to_int(); i = i + 1 {
                 let key = i.to_string()
@@ -169,10 +169,10 @@ pub fn init_array_prototype(
               } else {
                 JSValue::Undefined
               }
-              let new_array = JSObject::{
-                properties: @hashmap.new(),
-                prototype: Some(array_proto_val),
-              }
+              let new_array = JSObject::new(
+                properties=@hashmap.new(),
+                prototype=array_proto_val,
+              )
               let mut new_len = 0.0
               for i = 0; i < len.to_int(); i = i + 1 {
                 let key = i.to_string()
@@ -573,10 +573,10 @@ pub fn init_array_prototype(
             if end_k > len_int {
               end_k = len_int
             }
-            let new_array = JSObject::{
-              properties: @hashmap.new(),
-              prototype: Some(array_proto_val),
-            }
+            let new_array = JSObject::new(
+              properties=@hashmap.new(),
+              prototype=array_proto_val,
+            )
             let mut n = 0
             while k < end_k {
               let key = k.to_string()
@@ -755,10 +755,10 @@ pub fn init_array_prototype(
             } else {
               []
             }
-            let deleted_elements = JSObject::{
-              properties: @hashmap.new(),
-              prototype: Some(array_proto_val),
-            }
+            let deleted_elements = JSObject::new(
+              properties=@hashmap.new(),
+              prototype=array_proto_val,
+            )
             for k = 0; k < delete_count; k = k + 1 {
               let from = (actual_start + k).to_string()
               match properties.get(from) {
@@ -831,35 +831,32 @@ pub fn init_array_prototype(
                   None => JSValue::Undefined
                 }
                 index_box[0] = idx + 1
-                let res = JSObject::{
-                  properties: @hashmap.new(),
-                  prototype: None,
-                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
                 res["value"] = val
                 res["done"] = JSValue::Boolean(false)
                 JSValue::Object(res)
               } else {
-                let res = JSObject::{
-                  properties: @hashmap.new(),
-                  prototype: None,
-                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
                 res["value"] = JSValue::Undefined
                 res["done"] = JSValue::Boolean(true)
                 JSValue::Object(res)
               }
             }
             _ => {
-              let res = JSObject::{
-                properties: @hashmap.new(),
-                prototype: None,
-              }
+              let res = JSObject::new(
+                properties=@hashmap.new(),
+              )
               res["value"] = JSValue::Undefined
               res["done"] = JSValue::Boolean(true)
               JSValue::Object(res)
             }
           }
         })
-        let iter_obj = JSObject::{ properties: @hashmap.new(), prototype: None }
+        let iter_obj = JSObject::new(properties=@hashmap.new())
         let next_func_obj = JSFunction::new(
           name="next",
           body=next_fn,
@@ -961,10 +958,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                     _ => JSValue::Undefined
                   }
               }
-              let obj = JSObject::{
-                properties: @hashmap.new(),
-                prototype: Some(proto),
-              }
+              let obj = JSObject::new(
+                properties=@hashmap.new(),
+                prototype=proto,
+              )
               let this_obj = JSValue::Object(obj)
               let res = ctx.invoke(ctor, this_obj, []) catch { _ => this_obj }
               match res {
@@ -977,9 +974,9 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                 Function(f) => f.properties.get("prototype")
                 _ => None
               }
-              JSValue::Object(JSObject::{
-                properties: @hashmap.new(),
-                prototype: proto,
+              JSValue::Object(match proto {
+                 Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
+                 None => JSObject::new(properties=@hashmap.new())
               })
             }
           }
@@ -1065,10 +1062,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                   _ => JSValue::Undefined
                 }
             }
-            let obj = JSObject::{
-              properties: @hashmap.new(),
-              prototype: Some(proto),
-            }
+            let obj = JSObject::new(
+              properties=@hashmap.new(),
+              prototype=proto,
+            )
             let this_obj = JSValue::Object(obj)
             let res = ctx.invoke(ctor, this_obj, [
               JSValue::Number(len.to_double()),
@@ -1087,7 +1084,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
               Function(f) => f.properties.get("prototype")
               _ => None
             }
-            let obj = JSObject::{ properties: @hashmap.new(), prototype: proto }
+            let obj = match proto {
+              Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
+              None => JSObject::new(properties=@hashmap.new())
+            }
             obj.properties["length"] = JSValue::Number(len.to_double())
             JSValue::Object(obj)
           }

@@ -64,18 +64,17 @@ pub fn Context::create_global() -> Context {
 
   // Object.prototype
   let object_proto_props = @hashmap.new()
-  let object_proto = JSObject::{
-    properties: object_proto_props,
-    prototype: None,
-  }
+  let object_proto = JSObject::new(
+    properties=object_proto_props,
+  )
   let object_proto_val = JSValue::Object(object_proto)
 
   // Function.prototype
   let func_proto_props = @hashmap.new()
-  let func_proto = JSObject::{
-    properties: func_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let func_proto = JSObject::new(
+    properties=func_proto_props,
+    prototype=object_proto_val,
+  )
   let func_proto_val = JSValue::Object(func_proto)
   init_object_prototype(object_proto_val, func_proto_val)
   init_function_prototype(func_proto_val)
@@ -96,10 +95,10 @@ pub fn Context::create_global() -> Context {
 
   // Array.prototype
   let array_proto_props = @hashmap.new()
-  let array_proto = JSObject::{
-    properties: array_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let array_proto = JSObject::new(
+    properties=array_proto_props,
+    prototype=object_proto_val,
+  )
   let array_proto_val = JSValue::Object(array_proto)
   init_array_prototype(array_proto_val, func_proto_val)
 
@@ -123,7 +122,7 @@ pub fn Context::create_global() -> Context {
       }
     }
     arr_props.set("length", Number(len))
-    Object({ properties: arr_props, prototype: Some(array_proto_val) })
+    Object(JSObject::new(properties=arr_props, prototype=array_proto_val))
   })
   let array_fn_props = @hashmap.new()
   array_fn_props.set("prototype", array_proto_val)
@@ -144,10 +143,10 @@ pub fn Context::create_global() -> Context {
 
   // String.prototype
   let string_proto_props = @hashmap.new()
-  let string_proto = JSObject::{
-    properties: string_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let string_proto = JSObject::new(
+    properties=string_proto_props,
+    prototype=object_proto_val,
+  )
   let string_proto_val = JSValue::Object(string_proto)
   init_string_prototype(string_proto_val, func_proto_val)
 
@@ -160,10 +159,10 @@ pub fn Context::create_global() -> Context {
 
   // Number.prototype
   let number_proto_props = @hashmap.new()
-  let number_proto = JSObject::{
-    properties: number_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let number_proto = JSObject::new(
+    properties=number_proto_props,
+    prototype=object_proto_val,
+  )
   let number_proto_val = JSValue::Object(number_proto)
   init_number_prototype(number_proto_val, func_proto_val)
 
@@ -181,10 +180,10 @@ pub fn Context::create_global() -> Context {
   // Boolean.prototype
   let boolean_proto_props = @hashmap.new()
   boolean_proto_props.set("PrimitiveValue", JSValue::Boolean(false))
-  let boolean_proto = JSObject::{
-    properties: boolean_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let boolean_proto = JSObject::new(
+    properties=boolean_proto_props,
+    prototype=object_proto_val,
+  )
   let boolean_proto_val = JSValue::Object(boolean_proto)
   init_boolean_prototype(boolean_proto_val, func_proto_val)
 
@@ -209,10 +208,10 @@ pub fn Context::create_global() -> Context {
 
   // Symbol.prototype
   let symbol_proto_props = @hashmap.new()
-  let symbol_proto = JSObject::{
-    properties: symbol_proto_props,
-    prototype: Some(object_proto_val),
-  }
+  let symbol_proto = JSObject::new(
+    properties=symbol_proto_props,
+    prototype=object_proto_val,
+  )
   let symbol_proto_val = JSValue::Object(symbol_proto)
   init_symbol_prototype(symbol_proto_val, func_proto_val)
 
@@ -255,14 +254,28 @@ pub fn Context::create_global() -> Context {
   let reflect_val = create_reflect_object(object_proto_val)
   ctx.scope.set("Reflect", reflect_val)
 
+  // Map.prototype
+  let map_proto_props = @hashmap.new()
+  let map_proto = JSObject::new(
+    properties=map_proto_props,
+    prototype=object_proto_val,
+  )
+  let map_proto_val = JSValue::Object(map_proto)
+  init_map_prototype(map_proto_val, func_proto_val)
+
+  // Map Constructor
+  let map_ctor_val = create_map_constructor(map_proto_val, func_proto_val)
+  map_proto_props.set("constructor", map_ctor_val)
+  ctx.scope.set("Map", map_ctor_val)
+
   // Global functions (eval, isNaN, etc.)
   init_global_functions(ctx)
 
   // Create global object
-  let global_obj = JSObject::{
-    properties: ctx.scope,
-    prototype: Some(object_proto_val),
-  }
+  let global_obj = JSObject::new(
+    properties=ctx.scope,
+    prototype=object_proto_val,
+  )
   let global_val = JSValue::Object(global_obj)
   ctx.scope.set("this", global_val)
   ctx.scope.set("globalThis", global_val)
