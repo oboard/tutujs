@@ -468,12 +468,12 @@ pub fn create_object_constructor(
               desc["enumerable"] = JSValue::Boolean(true)
               desc["configurable"] = JSValue::Boolean(true)
               if is_func {
-                if prop == "length" || prop == "name" {
+                if prop is ("length" | "name") {
                   desc["writable"] = JSValue::Boolean(false)
                   desc["enumerable"] = JSValue::Boolean(false)
                   desc["configurable"] = JSValue::Boolean(true)
                 }
-                if prop == "caller" || prop == "arguments" {
+                if prop is ("caller" | "arguments") {
                   desc["enumerable"] = JSValue::Boolean(false)
                   desc["configurable"] = JSValue::Boolean(false)
                 }

@@ -22,6 +22,17 @@ fn Context::eval_ast(
   if strict {
     self.strict = true
   }
+
+  // Hoist FunctionDeclarations
+  for node in ast.body {
+    match node {
+      FunctionDeclaration(_) =>
+        try self.evaluate(Statement(node)) |> ignore catch {
+          _ => ()
+        }
+      _ => ()
+    }
+  }
   let mut res = JSValue::Undefined
   for node in ast.body {
     try {
@@ -111,6 +122,14 @@ pub fn Context::invoke(
       }
       let mut res = JSValue::Undefined
       try {
+        // Hoist FunctionDeclarations
+        for stmt in block.body {
+          match stmt {
+            FunctionDeclaration(_) =>
+              new_ctx.evaluate(Statement(stmt)) |> ignore
+            _ => ()
+          }
+        }
         for stmt in block.body {
           res = new_ctx.evaluate(Statement(stmt))
         }
@@ -397,31 +416,32 @@ fn Context::evaluate(
                         enumerable = false
                       }
                       // Global object properties (heuristic)
-                      if k == "String" ||
-                        k == "Number" ||
-                        k == "Boolean" ||
-                        k == "Array" ||
-                        k == "Object" ||
-                        k == "Function" ||
-                        k == "Math" ||
-                        k == "Date" ||
-                        k == "RegExp" ||
-                        k == "Error" ||
-                        k == "JSON" ||
-                        k == "Reflect" ||
-                        k == "eval" ||
-                        k == "parseInt" ||
-                        k == "parseFloat" ||
-                        k == "isNaN" ||
-                        k == "isFinite" ||
-                        k == "SyntaxError" ||
-                        k == "TypeError" ||
-                        k == "RangeError" ||
-                        k == "ReferenceError" ||
-                        k == "URIError" ||
-                        k == "EvalError" ||
-                        k == "console" ||
-                        k == "globalThis" {
+                      if k
+                        is ("String"
+                        | "Number"
+                        | "Boolean"
+                        | "Array"
+                        | "Object"
+                        | "Function"
+                        | "Math"
+                        | "Date"
+                        | "RegExp"
+                        | "Error"
+                        | "JSON"
+                        | "Reflect"
+                        | "eval"
+                        | "parseInt"
+                        | "parseFloat"
+                        | "isNaN"
+                        | "isFinite"
+                        | "SyntaxError"
+                        | "TypeError"
+                        | "RangeError"
+                        | "ReferenceError"
+                        | "URIError"
+                        | "EvalError"
+                        | "console"
+                        | "globalThis") {
                         // Check if we are iterating global object?
                         // If we are iterating a scope object (which is global object in my implementation)
                         // But for-in can iterate any object.
@@ -677,6 +697,14 @@ fn Context::evaluate(
                   }
                   let mut ret_val = JSValue::Undefined
                   try {
+                    // Hoist FunctionDeclarations
+                    for stmt in block.body {
+                      match stmt {
+                        FunctionDeclaration(_) =>
+                          new_ctx.evaluate(Statement(stmt)) |> ignore
+                        _ => ()
+                      }
+                    }
                     for stmt in block.body {
                       ret_val = new_ctx.evaluate(Statement(stmt))
                     }
