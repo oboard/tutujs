@@ -47,17 +47,44 @@ pub fn create_symbol_constructor(
   match ctor_val {
     Function(f) => {
       f.properties["prototype"] = symbol_proto_val
-      f.properties["iterator"] = JSValue::Symbol(next_object_id(), "Symbol.iterator")
-      f.properties["toStringTag"] = JSValue::Symbol(next_object_id(), "Symbol.toStringTag")
-      f.properties["hasInstance"] = JSValue::Symbol(next_object_id(), "Symbol.hasInstance")
-      f.properties["isConcatSpreadable"] = JSValue::Symbol(next_object_id(), "Symbol.isConcatSpreadable")
+      f.properties["iterator"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.iterator",
+      )
+      f.properties["toStringTag"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.toStringTag",
+      )
+      f.properties["hasInstance"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.hasInstance",
+      )
+      f.properties["isConcatSpreadable"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.isConcatSpreadable",
+      )
       f.properties["match"] = JSValue::Symbol(next_object_id(), "Symbol.match")
-      f.properties["replace"] = JSValue::Symbol(next_object_id(), "Symbol.replace")
-      f.properties["search"] = JSValue::Symbol(next_object_id(), "Symbol.search")
-      f.properties["species"] = JSValue::Symbol(next_object_id(), "Symbol.species")
+      f.properties["replace"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.replace",
+      )
+      f.properties["search"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.search",
+      )
+      f.properties["species"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.species",
+      )
       f.properties["split"] = JSValue::Symbol(next_object_id(), "Symbol.split")
-      f.properties["toPrimitive"] = JSValue::Symbol(next_object_id(), "Symbol.toPrimitive")
-      f.properties["unscopables"] = JSValue::Symbol(next_object_id(), "Symbol.unscopables")
+      f.properties["toPrimitive"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.toPrimitive",
+      )
+      f.properties["unscopables"] = JSValue::Symbol(
+        next_object_id(),
+        "Symbol.unscopables",
+      )
     }
     _ => ()
   }

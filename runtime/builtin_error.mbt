@@ -3,10 +3,9 @@ pub fn create_error_prototype(object_proto : JSValue) -> JSValue {
   let proto_props = @hashmap.new()
   proto_props.set("name", JSValue::String("Error"))
   proto_props.set("message", JSValue::String(""))
-  let proto = JSValue::Object(JSObject::new(
-    properties=proto_props,
-    prototype=object_proto,
-  ))
+  let proto = JSValue::Object(
+    JSObject::new(properties=proto_props, prototype=object_proto),
+  )
 
   // Error.prototype.toString
   let to_string_fn = Native(fn(_ctx, this_val, _args) {
@@ -76,9 +75,8 @@ pub fn create_native_error_constructor(
   let proto_props = @hashmap.new()
   proto_props.set("name", JSValue::String(name))
   proto_props.set("message", JSValue::String(""))
-  let proto = JSValue::Object(JSObject::new(
-    properties=proto_props,
-    prototype=error_proto,
-  ))
+  let proto = JSValue::Object(
+    JSObject::new(properties=proto_props, prototype=error_proto),
+  )
   create_error_constructor(name, proto, func_proto)
 }

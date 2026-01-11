@@ -148,6 +148,7 @@ pub(all) enum AssignmentOperator {
   LogicalAndAssign
   LogicalOrAssign
   NullishAssign
+  ExponentAssign
 }
 pub impl Eq for AssignmentOperator
 pub impl Show for AssignmentOperator
@@ -227,6 +228,7 @@ pub(all) enum BinaryOperator {
   BitwiseAnd
   In
   Instanceof
+  Exponent
 }
 pub impl Eq for BinaryOperator
 pub impl Show for BinaryOperator

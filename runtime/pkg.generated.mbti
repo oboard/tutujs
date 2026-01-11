@@ -25,6 +25,8 @@ pub fn create_function_constructor(JSValue) -> JSValue
 
 pub fn create_json_object(JSValue) -> JSValue
 
+pub fn create_map_constructor(JSValue, JSValue) -> JSValue
+
 pub fn create_math_object(JSValue) -> JSValue
 
 pub fn create_native_error_constructor(String, JSValue, JSValue) -> JSValue
@@ -52,6 +54,8 @@ pub fn init_boolean_prototype(JSValue, JSValue) -> Unit
 pub fn init_function_prototype(JSValue) -> Unit
 
 pub fn init_global_functions(Context) -> Unit
+
+pub fn init_map_prototype(Context, JSValue, JSValue) -> Unit
 
 pub fn init_number_prototype(JSValue, JSValue) -> Unit
 
@@ -114,6 +118,7 @@ pub impl ToJson for FunctionBody
 pub impl @json.FromJson for FunctionBody
 
 pub(all) struct JSFunction {
+  _id : Int
   name : String?
   params : Array[String]
   body : FunctionBody
@@ -138,6 +143,8 @@ pub impl @json.FromJson for JSFunction
 pub(all) enum JSInternal {
   Date(@time.ZonedDateTime)
   RegExp(@regexp.Regexp, String)
+  Map(LinkedMap)
+  MapIterator(LinkedMap, Ref[LinkedEntry?], String)
   Accessor(JSFunction?, JSFunction?)
 }
 pub impl Compare for JSInternal
@@ -148,9 +155,11 @@ pub impl ToJson for JSInternal
 pub impl @json.FromJson for JSInternal
 
 pub(all) struct JSObject {
+  _id : Int
   properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue?
 }
+pub fn JSObject::new(properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue) -> Self
 pub fn JSObject::op_get(Self, String) -> JSValue
 pub fn JSObject::op_set(Self, String, JSValue) -> Unit
 pub impl Compare for JSObject
@@ -165,7 +174,7 @@ pub(all) enum JSValue {
   Number(Double)
   Boolean(Bool)
   BigInt(@bigint.BigInt)
-  Symbol(String)
+  Symbol(Int, String)
   Function(JSFunction)
   Object(JSObject)
   Null
@@ -178,10 +187,14 @@ pub fn JSValue::bitwise_or(Self, Self) -> Self
 pub fn JSValue::bitwise_xor(Self, Self) -> Self
 #alias("_[_]")
 pub fn JSValue::get_property(Self, String) -> Self
+pub fn JSValue::get_property_internal(Self, String, Self) -> Self
+pub fn JSValue::get_property_internal_throw(Self, String, Self) -> Self raise EvalError
+pub fn JSValue::get_property_throw(Self, String) -> Self raise EvalError
 pub fn JSValue::instanceof(Self, Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self
 pub fn JSValue::op_in(Self, Self) -> Bool
+pub fn JSValue::pow(Self, Self) -> Self
 pub fn JSValue::right_shift(Self, Self) -> Self
 pub fn JSValue::set_property(Self, String, Self, strict? : Bool) -> Unit raise EvalError
 pub fn JSValue::strict_equal(Self, Self) -> Bool
@@ -202,6 +215,31 @@ pub impl Sub for JSValue
 pub impl ToJson for JSValue
 pub impl @json.FromJson for JSValue
 pub impl ToJSValue for JSValue
+
+pub(all) struct LinkedEntry {
+  key : JSValue
+  mut value : JSValue
+  mut prev : LinkedEntry?
+  mut next : LinkedEntry?
+  mut removed : Bool
+}
+pub impl Eq for LinkedEntry
+pub impl Show for LinkedEntry
+pub impl ToJson for LinkedEntry
+
+pub(all) struct LinkedMap {
+  entries : @hashmap.HashMap[JSValue, LinkedEntry]
+  mut head : LinkedEntry?
+  mut tail : LinkedEntry?
+}
+pub fn LinkedMap::clear(Self) -> Unit
+pub fn LinkedMap::contains(Self, JSValue) -> Bool
+pub fn LinkedMap::each(Self, ((JSValue, JSValue)) -> Unit) -> Unit
+pub fn LinkedMap::get(Self, JSValue) -> JSValue?
+pub fn LinkedMap::length(Self) -> Int
+pub fn LinkedMap::new() -> Self
+pub fn LinkedMap::remove(Self, JSValue) -> Unit
+pub fn LinkedMap::set(Self, JSValue, JSValue) -> Unit
 
 // Type aliases
 

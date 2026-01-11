@@ -64,9 +64,7 @@ pub fn Context::create_global() -> Context {
 
   // Object.prototype
   let object_proto_props = @hashmap.new()
-  let object_proto = JSObject::new(
-    properties=object_proto_props,
-  )
+  let object_proto = JSObject::new(properties=object_proto_props)
   let object_proto_val = JSValue::Object(object_proto)
 
   // Function.prototype

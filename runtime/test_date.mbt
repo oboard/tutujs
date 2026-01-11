@@ -1,8 +1,6 @@
 ///|
 test "Date Constructor and Methods" {
-  let obj_proto = JSValue::Object(JSObject::new(
-    properties=@hashmap.new(),
-  ))
+  let obj_proto = JSValue::Object(JSObject::new(properties=@hashmap.new()))
   let date_ctor_val = create_date_object(obj_proto)
   let date_ctor = match date_ctor_val {
     Function(f) => f
@@ -28,10 +26,12 @@ test "Date Constructor and Methods" {
   //
 
   let new_date_obj_props = @hashmap.new()
-  let new_date_obj = JSValue::Object(JSObject::new(
-    properties=new_date_obj_props,
-    prototype=date_ctor.prototype.unwrap(),
-  ))
+  let new_date_obj = JSValue::Object(
+    JSObject::new(
+      properties=new_date_obj_props,
+      prototype=date_ctor.prototype.unwrap(),
+    ),
+  )
   let _ = match date_ctor.body {
     Native(n) => n(ctx, new_date_obj, [])
     _ => abort("Date body is not native")
@@ -49,10 +49,12 @@ test "Date Constructor and Methods" {
 
   // Test new Date("2000-01-01T00:00:00Z")
   let iso_date_obj_props = @hashmap.new()
-  let iso_date_obj = JSValue::Object(JSObject::new(
-    properties=iso_date_obj_props,
-    prototype=date_ctor.prototype.unwrap(),
-  ))
+  let iso_date_obj = JSValue::Object(
+    JSObject::new(
+      properties=iso_date_obj_props,
+      prototype=date_ctor.prototype.unwrap(),
+    ),
+  )
   let _ = match date_ctor.body {
     Native(n) => n(ctx, iso_date_obj, [JSValue::String("2000-01-01T00:00:00")])
     _ => abort("Date body is not native")

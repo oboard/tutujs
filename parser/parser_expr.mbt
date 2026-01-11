@@ -116,6 +116,16 @@ fn Parser::parse_assignment(self : Parser) -> Expression {
         right,
       })
     }
+    TokenKind::StarStarEqual => {
+      self.advance()
+      let right = self.parse_assignment()
+      let pattern = self.to_pattern(left)
+      Expression::AssignmentExpression({
+        operator: AssignmentOperator::ExponentAssign,
+        left: pattern,
+        right,
+      })
+    }
     TokenKind::LeftShiftEqual => {
       self.advance()
       let right = self.parse_assignment()
@@ -385,12 +395,12 @@ fn Parser::parse_additive(self : Parser) -> Expression {
 
 ///|
 fn Parser::parse_multiplicative(self : Parser) -> Expression {
-  let mut left = self.parse_unary()
+  let mut left = self.parse_exponentiation()
   while self.peek().kind
         is (TokenKind::Star | TokenKind::Slash | TokenKind::Percent) {
     let op_token = self.peek()
     self.advance()
-    let right = self.parse_unary()
+    let right = self.parse_exponentiation()
     let operator = match op_token.kind {
       TokenKind::Star => BinaryOperator::Star
       TokenKind::Slash => BinaryOperator::Slash
@@ -400,6 +410,22 @@ fn Parser::parse_multiplicative(self : Parser) -> Expression {
     left = Expression::BinaryExpression({ operator, left, right })
   }
   left
+}
+
+///|
+fn Parser::parse_exponentiation(self : Parser) -> Expression {
+  let left = self.parse_unary()
+  if self.peek().kind == TokenKind::StarStar {
+    self.advance()
+    let right = self.parse_exponentiation() // Right associative
+    Expression::BinaryExpression({
+      operator: BinaryOperator::Exponent,
+      left,
+      right,
+    })
+  } else {
+    left
+  }
 }
 
 ///|

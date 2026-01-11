@@ -95,8 +95,7 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
             JSValue::Object(
               JSObject::new(properties=@hashmap.new(), prototype=p),
             )
-          None =>
-            JSValue::Object(JSObject::new(properties=@hashmap.new()))
+          None => JSValue::Object(JSObject::new(properties=@hashmap.new()))
         }
         let res = ctx.invoke(func, new_obj, args_array) catch {
           EvalError::Return(v) => v // Constructors can return object to override 'this'

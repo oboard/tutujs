@@ -221,8 +221,5 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
     JSValue::Number(0.5)
   })
   install_method("random", random_fn)
-  JSValue::Object(JSObject::new(
-    properties=math_props,
-    prototype=object_proto,
-  ))
+  JSValue::Object(JSObject::new(properties=math_props, prototype=object_proto))
 }

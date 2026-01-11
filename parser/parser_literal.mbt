@@ -1,6 +1,11 @@
 //|
 
 ///|
+fn parse_bigint(s : String) -> BigInt {
+  BigInt::from_string(s)
+}
+
+///|
 fn Parser::parse_primary(self : Parser) -> Expression {
   let token = self.peek()
   match token.kind {
@@ -11,12 +16,16 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     TokenKind::NumericLiteral => {
       self.advance()
       let s = token.value.to_string()
-      if s is [..val_str, 'n'] {
-        let val = BigInt::from_string(val_str.to_string())
+      if s is [.. val_str, 'n'] {
+        let val_str = val_str.to_string()
+        let val = parse_bigint(val_str)
         Expression::BigIntLiteral({ value: val })
       } else {
-        let val = @strconv.parse_double(s) catch { _ => 0.0 }
-        Expression::NumericLiteral({ value: val })
+        Expression::NumericLiteral({
+          value: @strconv.parse_double(s) catch {
+            _ => 0.0
+          },
+        })
       }
     }
     TokenKind::StringLiteral => {
@@ -95,31 +104,33 @@ fn Parser::parse_primary(self : Parser) -> Expression {
 ///|
 fn Parser::parse_array_literal(self : Parser) -> Expression {
   self.consume(TokenKind::LBracket)
-  let elements : Array[ArrayElement] = []
+  let elems : Array[ArrayElement] = []
   while self.peek().kind != TokenKind::RBracket {
-    if self.peek().kind == TokenKind::Comma {
-      elements.push(ArrayElement::OmittedExpression)
-      self.advance()
-    } else if self.peek().kind == TokenKind::Ellipsis {
-      self.advance()
-      let arg = self.parse_assignment()
-      elements.push(ArrayElement::SpreadElement(argument=arg))
-      if self.peek().kind == TokenKind::Comma {
+    match self.peek().kind {
+      TokenKind::Comma => {
         self.advance()
+        elems.push(ArrayElement::OmittedExpression)
       }
-    } else {
-      let expr = self.parse_assignment()
-      elements.push(ArrayElement::Expression(expr))
-      if self.peek().kind == TokenKind::Comma {
-        self.advance()
-      } else if self.peek().kind != TokenKind::RBracket {
+      TokenKind::EOF =>
         // TODO: Error handling
         break
+      _ => {
+        if self.peek().kind == TokenKind::Ellipsis {
+          self.advance()
+          let arg = self.parse_assignment()
+          elems.push(ArrayElement::SpreadElement(argument=arg))
+        } else {
+          let expr = self.parse_assignment()
+          elems.push(ArrayElement::Expression(expr))
+        }
+        if self.peek().kind == TokenKind::Comma {
+          self.advance()
+        }
       }
     }
   }
   self.consume(TokenKind::RBracket)
-  Expression::ArrayLiteralExpression(ArrayExpression::{ elements, })
+  Expression::ArrayLiteralExpression(ArrayExpression::{ elements: elems })
 }
 
 ///|

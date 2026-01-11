@@ -757,6 +757,7 @@ pub(all) enum BinaryOperator {
   BitwiseAnd
   In
   Instanceof
+  Exponent
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|
@@ -788,6 +789,7 @@ pub(all) enum AssignmentOperator {
   LogicalAndAssign
   LogicalOrAssign
   NullishAssign
+  ExponentAssign
 } derive(Show, Eq, ToJson, FromJson)
 
 ///|

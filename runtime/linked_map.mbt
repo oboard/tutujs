@@ -27,9 +27,7 @@ pub fn LinkedMap::new() -> LinkedMap {
 ///|
 pub fn LinkedMap::set(self : LinkedMap, key : JSValue, value : JSValue) -> Unit {
   match self.entries.get(key) {
-    Some(entry) => {
-      entry.value = value
-    }
+    Some(entry) => entry.value = value
     None => {
       let entry = { key, value, prev: self.tail, next: None, removed: false }
       match self.tail {
@@ -89,7 +87,10 @@ pub fn LinkedMap::length(self : LinkedMap) -> Int {
 }
 
 ///|
-pub fn LinkedMap::each(self : LinkedMap, f : ((JSValue, JSValue)) -> Unit) -> Unit {
+pub fn LinkedMap::each(
+  self : LinkedMap,
+  f : ((JSValue, JSValue)) -> Unit,
+) -> Unit {
   let mut current = self.head
   while true {
     match current {

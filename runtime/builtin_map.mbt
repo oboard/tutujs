@@ -1,178 +1,4 @@
 ///|
-pub fn create_map_constructor(
-  map_proto : JSValue,
-  func_proto : JSValue,
-) -> JSValue {
-  let ctor_fn = Native(fn(ctx, this_val, args) {
-    match this_val {
-      Object(obj) => {
-        let map_data = LinkedMap::new()
-        obj.properties.set("MapData", JSValue::Internal(Map(map_data)))
-        if args.length() > 0 && not(args[0] is( Undefined | Null)) {
-          let iterable = args[0]
-          let adder_val = try {
-             this_val.get_property_throw("set")
-           } catch {
-             e => raise e
-           }
-           let adder = match adder_val {
-              Function(f) => f
-              _ => {
-                 ctx.throw_type_error("Map.prototype.set is not a function")
-                 abort("Unreachable")
-              }
-           }
-
-          // General Iterator Protocol
-          let iterator_sym = match ctx.resolve("Symbol") {
-             Function(f) => f.properties.get("iterator").unwrap_or(JSValue::Undefined)
-             _ => JSValue::Undefined
-          }
-          let iterator_key = match iterator_sym {
-             Symbol(_) => iterator_sym.to_string()
-             _ => "Symbol.iterator"
-          }
-          let iterator_method_val = iterable.get_property(iterator_key)
-          let iterator_method = match iterator_method_val {
-             Function(_) => iterator_method_val
-             _ => iterable.get_property("Symbol.iterator")
-          }
-          match iterator_method {
-             Function(iter_fn) => {
-              let iterator = match ctx.invoke(iter_fn, iterable, []) {
-                Object(_) as obj => obj
-                _ => {
-                  ctx.throw_type_error("Iterator is not an object")
-                  return Undefined
-                }
-              }
-
-              let next_method = match iterator.get_property("next") {
-                Function(f) => f
-                _ => {
-                  ctx.throw_type_error("iterator.next is not a function")
-                  return Undefined
-                }
-              }
-
-              while true {
-                let next_res = ctx.invoke(next_method, iterator, [])
-                match next_res {
-                      Object(_) as res_obj => {
-                         let done = try {
-                            res_obj.get_property_throw("done")
-                         } catch {
-                            e => raise e
-                         }
-                         if done.is_truthy() { break }
-                         
-                         let value = try {
-                            res_obj.get_property_throw("value")
-                         } catch {
-                            e => {
-                               // Iterator Close
-                               match iterator.get_property("return") {
-                                  Function(ret_fn) => {
-                                     try { ctx.invoke(ret_fn, iterator, []) |> ignore } catch { _ => () }
-                                  }
-                                  _ => ()
-                               }
-                               raise e
-                            }
-                         }
-                         
-                         match value {
-                            Object(_) as item_obj => {
-                               let key = try {
-                                  item_obj.get_property_throw("0")
-                               } catch {
-                                  e => {
-                                     // Iterator Close
-                                     match iterator.get_property("return") {
-                                        Function(ret_fn) => {
-                                           try { ctx.invoke(ret_fn, iterator, []) |> ignore } catch { _ => () }
-                                        }
-                                        _ => ()
-                                     }
-                                     raise e
-                                  }
-                               }
-                               let val = try {
-                                  item_obj.get_property_throw("1")
-                               } catch {
-                                  e => {
-                                     // Iterator Close
-                                     match iterator.get_property("return") {
-                                        Function(ret_fn) => {
-                                           try { ctx.invoke(ret_fn, iterator, []) |> ignore } catch { _ => () }
-                                        }
-                                        _ => ()
-                                     }
-                                     raise e
-                                  }
-                               }
-                               try {
-                                   ctx.invoke(adder, this_val, [key, val]) |> ignore
-                               } catch {
-                          e => {
-                            // Iterator Close
-                            match iterator.get_property("return") {
-                              Function(ret_fn) => {
-                                try { ctx.invoke(ret_fn, iterator, []) |> ignore } catch { _ => () }
-                              }
-                              _ => ()
-                            }
-                            raise e
-                          }
-                        }
-                      }
-                      _ => {
-                        // Iterator Close
-                        match iterator.get_property("return") {
-                          Function(ret_fn) => {
-                            try { ctx.invoke(ret_fn, iterator, []) |> ignore } catch { _ => () }
-                          }
-                          _ => ()
-                        }
-                        ctx.throw_type_error("Iterator value is not an object")
-                        break
-                      }
-                    }
-                  }
-                  _ => {
-                    ctx.throw_type_error("Iterator result is not an object")
-                    break
-                  }
-                }
-              }
-            }
-            _ => {
-              // Not iterable
-              ctx.throw_type_error("Object is not iterable")
-            }
-          }
-          ()
-        }
-        this_val
-      }
-      _ => {
-        ctx.throw_type_error("Map constructor called on non-object")
-        Undefined
-      }
-    }
-  })
-  let ctor_obj = JSFunction::new(
-    name="Map",
-    params=[], // length 0
-    body=ctor_fn,
-    prototype=func_proto,
-    is_constructor=true,
-  )
-  ctor_obj.properties.set("prototype", map_proto)
-  JSValue::Function(ctor_obj)
-}
-
-///|
 pub fn init_map_prototype(
   ctx : Context,
   map_proto : JSValue,
@@ -390,10 +216,14 @@ pub fn init_map_prototype(
           match this_val {
             Object({ properties, .. }) =>
               match properties.get("MapData") {
-                Some(Internal(Map(m))) => {
+                Some(Internal(Map(m))) =>
                   match callback {
                     Function(f) => {
-                      let key = if key == Number(-0.0) { Number(0.0) } else { key }
+                      let key = if key == Number(-0.0) {
+                        Number(0.0)
+                      } else {
+                        key
+                      }
                       if m.contains(key) {
                         m.get(key).unwrap()
                       } else {
@@ -407,7 +237,6 @@ pub fn init_map_prototype(
                       Undefined
                     }
                   }
-                }
                 _ => {
                   ctx.throw_type_error(
                     "Method Map.prototype.getOrInsertComputed called on incompatible receiver",
@@ -535,6 +364,24 @@ pub fn init_map_prototype(
         prototype=func_proto,
       )
       map_iter_proto.properties.set("next", JSValue::Function(map_iter_next))
+
+      // Symbol.iterator -> this
+      let map_iter_sym_iter_fn = Native(fn(_ctx, this_val, _args) { this_val })
+      let map_iter_sym_iter = JSFunction::new(
+        name="[Symbol.iterator]",
+        body=map_iter_sym_iter_fn,
+        prototype=func_proto,
+      )
+      map_iter_proto.properties.set(
+        "Symbol(Symbol.iterator)",
+        JSValue::Function(map_iter_sym_iter),
+      )
+
+      // Symbol.toStringTag
+      map_iter_proto.properties.set(
+        "Symbol(Symbol.toStringTag)",
+        JSValue::String("Map Iterator"),
+      )
       let create_map_iter = fn(_ctx : Context, m : LinkedMap, kind : String) {
         let iter = JSObject::new(
           properties=@hashmap.new(),
@@ -686,10 +533,13 @@ pub fn init_map_prototype(
       proto.properties.set("forEach", JSValue::Function(for_each_fn))
 
       // Symbol.iterator -> entries
-      proto.properties.set("Symbol.iterator", JSValue::Function(entries_fn))
+      proto.properties.set(
+        "Symbol(Symbol.iterator)",
+        JSValue::Function(entries_fn),
+      )
 
       // Symbol.toStringTag
-      proto.properties.set("Symbol.toStringTag", JSValue::String("Map"))
+      proto.properties.set("Symbol(Symbol.toStringTag)", JSValue::String("Map"))
     }
     _ => ()
   }

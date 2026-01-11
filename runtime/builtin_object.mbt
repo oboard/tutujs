@@ -197,7 +197,7 @@ pub fn init_object_prototype(
                 | "forEach"
                 | "getOrInsertComputed"
                 | "constructor") {
-                if properties.get("Symbol.toStringTag") ==
+                if properties.get("Symbol(Symbol.toStringTag)") ==
                   Some(JSValue::String("Map")) {
                   return Boolean(false)
                 }
@@ -222,10 +222,12 @@ pub fn init_object_prototype(
               // Hack: hide prototype, length, name, arguments, caller
               if key
                 is ("prototype" | "length" | "name" | "arguments" | "caller") {
-                Boolean(false)
-              } else {
-                Boolean(properties.contains(key) && not(key.has_prefix("__")))
+                return Boolean(false)
               }
+              if key.has_prefix("Symbol(") {
+                return Boolean(false)
+              }
+              Boolean(properties.contains(key) && not(key.has_prefix("__")))
             }
             _ => Boolean(false)
           }
@@ -461,9 +463,10 @@ pub fn create_object_constructor(
         _ => return JSValue::Undefined // TypeError in spec
       }
       let prop = match prop_arg {
-        Symbol(_, desc) => desc
+        // Symbol(_, desc) => desc // DON'T use description, use to_string() to match map keys!
         _ => prop_arg.to_string()
       }
+      // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
       if prop == "length" && not(is_string_obj) {
         // Force check PrimitiveValue
         let has_prim = obj_props.contains("PrimitiveValue")
@@ -517,13 +520,28 @@ pub fn create_object_constructor(
               desc["configurable"] = JSValue::Boolean(true)
             }
             _ => {
+              let is_symbol_to_string_tag = prop.contains("toStringTag")
+              if is_symbol_to_string_tag {
+                desc["writable"] = JSValue::Boolean(false)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(true)
+                desc["value"] = val
+                return JSValue::Object(desc)
+              }
+              let is_symbol_iterator = prop.contains("iterator")
+              if is_symbol_iterator {
+                desc["writable"] = JSValue::Boolean(true)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(true)
+                desc["value"] = val
+                return JSValue::Object(desc)
+              }
               desc["value"] = val
               desc["writable"] = JSValue::Boolean(true)
               desc["enumerable"] = JSValue::Boolean(true)
               desc["configurable"] = JSValue::Boolean(true)
               if is_func {
                 if prop == "length" || prop == "name" {
-                  // println("DEBUG: Override length/name for func. prop=" + prop)
                   desc["writable"] = JSValue::Boolean(false)
                   desc["enumerable"] = JSValue::Boolean(false)
                   desc["configurable"] = JSValue::Boolean(true)
@@ -575,6 +593,7 @@ pub fn create_object_constructor(
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
               }
+
               // Map.prototype methods (heuristic)
               if prop
                 is ("get"
@@ -589,21 +608,13 @@ pub fn create_object_constructor(
                 | "forEach"
                 | "getOrInsertComputed"
                 | "constructor") {
-                // Check for Symbol.toStringTag property.
-                let tag = obj_props.get("Symbol.toStringTag")
-                if tag == Some(JSValue::String("Map")) {
+                // Check if it's on Map.prototype or a Map instance
+                let is_map_related = obj_props.contains("MapData") ||
+                  obj_props.get("Symbol(Symbol.toStringTag)") ==
+                  Some(JSValue::String("Map"))
+                if is_map_related {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
-              }
-              if prop == "Symbol.toStringTag" {
-                desc["writable"] = JSValue::Boolean(false)
-                desc["enumerable"] = JSValue::Boolean(false)
-                desc["configurable"] = JSValue::Boolean(true)
-              }
-              if prop == "Symbol.iterator" {
-                desc["writable"] = JSValue::Boolean(true)
-                desc["enumerable"] = JSValue::Boolean(false)
-                desc["configurable"] = JSValue::Boolean(true)
               }
             }
           }

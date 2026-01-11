@@ -110,13 +110,14 @@ pub fn Context::invoke(
         }
       }
       let strict = func.strict || strict_directive
-      let this_binding = if not(strict) && (this_val == Null || this_val == Undefined) {
-         match func.context.resolve("globalThis") {
-            Undefined => this_val
-            v => v
-         }
+      let this_binding = if not(strict) &&
+        (this_val == Null || this_val == Undefined) {
+        match func.context.resolve("globalThis") {
+          Undefined => this_val
+          v => v
+        }
       } else {
-         this_val
+        this_val
       }
       let new_ctx = new(parent=func.context, strict~)
       new_ctx.scope.set("this", this_binding)
@@ -206,8 +207,7 @@ fn Context::evaluate(
           }
           let proto_props = @hashmap.new()
           let proto_obj = match obj_proto {
-            Some(p) =>
-              JSObject::new(properties=proto_props, prototype=p)
+            Some(p) => JSObject::new(properties=proto_props, prototype=p)
             None => JSObject::new(properties=proto_props)
           }
           let proto_val = JSValue::Object(proto_obj)
@@ -814,6 +814,7 @@ fn Context::evaluate(
             Percent => left % right
             Slash => left / right
             Star => left * right
+            Exponent => left.pow(right)
             UnsignedRightShift => left.unsigned_right_shift(right)
             RightShift => left.right_shift(right)
             LeftShift => left.left_shift(right)
@@ -1105,9 +1106,7 @@ fn Context::evaluate(
               }
             _ => Null
           }
-          Object(
-            JSObject::new(properties=obj_props, prototype=object_proto),
-          )
+          Object(JSObject::new(properties=obj_props, prototype=object_proto))
         }
         ArrayLiteralExpression({ elements }) => {
           let arr_props = @hashmap.new()
@@ -1172,8 +1171,7 @@ fn Context::evaluate(
           }
           let proto_props = @hashmap.new()
           let proto_obj = match obj_proto {
-            Some(p) =>
-              JSObject::new(properties=proto_props, prototype=p)
+            Some(p) => JSObject::new(properties=proto_props, prototype=p)
             None => JSObject::new(properties=proto_props)
           }
           let proto_val = JSValue::Object(proto_obj)

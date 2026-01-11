@@ -1,4 +1,7 @@
+///|
 let object_id_counter : Ref[Int] = Ref::new(0)
+
+///|
 fn next_object_id() -> Int {
   object_id_counter.val = object_id_counter.val + 1
   object_id_counter.val
@@ -24,7 +27,7 @@ pub impl Eq for JSValue with equal(self, other) {
     (Undefined, Undefined) => true
     (Null, Null) => true
     (Boolean(a), Boolean(b)) => a == b
-    (Number(a), Number(b)) => 
+    (Number(a), Number(b)) =>
       if a.is_nan() && b.is_nan() {
         true
       } else {
@@ -46,14 +49,14 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
     Undefined => hasher.combine(0)
     Null => hasher.combine(1)
     Boolean(b) => hasher.combine(if b { 2 } else { 3 })
-    Number(n) => 
-       if n.is_nan() {
-          hasher.combine("NaN") // Stable hash for NaN
-       } else if n == 0.0 { // Handle -0.0
-          hasher.combine(0.0) 
-       } else {
-          hasher.combine(n)
-       }
+    Number(n) =>
+      if n.is_nan() {
+        hasher.combine("NaN") // Stable hash for NaN
+      } else if n == 0.0 { // Handle -0.0
+        hasher.combine(0.0)
+      } else {
+        hasher.combine(n)
+      }
     String(s) => hasher.combine(s)
     BigInt(i) => hasher.combine(i)
     Symbol(id, _) => hasher.combine(id)
@@ -79,7 +82,8 @@ pub impl Eq for JSInternal with equal(self, other) {
     (RegExp(_, s1), RegExp(_, s2)) => s1 == s2
     (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
     (Map(m1), Map(m2)) => physical_equal(m1, m2)
-    (MapIterator(m1, n1, k1), MapIterator(m2, n2, k2)) => physical_equal(m1, m2) && n1.val == n2.val && k1 == k2
+    (MapIterator(m1, n1, k1), MapIterator(m2, n2, k2)) =>
+      physical_equal(m1, m2) && n1.val == n2.val && k1 == k2
     _ => false
   }
 }
@@ -257,14 +261,14 @@ pub(all) struct JSObject {
 
 ///|
 pub fn JSObject::new(
-   properties? : @hashmap.HashMap[String, JSValue],
-   prototype? : JSValue
+  properties? : @hashmap.HashMap[String, JSValue],
+  prototype? : JSValue,
 ) -> JSObject {
-   {
-      _id: next_object_id(),
-      properties: properties.unwrap_or(@hashmap.new()),
-      prototype
-   }
+  {
+    _id: next_object_id(),
+    properties: properties.unwrap_or(@hashmap.new()),
+    prototype,
+  }
 }
 
 ///|
@@ -397,7 +401,10 @@ pub fn JSValue::get_property_internal(
 }
 
 ///|
-pub fn JSValue::get_property_throw(self : JSValue, name : String) -> JSValue raise EvalError {
+pub fn JSValue::get_property_throw(
+  self : JSValue,
+  name : String,
+) -> JSValue raise EvalError {
   self.get_property_internal_throw(name, self)
 }
 

@@ -6,10 +6,9 @@ pub fn create_regexp_object(
   syntax_error_ctor : JSValue,
 ) -> JSValue {
   let regexp_proto_props = @hashmap.new()
-  let regexp_proto = JSValue::Object(JSObject::new(
-    properties=regexp_proto_props,
-    prototype=object_proto,
-  ))
+  let regexp_proto = JSValue::Object(
+    JSObject::new(properties=regexp_proto_props, prototype=object_proto),
+  )
 
   // RegExp Constructor
   let regexp_ctor_fn = Native(fn(_ctx, this_val, args) {
@@ -81,10 +80,9 @@ pub fn create_regexp_object(
     } else {
       // Function call - create new object
       let new_obj_props = @hashmap.new()
-      let new_obj = JSValue::Object(JSObject::new(
-        properties=new_obj_props,
-        prototype=regexp_proto,
-      ))
+      let new_obj = JSValue::Object(
+        JSObject::new(properties=new_obj_props, prototype=regexp_proto),
+      )
       let new_obj_inner = match new_obj {
         Object(o) => o
         _ => panic()
@@ -164,10 +162,9 @@ pub fn create_regexp_object(
           )
           result_array_props.set("input", JSValue::String(str))
           result_array_props.set("length", JSValue::Number(1.0))
-          JSValue::Object(JSObject::new(
-            properties=result_array_props,
-            prototype=object_proto,
-          ))
+          JSValue::Object(
+            JSObject::new(properties=result_array_props, prototype=object_proto),
+          )
         } else {
           if global {
             properties.set("lastIndex", JSValue::Number(0.0))
