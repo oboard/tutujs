@@ -67,7 +67,8 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
 pub(all) enum JSInternal {
   Date(@time.ZonedDateTime)
   RegExp(@regexp.Regexp, String)
-  Map(@hashmap.HashMap[JSValue, JSValue])
+  Map(LinkedMap)
+  MapIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
   Accessor(JSFunction?, JSFunction?) // Getter, Setter
 }
 
@@ -77,7 +78,8 @@ pub impl Eq for JSInternal with equal(self, other) {
     (Date(d1), Date(d2)) => d1.to_string() == d2.to_string()
     (RegExp(_, s1), RegExp(_, s2)) => s1 == s2
     (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
-    (Map(m1), Map(m2)) => physical_equal(m1, m2) // Use reference equality for Map internal data
+    (Map(m1), Map(m2)) => physical_equal(m1, m2)
+    (MapIterator(m1, n1, k1), MapIterator(m2, n2, k2)) => physical_equal(m1, m2) && n1.val == n2.val && k1 == k2
     _ => false
   }
 }
@@ -106,7 +108,8 @@ pub impl Hash for JSInternal with hash_combine(self, hasher) {
       hasher.combine(g)
       hasher.combine(s)
     }
-    Map(_) => hasher.combine("Map") // Maps don't have ID yet in JSInternal, but JSValue::Internal is rarely a key
+    Map(_) => hasher.combine("Map")
+    MapIterator(_, _, k) => hasher.combine("MapIterator" + k)
   }
 }
 
@@ -117,6 +120,7 @@ pub impl Show for JSInternal with output(self, logger) {
     RegExp(_, s) => logger.write_string("RegExp(/" + s + "/)")
     Accessor(_, _) => logger.write_string("[Accessor]")
     Map(_) => logger.write_string("[Map]")
+    MapIterator(_, _, k) => logger.write_string("[Map Iterator] " + k)
   }
 }
 
@@ -325,6 +329,15 @@ pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
 ///|
 #alias("_[_]")
 pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
+  self.get_property_internal(name, self)
+}
+
+///|
+pub fn JSValue::get_property_internal(
+  self : JSValue,
+  name : String,
+  receiver : JSValue,
+) -> JSValue {
   match self {
     Object(obj) => {
       let is_string_obj = obj.properties.contains("PrimitiveValue") &&
@@ -357,7 +370,7 @@ pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
         Some(v) =>
           match v {
             Internal(Accessor(Some(getter), _)) =>
-              getter.context.invoke(getter, self, []) catch {
+              getter.context.invoke(getter, receiver, []) catch {
                 _ => Undefined
               }
             Internal(Accessor(None, _)) => Undefined
@@ -365,7 +378,7 @@ pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
           }
         None =>
           match obj.prototype {
-            Some(proto) => proto.get_property(name)
+            Some(proto) => proto.get_property_internal(name, receiver)
             None => Undefined
           }
       }
@@ -375,11 +388,78 @@ pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
         Some(v) => v
         None =>
           match func.prototype {
-            Some(proto) => proto.get_property(name)
+            Some(proto) => proto.get_property_internal(name, receiver)
             None => Undefined
           }
       }
     _ => Undefined // TODO: Primitives wrapping
+  }
+}
+
+///|
+pub fn JSValue::get_property_throw(self : JSValue, name : String) -> JSValue raise EvalError {
+  self.get_property_internal_throw(name, self)
+}
+
+///|
+pub fn JSValue::get_property_internal_throw(
+  self : JSValue,
+  name : String,
+  receiver : JSValue,
+) -> JSValue raise EvalError {
+  match self {
+    Object(obj) => {
+      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
+        (match obj.properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        let idx = @strconv.parse_int(name) catch { _ => -1 }
+        if idx >= 0 {
+          let len = match obj.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          if idx < len {
+            let str_val = match obj.properties.get("PrimitiveValue") {
+              Some(String(s)) => s
+              _ => ""
+            }
+            let char_code = str_val[idx].to_int()
+            let c = match char_code.to_char() {
+              Some(c) => c
+              None => ' '
+            }
+            return JSValue::String(String::make(1, c))
+          }
+        }
+      }
+      match obj.properties.get(name) {
+        Some(v) =>
+          match v {
+            Internal(Accessor(Some(getter), _)) =>
+              getter.context.invoke(getter, receiver, [])
+            Internal(Accessor(None, _)) => Undefined
+            _ => v
+          }
+        None =>
+          match obj.prototype {
+            Some(proto) => proto.get_property_internal_throw(name, receiver)
+            None => Undefined
+          }
+      }
+    }
+    Function(func) =>
+      match func.properties.get(name) {
+        Some(v) => v
+        None =>
+          match func.prototype {
+            Some(proto) => proto.get_property_internal_throw(name, receiver)
+            None => Undefined
+          }
+      }
+    _ => Undefined
   }
 }
 
@@ -447,7 +527,12 @@ pub fn JSValue::set_property(
           func_name == "Function" ||
           func_name == "Error" ||
           func_name == "Date" ||
-          func_name == "RegExp" {
+          func_name == "RegExp" ||
+          func_name == "Map" ||
+          func_name == "Set" ||
+          func_name == "WeakMap" ||
+          func_name == "WeakSet" ||
+          func_name == "Promise" {
           if strict {
             raise EvalError::Throw(
               JSValue::String(

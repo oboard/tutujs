@@ -254,6 +254,15 @@ pub fn Context::create_global() -> Context {
   let reflect_val = create_reflect_object(object_proto_val)
   ctx.scope.set("Reflect", reflect_val)
 
+  // IteratorPrototype
+  let iterator_proto_props = @hashmap.new()
+  let iterator_proto = JSObject::new(
+    properties=iterator_proto_props,
+    prototype=object_proto_val,
+  )
+  let iterator_proto_val = JSValue::Object(iterator_proto)
+  ctx.scope.set("IteratorPrototype", iterator_proto_val)
+
   // Map.prototype
   let map_proto_props = @hashmap.new()
   let map_proto = JSObject::new(
@@ -261,7 +270,7 @@ pub fn Context::create_global() -> Context {
     prototype=object_proto_val,
   )
   let map_proto_val = JSValue::Object(map_proto)
-  init_map_prototype(map_proto_val, func_proto_val)
+  init_map_prototype(ctx, map_proto_val, func_proto_val)
 
   // Map Constructor
   let map_ctor_val = create_map_constructor(map_proto_val, func_proto_val)

@@ -871,6 +871,126 @@ pub fn init_array_prototype(
         prototype=func_proto,
       )
       obj["values"] = JSValue::Function(values_obj)
+      obj["Symbol.iterator"] = JSValue::Function(values_obj)
+
+      // keys
+      let keys_fn = Native(fn(_ctx, this_val, _args) {
+        let index_box = [0]
+        let next_fn = Native(fn(_ctx, _iter_this, _iter_args) {
+          let idx = index_box[0]
+          match this_val {
+            Object({ properties, .. }) => {
+              let len = match properties.get("length") {
+                Some(Number(n)) => n.to_int()
+                _ => 0
+              }
+              if idx < len {
+                index_box[0] = idx + 1
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
+                res["value"] = JSValue::Number(idx.to_double())
+                res["done"] = JSValue::Boolean(false)
+                JSValue::Object(res)
+              } else {
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
+                res["value"] = JSValue::Undefined
+                res["done"] = JSValue::Boolean(true)
+                JSValue::Object(res)
+              }
+            }
+            _ => {
+              let res = JSObject::new(
+                properties=@hashmap.new(),
+              )
+              res["value"] = JSValue::Undefined
+              res["done"] = JSValue::Boolean(true)
+              JSValue::Object(res)
+            }
+          }
+        })
+        let iter_obj = JSObject::new(properties=@hashmap.new())
+        let next_func_obj = JSFunction::new(
+          name="next",
+          body=next_fn,
+          prototype=func_proto,
+        )
+        iter_obj["next"] = JSValue::Function(next_func_obj)
+        JSValue::Object(iter_obj)
+      })
+      let keys_obj = JSFunction::new(
+        name="keys",
+        body=keys_fn,
+        prototype=func_proto,
+      )
+      obj["keys"] = JSValue::Function(keys_obj)
+
+      // entries
+      let entries_fn = Native(fn(_ctx, this_val, _args) {
+        let index_box = [0]
+        let next_fn = Native(fn(_ctx, _iter_this, _iter_args) {
+          let idx = index_box[0]
+          match this_val {
+            Object({ properties, .. }) => {
+              let len = match properties.get("length") {
+                Some(Number(n)) => n.to_int()
+                _ => 0
+              }
+              if idx < len {
+                let val = match properties.get(idx.to_string()) {
+                  Some(v) => v
+                  None => JSValue::Undefined
+                }
+                index_box[0] = idx + 1
+                
+                // Create [index, value] array
+                let entry_arr = JSObject::new(properties=@hashmap.new(), prototype=array_proto_val)
+                entry_arr["0"] = JSValue::Number(idx.to_double())
+                entry_arr["1"] = val
+                entry_arr["length"] = JSValue::Number(2.0)
+                
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
+                res["value"] = JSValue::Object(entry_arr)
+                res["done"] = JSValue::Boolean(false)
+                JSValue::Object(res)
+              } else {
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                )
+                res["value"] = JSValue::Undefined
+                res["done"] = JSValue::Boolean(true)
+                JSValue::Object(res)
+              }
+            }
+            _ => {
+              let res = JSObject::new(
+                properties=@hashmap.new(),
+              )
+              res["value"] = JSValue::Undefined
+              res["done"] = JSValue::Boolean(true)
+              JSValue::Object(res)
+            }
+          }
+        })
+        let iter_obj = JSObject::new(properties=@hashmap.new())
+        let next_func_obj = JSFunction::new(
+          name="next",
+          body=next_fn,
+          prototype=func_proto,
+        )
+        iter_obj["next"] = JSValue::Function(next_func_obj)
+        JSValue::Object(iter_obj)
+      })
+      let entries_obj = JSFunction::new(
+        name="entries",
+        body=entries_fn,
+        prototype=func_proto,
+      )
+      obj["entries"] = JSValue::Function(entries_obj)
     }
     _ => ()
   }

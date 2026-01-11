@@ -137,11 +137,71 @@ pub fn init_object_prototype(
       obj["isPrototypeOf"] = JSValue::Function(is_prototype_of_obj)
 
       // propertyIsEnumerable
-      let property_is_enumerable_fn = Native(fn(_ctx, this_val, args) {
+      let property_is_enumerable_fn = Native(fn(ctx, this_val, args) {
         if args is [prop, ..] {
           let key = prop.to_string()
           match this_val {
-            Object({ properties, .. }) => {
+            Object({ properties, .. }) | Function({ properties, .. }) => {
+              // Global check
+              let mut root_ctx = ctx
+              while true {
+                match root_ctx.parent {
+                  Some(p) => root_ctx = p
+                  None => break
+                }
+              }
+              let is_global = match root_ctx.scope.get("globalThis") {
+                Some(g) => g.strict_equal(this_val)
+                None => false
+              }
+              if is_global &&
+                (
+                  key == "Map" ||
+                  key == "Set" ||
+                  key == "WeakMap" ||
+                  key == "WeakSet" ||
+                  key == "Promise" ||
+                  key == "Symbol" ||
+                  key == "Reflect" ||
+                  key == "JSON" ||
+                  key == "Math" ||
+                  key == "Date" ||
+                  key == "RegExp" ||
+                  key == "Error" ||
+                  key == "eval" ||
+                  key == "parseInt" ||
+                  key == "parseFloat" ||
+                  key == "isNaN" ||
+                  key == "isFinite" ||
+                  key == "Object" ||
+                  key == "Function" ||
+                  key == "Array" ||
+                  key == "String" ||
+                  key == "Number" ||
+                  key == "Boolean"
+                ) {
+                return Boolean(false)
+              }
+
+              // Map.prototype check
+              if key
+                is ("get"
+                | "set"
+                | "has"
+                | "delete"
+                | "clear"
+                | "size"
+                | "entries"
+                | "keys"
+                | "values"
+                | "forEach"
+                | "getOrInsertComputed"
+                | "constructor") {
+                if properties.get("Symbol.toStringTag") ==
+                  Some(JSValue::String("Map")) {
+                  return Boolean(false)
+                }
+              }
               let is_string_obj = properties.contains("PrimitiveValue") &&
                 (match properties.get("PrimitiveValue") {
                   Some(String(_)) => true
@@ -167,14 +227,6 @@ pub fn init_object_prototype(
                 Boolean(properties.contains(key) && not(key.has_prefix("__")))
               }
             }
-            Function({ properties, .. }) =>
-              // Hack: hide prototype, length, name, arguments, caller
-              if key
-                is ("prototype" | "length" | "name" | "arguments" | "caller") {
-                Boolean(false)
-              } else {
-                Boolean(properties.contains(key) && not(key.has_prefix("__")))
-              }
             _ => Boolean(false)
           }
         } else {
@@ -223,10 +275,7 @@ pub fn create_object_constructor(
   // Object.keys
   let keys_fn = Native(fn(_ctx, _this_val, args) {
     if args is [Object({ properties, .. }), ..] {
-      let keys_array = JSObject::new(
-        properties=@hashmap.new(),
-        prototype=proto,
-      ) // Should be Array.prototype ideally
+      let keys_array = JSObject::new(properties=@hashmap.new(), prototype=proto) // Should be Array.prototype ideally
       let mut i = 0.0
       // Handle String exotic object indices
       let is_string_obj = properties.contains("PrimitiveValue") &&
@@ -379,21 +428,28 @@ pub fn create_object_constructor(
   object_fn["preventExtensions"] = JSValue::Function(prevent_extensions_obj)
 
   // Object.getOwnPropertyDescriptor
-  let get_own_property_descriptor_fn = Native(fn(_ctx, _this_val, args) {
+  let get_own_property_descriptor_fn = Native(fn(ctx, _this_val, args) {
     if args is [obj_arg, prop_arg, ..] {
+      // Check if obj_arg is global object
+      let mut root_ctx = ctx
+      while true {
+        match root_ctx.parent {
+          Some(p) => root_ctx = p
+          None => break
+        }
+      }
+      let is_global = match root_ctx.scope.get("globalThis") {
+        Some(g) => g.strict_equal(obj_arg)
+        None => false
+      }
       let (obj_props, is_func, is_native_func, is_string_obj, is_global) = match
         obj_arg {
-        Object({ properties, .. } as o) => {
-          let is_str = properties.contains("PrimitiveValue") &&
-            (match properties.get("PrimitiveValue") {
-              Some(String(_)) => true
-              _ => false
-            })
-          let is_glob = match properties.get("this") {
-            Some(val) => val.strict_equal(JSValue::Object(o))
-            None => false
+        Object({ properties, .. }) => {
+          let is_str = match properties.get("PrimitiveValue") {
+            Some(String(_)) => true
+            _ => false
           }
-          (properties, false, false, is_str, is_glob)
+          (properties, false, false, is_str, is_global)
         }
         Function({ properties, body, .. }) => {
           let is_native = match body {
@@ -404,7 +460,10 @@ pub fn create_object_constructor(
         }
         _ => return JSValue::Undefined // TypeError in spec
       }
-      let prop = prop_arg.to_string()
+      let prop = match prop_arg {
+        Symbol(_, desc) => desc
+        _ => prop_arg.to_string()
+      }
       if prop == "length" && not(is_string_obj) {
         // Force check PrimitiveValue
         let has_prim = obj_props.contains("PrimitiveValue")
@@ -434,10 +493,7 @@ pub fn create_object_constructor(
             None => ' '
           }
           let char_str = String::make(1, c)
-          let desc = JSObject::new(
-            properties=@hashmap.new(),
-            prototype=proto,
-          )
+          let desc = JSObject::new(properties=@hashmap.new(), prototype=proto)
           desc["value"] = JSValue::String(char_str)
           desc["writable"] = JSValue::Boolean(false)
           desc["enumerable"] = JSValue::Boolean(true)
@@ -447,10 +503,8 @@ pub fn create_object_constructor(
       }
       match obj_props.get(prop) {
         Some(val) => {
-          let desc = JSObject::new(
-            properties=@hashmap.new(),
-            prototype=proto,
-          )
+          let desc = JSObject::new(properties=@hashmap.new(), prototype=proto)
+          // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
           match val {
             Internal(Accessor(getter, setter)) => {
               desc["get"] = getter
@@ -512,12 +566,14 @@ pub fn create_object_constructor(
                   | "parseFloat"
                   | "isNaN"
                   | "isFinite"
-                  | "Map") {
+                  | "Map"
+                  | "Set"
+                  | "WeakMap"
+                  | "WeakSet"
+                  | "Promise"
+                  | "Symbol") {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
-              }
-              if is_func && (prop == "length" || prop == "name") {
-                // println("DEBUG: func " + prop + " configurable=" + desc["configurable"].to_string())
               }
               // Map.prototype methods (heuristic)
               if prop
@@ -531,17 +587,23 @@ pub fn create_object_constructor(
                 | "keys"
                 | "values"
                 | "forEach"
-                | "getOrInsertComputed") {
-                // Check if object looks like Map.prototype (has Symbol.toStringTag = Map)
-                // Or just blindly force them non-enumerable if they are functions?
-                // This might be too aggressive for user objects.
-                // Better check if it is exactly Map.prototype.
-                // But I don't have access to Map.prototype here easily.
+                | "getOrInsertComputed"
+                | "constructor") {
                 // Check for Symbol.toStringTag property.
-                if obj_props.get("Symbol.toStringTag") ==
-                  Some(JSValue::String("Map")) {
+                let tag = obj_props.get("Symbol.toStringTag")
+                if tag == Some(JSValue::String("Map")) {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
+              }
+              if prop == "Symbol.toStringTag" {
+                desc["writable"] = JSValue::Boolean(false)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(true)
+              }
+              if prop == "Symbol.iterator" {
+                desc["writable"] = JSValue::Boolean(true)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(true)
               }
             }
           }

@@ -110,8 +110,16 @@ pub fn Context::invoke(
         }
       }
       let strict = func.strict || strict_directive
+      let this_binding = if not(strict) && (this_val == Null || this_val == Undefined) {
+         match func.context.resolve("globalThis") {
+            Undefined => this_val
+            v => v
+         }
+      } else {
+         this_val
+      }
       let new_ctx = new(parent=func.context, strict~)
-      new_ctx.scope.set("this", this_val)
+      new_ctx.scope.set("this", this_binding)
       let param_len = func.params.length()
       for i, val in args {
         if i < param_len {
