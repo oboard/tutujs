@@ -127,27 +127,27 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
     }
 
     // Numeric literals
-    ("0x[0-9a-fA-F](_|[0-9a-fA-F])*" as raw, rest) => {
+    ("0x[0-9a-fA-F](_|[0-9a-fA-F])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
-    ("0X[0-9a-fA-F](_|[0-9a-fA-F])*" as raw, rest) => {
+    ("0X[0-9a-fA-F](_|[0-9a-fA-F])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
-    ("0o[0-7](_|[0-7])*" as raw, rest) => {
+    ("0o[0-7](_|[0-7])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
-    ("0O[0-7](_|[0-7])*" as raw, rest) => {
+    ("0O[0-7](_|[0-7])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
-    ("0b[01](_|[01])*" as raw, rest) => {
+    ("0b[01](_|[01])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
-    ("0B[01](_|[01])*" as raw, rest) => {
+    ("0B[01](_|[01])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
@@ -207,7 +207,7 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
       lex_tokens(rest, lexer)
     }
     // Plain integer
-    ("[0-9](_|[0-9])*" as raw, rest) => {
+    ("[0-9](_|[0-9])*(n)?" as raw, rest) => {
       lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
@@ -219,22 +219,6 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
         None => @tokens.TokenKind::Identifier
       }
       lexer.add_token(kind, raw)
-      lex_tokens(rest, lexer)
-    }
-    ("[0-9]+" as raw, rest) => {
-      lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
-      lex_tokens(rest, lexer)
-    }
-    ("0[xX][0-9a-fA-F]+" as raw, rest) => {
-      lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
-      lex_tokens(rest, lexer)
-    }
-    ("0[oO][0-7]+" as raw, rest) => {
-      lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
-      lex_tokens(rest, lexer)
-    }
-    ("0[bB][01]+" as raw, rest) => {
-      lexer.add_token(@tokens.TokenKind::NumericLiteral, raw)
       lex_tokens(rest, lexer)
     }
 

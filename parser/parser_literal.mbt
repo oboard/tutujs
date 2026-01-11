@@ -10,8 +10,14 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     }
     TokenKind::NumericLiteral => {
       self.advance()
-      let val = @strconv.parse_double(token.value) catch { _ => 0.0 }
-      Expression::NumericLiteral({ value: val })
+      let s = token.value.to_string()
+      if s is [..val_str, 'n'] {
+        let val = BigInt::from_string(val_str.to_string())
+        Expression::BigIntLiteral({ value: val })
+      } else {
+        let val = @strconv.parse_double(s) catch { _ => 0.0 }
+        Expression::NumericLiteral({ value: val })
+      }
     }
     TokenKind::StringLiteral => {
       self.advance()
