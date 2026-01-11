@@ -841,7 +841,15 @@ fn Context::evaluate(
               _ => ()
             }
           }
-          Object({ properties: obj_props, prototype: Some(Null) })
+          let object_proto = match self.resolve("Object") {
+            Function(f) =>
+              match f.properties.get("prototype") {
+                Some(p) => p
+                None => Null
+              }
+            _ => Null
+          }
+          Object({ properties: obj_props, prototype: Some(object_proto) })
         }
         ArrayLiteralExpression({ elements }) => {
           let arr_props = @hashmap.new()

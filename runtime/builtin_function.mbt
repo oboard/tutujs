@@ -17,7 +17,11 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
             JSValue::String("function() { [native code] }")
         }
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto_val,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
 
       // call (ES3)
@@ -47,7 +51,11 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined // TypeError
         }
       })
-      let call_obj = JSFunction::new(name="call", body=call_fn)
+      let call_obj = JSFunction::new(
+        name="call",
+        body=call_fn,
+        prototype=func_proto_val,
+      )
       obj["call"] = JSValue::Function(call_obj)
 
       // apply (ES3)
@@ -84,7 +92,11 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let apply_obj = JSFunction::new(name="apply", body=apply_fn)
+      let apply_obj = JSFunction::new(
+        name="apply",
+        body=apply_fn,
+        prototype=func_proto_val,
+      )
       obj["apply"] = JSValue::Function(apply_obj)
 
       // bind (ES5)
@@ -122,7 +134,11 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined // TypeError
         }
       })
-      let bind_obj = JSFunction::new(name="bind", body=bind_fn)
+      let bind_obj = JSFunction::new(
+        name="bind",
+        body=bind_fn,
+        prototype=func_proto_val,
+      )
       obj["bind"] = JSValue::Function(bind_obj)
     }
     _ => ()

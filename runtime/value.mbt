@@ -245,7 +245,33 @@ pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
 #alias("_[_]")
 pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
   match self {
-    Object(obj) =>
+    Object(obj) => {
+      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
+        (match obj.properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        let idx = @strconv.parse_int(name) catch { _ => -1 }
+        if idx >= 0 {
+          let len = match obj.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          if idx < len {
+            let str_val = match obj.properties.get("PrimitiveValue") {
+              Some(String(s)) => s
+              _ => ""
+            }
+            let char_code = str_val[idx].to_int()
+            let c = match char_code.to_char() {
+              Some(c) => c
+              None => ' '
+            }
+            return JSValue::String(String::make(1, c))
+          }
+        }
+      }
       match obj.properties.get(name) {
         Some(v) =>
           match v {
@@ -262,6 +288,7 @@ pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
             None => Undefined
           }
       }
+    }
     Function(func) =>
       match func.properties.get(name) {
         Some(v) => v

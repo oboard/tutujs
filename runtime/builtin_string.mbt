@@ -12,8 +12,11 @@ pub fn init_string_prototype(
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           String(s) => JSValue::String(s)
-          Object({ properties: { "PrimitiveValue": String(s), .. }, .. }) =>
-            JSValue::String(s)
+          Object({ properties, .. }) =>
+            match properties.get("PrimitiveValue") {
+              Some(String(s)) => JSValue::String(s)
+              _ => JSValue::String("")
+            }
           _ => JSValue::String("")
         }
       })
@@ -28,8 +31,11 @@ pub fn init_string_prototype(
       let value_of_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           String(s) => JSValue::String(s)
-          Object({ properties: { "PrimitiveValue": String(s), .. }, .. }) =>
-            JSValue::String(s)
+          Object({ properties, .. }) =>
+            match properties.get("PrimitiveValue") {
+              Some(String(s)) => JSValue::String(s)
+              _ => JSValue::String("")
+            }
           _ => JSValue::String("")
         }
       })
@@ -44,8 +50,11 @@ pub fn init_string_prototype(
       let char_at_fn = Native(fn(_ctx, this_val, args) {
         let s = match this_val {
           String(str) => str
-          Object({ properties: { "PrimitiveValue": String(str), .. }, .. }) =>
-            str
+          Object({ properties, .. }) =>
+            match properties.get("PrimitiveValue") {
+              Some(String(str)) => str
+              _ => ""
+            }
           _ => ""
         }
         let pos = if args is [Number(n), ..] { n.to_int() } else { 0 }
@@ -71,8 +80,11 @@ pub fn init_string_prototype(
       let split_fn = Native(fn(ctx, this_val, args) {
         let s = match this_val {
           String(str) => str
-          Object({ properties: { "PrimitiveValue": String(str), .. }, .. }) =>
-            str
+          Object({ properties, .. }) =>
+            match properties.get("PrimitiveValue") {
+              Some(String(str)) => str
+              _ => ""
+            }
           _ => ""
         }
         let _separator = if args.length() > 0 {
@@ -115,12 +127,13 @@ pub fn create_string_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(ctx, this_val, args) {
-    let val = if args is [arg, ..] {
-      js_to_string(ctx, arg) catch {
-        e => raise e
+    let (val_str, is_symbol) = if args is [arg, ..] {
+      match arg {
+        Symbol(s) => ("Symbol(" + s + ")", true)
+        _ => (js_to_string(ctx, arg) catch { e => raise e }, false)
       }
     } else {
-      ""
+      ("", false)
     }
     let is_constructor = match this_val {
       Object({ prototype: Some(Object({ properties: p_props, .. })), .. }) =>
@@ -132,15 +145,20 @@ pub fn create_string_constructor(
       _ => false
     }
     if is_constructor {
+      if is_symbol {
+        ctx.throw_type_error("Cannot convert a Symbol value to a string")
+      }
       match this_val {
         Object({ properties, .. }) => {
-          properties["PrimitiveValue"] = JSValue::String(val)
-          properties["length"] = JSValue::Number(val.length().to_double())
+          properties["PrimitiveValue"] = JSValue::String(val_str)
+          properties["length"] = JSValue::Number(val_str.length().to_double())
         }
         _ => ()
       }
+      JSValue::String(val_str)
+    } else {
+      JSValue::String(val_str)
     }
-    JSValue::String(val)
   })
   let ctor_obj = JSFunction::new(
     name="String",

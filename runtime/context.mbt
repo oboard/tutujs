@@ -255,6 +255,15 @@ pub fn Context::create_global() -> Context {
 
   // Global functions (eval, isNaN, etc.)
   init_global_functions(ctx)
+
+  // Create global object
+  let global_obj = JSObject::{
+    properties: ctx.scope,
+    prototype: Some(object_proto_val),
+  }
+  let global_val = JSValue::Object(global_obj)
+  ctx.scope.set("this", global_val)
+  ctx.scope.set("globalThis", global_val)
   ctx
 }
 

@@ -10,15 +10,11 @@ pub fn init_object_prototype(
         JSValue::String(
           match this_val {
             Object({ properties, .. }) =>
-              if properties.contains("PrimitiveValue") {
-                match properties.get("PrimitiveValue") {
-                  Some(String(_)) => "[object String]"
-                  Some(Number(_)) => "[object Number]"
-                  Some(Boolean(_)) => "[object Boolean]"
-                  _ => "[object Object]"
-                }
-              } else {
-                "[object Object]"
+              match properties.get("PrimitiveValue") {
+                Some(String(_)) => "[object String]"
+                Some(Number(_)) => "[object Number]"
+                Some(Boolean(_)) => "[object Boolean]"
+                _ => "[object Object]"
               }
             Function(_) => "[object Function]"
             String(_) => "[object String]"
@@ -49,8 +45,27 @@ pub fn init_object_prototype(
         if args is [prop, ..] {
           let key = prop.to_string()
           match this_val {
-            Object({ properties, .. }) => Boolean(properties.contains(key))
-            Function({ properties, .. }) => Boolean(properties.contains(key))
+            Object(
+              {
+                properties: { "PrimitiveValue": String(_), .. } as properties,
+                ..,
+              }
+            ) => {
+              let idx = @strconv.parse_int(key) catch { _ => -1 }
+              if idx >= 0 {
+                let len = if properties.get("length") is Some(Number(n)) {
+                  n.to_int()
+                } else {
+                  0
+                }
+                if idx < len {
+                  return Boolean(true)
+                }
+              }
+              Boolean(properties.contains(key))
+            }
+            Object({ properties, .. }) | Function({ properties, .. }) =>
+              Boolean(properties.contains(key))
             _ => Boolean(false)
           }
         } else {
@@ -78,8 +93,8 @@ pub fn init_object_prototype(
                       return Boolean(true)
                     }
                     match p {
-                      Object(po) => proto = po.prototype
-                      Function(pf) => proto = pf.prototype
+                      Object({ prototype, .. }) | Function({ prototype, .. }) =>
+                        proto = prototype
                       _ => break
                     }
                   }
@@ -97,8 +112,8 @@ pub fn init_object_prototype(
                       return Boolean(true)
                     }
                     match p {
-                      Object(po) => proto = po.prototype
-                      Function(pf) => proto = pf.prototype
+                      Object({ prototype, .. }) | Function({ prototype, .. }) =>
+                        proto = prototype
                       _ => break
                     }
                   }
@@ -126,13 +141,36 @@ pub fn init_object_prototype(
         if args is [prop, ..] {
           let key = prop.to_string()
           match this_val {
-            Object({ properties, .. }) | Function({ properties, .. }) =>
+            Object({ properties, .. }) => {
+              let is_string_obj = properties.contains("PrimitiveValue") &&
+                (match properties.get("PrimitiveValue") {
+                  Some(String(_)) => true
+                  _ => false
+                })
+              if is_string_obj {
+                let idx = @strconv.parse_int(key) catch { _ => -1 }
+                if idx >= 0 {
+                  let len = match properties.get("length") {
+                    Some(Number(n)) => n.to_int()
+                    _ => 0
+                  }
+                  if idx < len {
+                    return Boolean(true)
+                  }
+                }
+              }
               // Hack: hide prototype, length, name, arguments, caller
-              if key == "prototype" ||
-                key == "length" ||
-                key == "name" ||
-                key == "arguments" ||
-                key == "caller" {
+              if key
+                is ("prototype" | "length" | "name" | "arguments" | "caller") {
+                Boolean(false)
+              } else {
+                Boolean(properties.contains(key) && not(key.has_prefix("__")))
+              }
+            }
+            Function({ properties, .. }) =>
+              // Hack: hide prototype, length, name, arguments, caller
+              if key
+                is ("prototype" | "length" | "name" | "arguments" | "caller") {
                 Boolean(false)
               } else {
                 Boolean(properties.contains(key) && not(key.has_prefix("__")))
@@ -304,25 +342,58 @@ pub fn create_object_constructor(
   // Object.getOwnPropertyDescriptor
   let get_own_property_descriptor_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, prop_arg, ..] {
-      let (obj_props, is_func, is_native_func, is_string_obj) = match obj_arg {
-        Object({ properties, .. }) => {
+      let (obj_props, is_func, is_native_func, is_string_obj, is_global) = match
+        obj_arg {
+        Object({ properties, .. } as o) => {
           let is_str = properties.contains("PrimitiveValue") &&
             (match properties.get("PrimitiveValue") {
               Some(String(_)) => true
               _ => false
             })
-          (properties, false, false, is_str)
+          let is_glob = match properties.get("this") {
+            Some(val) => val.strict_equal(JSValue::Object(o))
+            None => false
+          }
+          (properties, false, false, is_str, is_glob)
         }
         Function({ properties, body, .. }) => {
           let is_native = match body {
             Native(_) => true
             _ => false
           }
-          (properties, true, is_native, false)
+          (properties, true, is_native, false, false)
         }
         _ => return JSValue::Undefined // TypeError in spec
       }
       let prop = prop_arg.to_string()
+      if is_string_obj {
+        let len = match obj_props.get("length") {
+          Some(Number(n)) => n.to_int()
+          _ => 0
+        }
+        let idx = @strconv.parse_int(prop) catch { _ => -1 }
+        if idx >= 0 && idx < len {
+          let str_val = match obj_props.get("PrimitiveValue") {
+            Some(String(s)) => s
+            _ => ""
+          }
+          let char_code = str_val[idx].to_int()
+          let c = match char_code.to_char() {
+            Some(c) => c
+            None => ' '
+          }
+          let char_str = String::make(1, c)
+          let desc = JSObject::{
+            properties: @hashmap.new(),
+            prototype: Some(proto),
+          }
+          desc["value"] = JSValue::String(char_str)
+          desc["writable"] = JSValue::Boolean(false)
+          desc["enumerable"] = JSValue::Boolean(true)
+          desc["configurable"] = JSValue::Boolean(false)
+          return JSValue::Object(desc)
+        }
+      }
       match obj_props.get(prop) {
         Some(val) => {
           let desc = JSObject::{
@@ -331,44 +402,67 @@ pub fn create_object_constructor(
           }
           match val {
             Internal(Accessor(getter, setter)) => {
-              desc.properties["get"] = getter
+              desc["get"] = getter
                 .map(JSValue::Function(_))
                 .unwrap_or(Undefined)
-              desc.properties["set"] = setter
+              desc["set"] = setter
                 .map(JSValue::Function(_))
                 .unwrap_or(Undefined)
-              desc.properties["enumerable"] = JSValue::Boolean(false) // Accessors default to non-enumerable? No, defineProperty defaults to false, but if existing...
-              desc.properties["configurable"] = JSValue::Boolean(true)
+              desc["enumerable"] = JSValue::Boolean(false) // Accessors default to non-enumerable? No, defineProperty defaults to false, but if existing...
+              desc["configurable"] = JSValue::Boolean(true)
             }
             _ => {
-              desc.properties["value"] = val
-              desc.properties["writable"] = JSValue::Boolean(true)
-              desc.properties["enumerable"] = JSValue::Boolean(true)
-              desc.properties["configurable"] = JSValue::Boolean(true)
+              desc["value"] = val
+              desc["writable"] = JSValue::Boolean(true)
+              desc["enumerable"] = JSValue::Boolean(true)
+              desc["configurable"] = JSValue::Boolean(true)
               if is_func {
                 if prop == "length" || prop == "name" {
-                  desc.properties["writable"] = JSValue::Boolean(false)
-                  desc.properties["enumerable"] = JSValue::Boolean(false)
-                  desc.properties["configurable"] = JSValue::Boolean(true)
+                  desc["writable"] = JSValue::Boolean(false)
+                  desc["enumerable"] = JSValue::Boolean(false)
+                  desc["configurable"] = JSValue::Boolean(true)
                 }
                 if prop == "caller" || prop == "arguments" {
-                  desc.properties["enumerable"] = JSValue::Boolean(false)
-                  desc.properties["configurable"] = JSValue::Boolean(false)
+                  desc["enumerable"] = JSValue::Boolean(false)
+                  desc["configurable"] = JSValue::Boolean(false)
                 }
                 if prop == "prototype" {
-                  desc.properties["enumerable"] = JSValue::Boolean(false)
-                  desc.properties["configurable"] = JSValue::Boolean(false)
+                  desc["enumerable"] = JSValue::Boolean(false)
+                  desc["configurable"] = JSValue::Boolean(false)
                   if is_native_func {
-                    desc.properties["writable"] = JSValue::Boolean(false)
+                    desc["writable"] = JSValue::Boolean(false)
                   } else {
-                    desc.properties["writable"] = JSValue::Boolean(true)
+                    desc["writable"] = JSValue::Boolean(true)
                   }
                 }
               }
               if is_string_obj && prop == "length" {
-                desc.properties["writable"] = JSValue::Boolean(false)
-                desc.properties["enumerable"] = JSValue::Boolean(false)
-                desc.properties["configurable"] = JSValue::Boolean(false)
+                abort("DEBUG: Entered length block")
+                desc["writable"] = JSValue::Boolean(false)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(false)
+              }
+              if is_global {
+                if prop
+                  is ("String"
+                  | "Number"
+                  | "Boolean"
+                  | "Array"
+                  | "Object"
+                  | "Function"
+                  | "Math"
+                  | "Date"
+                  | "RegExp"
+                  | "Error"
+                  | "JSON"
+                  | "Reflect"
+                  | "eval"
+                  | "parseInt"
+                  | "parseFloat"
+                  | "isNaN"
+                  | "isFinite") {
+                  desc["enumerable"] = JSValue::Boolean(false)
+                }
               }
             }
           }
