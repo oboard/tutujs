@@ -29,6 +29,7 @@ pub(all) struct Lexer {
   mut tokens : Array[LexToken]
 }
 pub fn Lexer::new(String) -> Self
+pub fn Lexer::tokenize(Self) -> Array[LexToken]
 
 // Type aliases
 

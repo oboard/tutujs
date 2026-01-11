@@ -115,7 +115,7 @@ pub(all) struct JSFunction {
   params : Array[String]
   body : FunctionBody
   context : Context
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue? // [[Prototype]]
   strict : Bool
 } derive(Show, Eq, ToJson)
@@ -126,12 +126,12 @@ pub fn JSFunction::new(
   params? : Array[String],
   body~ : FunctionBody,
   context? : Context,
-  properties? : Map[String, JSValue],
+  properties? : @hashmap.HashMap[String, JSValue],
   prototype? : JSValue,
   strict? : Bool,
 ) -> JSFunction {
   let params = params.unwrap_or([])
-  let properties = properties.unwrap_or({})
+  let properties = properties.unwrap_or(@hashmap.new())
   if not(properties.contains("length")) {
     properties.set("length", JSValue::Number(params.length().to_double()))
   }
@@ -150,7 +150,7 @@ pub fn JSFunction::new(
 pub impl FromJson for JSFunction with from_json(_, _) {
   // Dummy implementation
   let ctx = Context::{
-    scope: {},
+    scope: @hashmap.new(),
     parent: None,
     pending_labels: [],
     strict: false,
@@ -160,7 +160,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     params: [],
     body: User(@parser.BlockStatement::{ body: [], directives: [] }),
     context: ctx,
-    properties: {},
+    properties: @hashmap.new(),
     prototype: None,
     strict: false,
   }
@@ -168,7 +168,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
 
 ///|
 pub(all) struct JSObject {
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
   prototype : JSValue?
 } derive(Show, Eq)
@@ -190,7 +190,7 @@ pub impl ToJson for JSObject with to_json(_) {
 
 ///|
 pub impl FromJson for JSObject with from_json(_, _) {
-  { properties: {}, prototype: None }
+  { properties: @hashmap.new(), prototype: None }
 }
 
 ///|
@@ -283,7 +283,23 @@ pub fn JSValue::set_property(
   strict? : Bool = false,
 ) -> Unit raise EvalError {
   match self {
-    Object({ properties, .. }) =>
+    Object({ properties, .. }) => {
+      // Check for String object length
+      let is_string_obj = properties.contains("PrimitiveValue") &&
+        (match properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj && name == "length" {
+        if strict {
+          raise EvalError::Throw(
+            JSValue::String(
+              "TypeError: Cannot assign to read only property 'length' of String object",
+            ),
+          )
+        }
+        return
+      }
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let _ = setter.context.invoke(setter, self, [value]) catch {
@@ -299,7 +315,43 @@ pub fn JSValue::set_property(
           }
         _ => properties.set(name, value)
       }
-    Function(func) => func.properties.set(name, value)
+    }
+    Function(func) => {
+      if name == "length" || name == "name" {
+        if strict {
+          raise EvalError::Throw(
+            JSValue::String("TypeError: Cannot assign to read only property"),
+          )
+        }
+        return
+      }
+      // Check if it is a built-in constructor for prototype property
+      // Heuristic: if name is String, Number, Boolean, Array, Object, Function, Error...
+      // Ideally we should flag this in JSFunction struct.
+      // But for now let's check name.
+      if name == "prototype" {
+        let func_name = func.name.unwrap_or("")
+        if func_name == "String" ||
+          func_name == "Number" ||
+          func_name == "Boolean" ||
+          func_name == "Array" ||
+          func_name == "Object" ||
+          func_name == "Function" ||
+          func_name == "Error" ||
+          func_name == "Date" ||
+          func_name == "RegExp" {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String(
+                "TypeError: Cannot assign to read only property 'prototype' of built-in constructor",
+              ),
+            )
+          }
+          return
+        }
+      }
+      func.properties.set(name, value)
+    }
     _ =>
       if strict {
         raise EvalError::Throw(

@@ -1,6 +1,9 @@
 ///|
 test "RegExp Constructor and Test" {
-  let obj_proto = JSValue::Object(JSObject::{ properties: {}, prototype: None })
+  let obj_proto = JSValue::Object(JSObject::{
+    properties: @hashmap.new(),
+    prototype: None,
+  })
   let regexp_ctor_val = create_regexp_object(obj_proto, JSValue::Undefined)
   let regexp_ctor = match regexp_ctor_val {
     Function(f) => f
@@ -10,7 +13,7 @@ test "RegExp Constructor and Test" {
 
   // Test new RegExp("abc")
   let regexp_prototype = regexp_ctor.properties.get("prototype").unwrap()
-  let new_re_obj_props = {}
+  let new_re_obj_props = @hashmap.new()
   let new_re_obj = JSValue::Object(JSObject::{
     properties: new_re_obj_props,
     prototype: Some(regexp_prototype),

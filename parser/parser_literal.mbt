@@ -15,7 +15,9 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     }
     TokenKind::StringLiteral => {
       self.advance()
-      Expression::StringLiteral({ value: token.value })
+      Expression::StringLiteral({
+        value: unescape_string_literal(token.value.to_string()),
+      })
     }
     TokenKind::RegularExpressionLiteral => {
       self.advance()

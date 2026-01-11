@@ -126,14 +126,17 @@ pub fn init_object_prototype(
         if args is [prop, ..] {
           let key = prop.to_string()
           match this_val {
-            Object({ properties, .. }) | Function({ properties, .. }) => {
+            Object({ properties, .. }) | Function({ properties, .. }) =>
               // Hack: hide prototype, length, name, arguments, caller
-              if key == "prototype" || key == "length" || key == "name" || key == "arguments" || key == "caller" {
+              if key == "prototype" ||
+                key == "length" ||
+                key == "name" ||
+                key == "arguments" ||
+                key == "caller" {
                 Boolean(false)
               } else {
-                Boolean(properties.contains(key) && not(key.starts_with("__")))
+                Boolean(properties.contains(key) && not(key.has_prefix("__")))
               }
-            }
             _ => Boolean(false)
           }
         } else {
@@ -163,11 +166,12 @@ pub fn create_object_constructor(
     if args is [val, ..] {
       match val {
         Object(_) => val
-        Null | Undefined => Object({ properties: {}, prototype: Some(proto) })
+        Null | Undefined =>
+          Object({ properties: @hashmap.new(), prototype: Some(proto) })
         _ => val // TODO: Box primitive
       }
     } else {
-      Object({ properties: {}, prototype: Some(proto) })
+      Object({ properties: @hashmap.new(), prototype: Some(proto) })
     }
   })
   let object_fn = JSFunction::new(
@@ -180,7 +184,10 @@ pub fn create_object_constructor(
   // Object.keys
   let keys_fn = Native(fn(_ctx, _this_val, args) {
     if args is [Object({ properties, .. }), ..] {
-      let keys_array = JSObject::{ properties: {}, prototype: Some(proto) } // Should be Array.prototype ideally
+      let keys_array = JSObject::{
+        properties: @hashmap.new(),
+        prototype: Some(proto),
+      } // Should be Array.prototype ideally
       let mut i = 0.0
       for k, _ in properties {
         keys_array[i.to_string()] = JSValue::String(k)
@@ -204,7 +211,10 @@ pub fn create_object_constructor(
     if args is [proto_arg, ..] {
       match proto_arg {
         Object(_) | Null =>
-          JSValue::Object({ properties: {}, prototype: Some(proto_arg) })
+          JSValue::Object({
+            properties: @hashmap.new(),
+            prototype: Some(proto_arg),
+          })
         _ => JSValue::Undefined // TypeError
       }
     } else {
@@ -290,5 +300,126 @@ pub fn create_object_constructor(
     prototype=func_proto,
   )
   object_fn["preventExtensions"] = JSValue::Function(prevent_extensions_obj)
+
+  // Object.getOwnPropertyDescriptor
+  let get_own_property_descriptor_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, prop_arg, ..] {
+      let (obj_props, is_func, is_native_func, is_string_obj) = match obj_arg {
+        Object({ properties, .. }) => {
+          let is_str = properties.contains("PrimitiveValue") &&
+            (match properties.get("PrimitiveValue") {
+              Some(String(_)) => true
+              _ => false
+            })
+          (properties, false, false, is_str)
+        }
+        Function({ properties, body, .. }) => {
+          let is_native = match body {
+            Native(_) => true
+            _ => false
+          }
+          (properties, true, is_native, false)
+        }
+        _ => return JSValue::Undefined // TypeError in spec
+      }
+      let prop = prop_arg.to_string()
+      match obj_props.get(prop) {
+        Some(val) => {
+          let desc = JSObject::{
+            properties: @hashmap.new(),
+            prototype: Some(proto),
+          }
+          match val {
+            Internal(Accessor(getter, setter)) => {
+              desc.properties["get"] = getter
+                .map(JSValue::Function(_))
+                .unwrap_or(Undefined)
+              desc.properties["set"] = setter
+                .map(JSValue::Function(_))
+                .unwrap_or(Undefined)
+              desc.properties["enumerable"] = JSValue::Boolean(false) // Accessors default to non-enumerable? No, defineProperty defaults to false, but if existing...
+              desc.properties["configurable"] = JSValue::Boolean(true)
+            }
+            _ => {
+              desc.properties["value"] = val
+              desc.properties["writable"] = JSValue::Boolean(true)
+              desc.properties["enumerable"] = JSValue::Boolean(true)
+              desc.properties["configurable"] = JSValue::Boolean(true)
+              if is_func {
+                if prop == "length" || prop == "name" {
+                  desc.properties["writable"] = JSValue::Boolean(false)
+                  desc.properties["enumerable"] = JSValue::Boolean(false)
+                  desc.properties["configurable"] = JSValue::Boolean(true)
+                }
+                if prop == "caller" || prop == "arguments" {
+                  desc.properties["enumerable"] = JSValue::Boolean(false)
+                  desc.properties["configurable"] = JSValue::Boolean(false)
+                }
+                if prop == "prototype" {
+                  desc.properties["enumerable"] = JSValue::Boolean(false)
+                  desc.properties["configurable"] = JSValue::Boolean(false)
+                  if is_native_func {
+                    desc.properties["writable"] = JSValue::Boolean(false)
+                  } else {
+                    desc.properties["writable"] = JSValue::Boolean(true)
+                  }
+                }
+              }
+              if is_string_obj && prop == "length" {
+                desc.properties["writable"] = JSValue::Boolean(false)
+                desc.properties["enumerable"] = JSValue::Boolean(false)
+                desc.properties["configurable"] = JSValue::Boolean(false)
+              }
+            }
+          }
+          JSValue::Object(desc)
+        }
+        None => JSValue::Undefined
+      }
+    } else {
+      JSValue::Undefined
+    }
+  })
+  let get_own_property_descriptor_obj = JSFunction::new(
+    name="getOwnPropertyDescriptor",
+    body=get_own_property_descriptor_fn,
+    prototype=func_proto,
+  )
+  object_fn["getOwnPropertyDescriptor"] = JSValue::Function(
+    get_own_property_descriptor_obj,
+  )
+
+  // Object.getOwnPropertyNames
+  let get_own_property_names_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      let obj_props = match obj_arg {
+        Object({ properties, .. }) | Function({ properties, .. }) => properties
+        _ => return JSValue::Undefined // TypeError
+      }
+      let names_array = JSObject::{
+        properties: @hashmap.new(),
+        prototype: Some(proto),
+      } // Array.prototype
+      let mut i = 0.0
+      for k, _ in obj_props {
+        if not(k.has_prefix("__")) {
+          names_array[i.to_string()] = JSValue::String(k)
+          i = i + 1.0
+        }
+      }
+      names_array["length"] = JSValue::Number(i)
+      JSValue::Object(names_array)
+    } else {
+      JSValue::Undefined // TypeError
+    }
+  })
+  let get_own_property_names_obj = JSFunction::new(
+    name="getOwnPropertyNames",
+    body=get_own_property_names_fn,
+    prototype=func_proto,
+  )
+  object_fn["getOwnPropertyNames"] = JSValue::Function(
+    get_own_property_names_obj,
+  )
   JSValue::Function(object_fn)
 }

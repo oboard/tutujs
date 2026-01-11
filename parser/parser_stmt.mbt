@@ -69,6 +69,10 @@ fn Parser::parse_statement(self : Parser) -> Statement {
       } else {
         Statement::ExpressionStatement(self.parse_expression_statement())
       }
+    TokenKind::Semicolon => {
+      self.advance()
+      Statement::EmptyStatement(EmptyStatement::{  })
+    }
     _ => Statement::ExpressionStatement(self.parse_expression_statement())
   }
 }

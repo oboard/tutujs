@@ -2,15 +2,17 @@
 
 ///|
 pub fn create_json_object(object_proto : JSValue) -> JSValue {
-  let json_obj = JSObject::{ properties: {}, prototype: Some(object_proto) }
+  let json_obj = JSObject::{
+    properties: @hashmap.new(),
+    prototype: Some(object_proto),
+  }
 
   // JSON.parse
   let parse_fn = Native(fn(ctx, _this_val, args) {
     if args is [arg0, ..] {
       let text = arg0.to_string()
-      // Use existing lexer and parser
-      // Note: This is a loose parser (JS parser), not strict JSON parser
-      let tokens = text |> @lexer.parse
+      let lexer = @lexer.Lexer::new(text)
+      let tokens = lexer.tokenize()
       let parser = @parser.Parser::new(tokens)
       // JSON can be object, array, string, number, boolean, null
       // These are all parsed by parse_expression (which includes primary)

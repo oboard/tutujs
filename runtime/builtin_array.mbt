@@ -1,5 +1,8 @@
 ///|
-pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
+pub fn init_array_prototype(
+  array_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match array_proto_val {
     Object(obj) => {
       // push
@@ -28,7 +31,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => Number(0.0) // Should throw TypeError?
         }
       })
-      let push_obj = JSFunction::new(name="push", body=push_fn)
+      let push_obj = JSFunction::new(
+        name="push",
+        body=push_fn,
+        prototype=func_proto,
+      )
       obj["push"] = JSValue::Function(push_obj)
 
       // pop
@@ -58,7 +65,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => Undefined
         }
       })
-      let pop_obj = JSFunction::new(name="pop", body=pop_fn)
+      let pop_obj = JSFunction::new(
+        name="pop",
+        body=pop_fn,
+        prototype=func_proto,
+      )
       obj["pop"] = JSValue::Function(pop_obj)
 
       // forEach
@@ -113,7 +124,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
                 JSValue::Undefined
               }
               let new_array = JSObject::{
-                properties: {},
+                properties: @hashmap.new(),
                 prototype: Some(array_proto_val),
               }
               new_array["length"] = JSValue::Number(len)
@@ -139,7 +150,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let map_obj = JSFunction::new(name="map", body=map_fn)
+      let map_obj = JSFunction::new(
+        name="map",
+        body=map_fn,
+        prototype=func_proto,
+      )
       obj["map"] = JSValue::Function(map_obj)
 
       // filter
@@ -155,7 +170,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
                 JSValue::Undefined
               }
               let new_array = JSObject::{
-                properties: {},
+                properties: @hashmap.new(),
                 prototype: Some(array_proto_val),
               }
               let mut new_len = 0.0
@@ -187,7 +202,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let filter_obj = JSFunction::new(name="filter", body=filter_fn)
+      let filter_obj = JSFunction::new(
+        name="filter",
+        body=filter_fn,
+        prototype=func_proto,
+      )
       obj["filter"] = JSValue::Function(filter_obj)
 
       // reduce
@@ -248,7 +267,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let reduce_obj = JSFunction::new(name="reduce", body=reduce_fn)
+      let reduce_obj = JSFunction::new(
+        name="reduce",
+        body=reduce_fn,
+        prototype=func_proto,
+      )
       obj["reduce"] = JSValue::Function(reduce_obj)
 
       // every
@@ -292,7 +315,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Boolean(true)
         }
       })
-      let every_obj = JSFunction::new(name="every", body=every_fn)
+      let every_obj = JSFunction::new(
+        name="every",
+        body=every_fn,
+        prototype=func_proto,
+      )
       obj["every"] = JSValue::Function(every_obj)
 
       // some
@@ -334,7 +361,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Boolean(false) // Should be TypeError
         }
       })
-      let some_obj = JSFunction::new(name="some", body=some_fn)
+      let some_obj = JSFunction::new(
+        name="some",
+        body=some_fn,
+        prototype=func_proto,
+      )
       obj["some"] = JSValue::Function(some_obj)
       // join
       let join_fn = Native(fn(_ctx, this_val, args) {
@@ -363,7 +394,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::String("")
         }
       })
-      let join_obj = JSFunction::new(name="join", body=join_fn)
+      let join_obj = JSFunction::new(
+        name="join",
+        body=join_fn,
+        prototype=func_proto,
+      )
       obj["join"] = JSValue::Function(join_obj)
 
       // toString
@@ -376,7 +411,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::String("[object Object]")
         }
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
 
       // indexOf
@@ -422,7 +461,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Number(-1.0)
         }
       })
-      let index_of_obj = JSFunction::new(name="indexOf", body=index_of_fn)
+      let index_of_obj = JSFunction::new(
+        name="indexOf",
+        body=index_of_fn,
+        prototype=func_proto,
+      )
       obj["indexOf"] = JSValue::Function(index_of_obj)
 
       // shift
@@ -456,7 +499,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let shift_obj = JSFunction::new(name="shift", body=shift_fn)
+      let shift_obj = JSFunction::new(
+        name="shift",
+        body=shift_fn,
+        prototype=func_proto,
+      )
       obj["shift"] = JSValue::Function(shift_obj)
 
       // unshift
@@ -489,7 +536,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => Number(0.0)
         }
       })
-      let unshift_obj = JSFunction::new(name="unshift", body=unshift_fn)
+      let unshift_obj = JSFunction::new(
+        name="unshift",
+        body=unshift_fn,
+        prototype=func_proto,
+      )
       obj["unshift"] = JSValue::Function(unshift_obj)
 
       // slice
@@ -523,7 +574,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
               end_k = len_int
             }
             let new_array = JSObject::{
-              properties: {},
+              properties: @hashmap.new(),
               prototype: Some(array_proto_val),
             }
             let mut n = 0
@@ -542,7 +593,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let slice_obj = JSFunction::new(name="slice", body=slice_fn)
+      let slice_obj = JSFunction::new(
+        name="slice",
+        body=slice_fn,
+        prototype=func_proto,
+      )
       obj["slice"] = JSValue::Function(slice_obj)
 
       // reverse
@@ -579,7 +634,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => this_val
         }
       })
-      let reverse_obj = JSFunction::new(name="reverse", body=reverse_fn)
+      let reverse_obj = JSFunction::new(
+        name="reverse",
+        body=reverse_fn,
+        prototype=func_proto,
+      )
       obj["reverse"] = JSValue::Function(reverse_obj)
 
       // sort
@@ -648,7 +707,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => this_val
         }
       })
-      let sort_obj = JSFunction::new(name="sort", body=sort_fn)
+      let sort_obj = JSFunction::new(
+        name="sort",
+        body=sort_fn,
+        prototype=func_proto,
+      )
       obj["sort"] = JSValue::Function(sort_obj)
 
       // splice
@@ -693,7 +756,7 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
               []
             }
             let deleted_elements = JSObject::{
-              properties: {},
+              properties: @hashmap.new(),
               prototype: Some(array_proto_val),
             }
             for k = 0; k < delete_count; k = k + 1 {
@@ -744,7 +807,11 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
           _ => JSValue::Undefined
         }
       })
-      let splice_obj = JSFunction::new(name="splice", body=splice_fn)
+      let splice_obj = JSFunction::new(
+        name="splice",
+        body=splice_fn,
+        prototype=func_proto,
+      )
       obj["splice"] = JSValue::Function(splice_obj)
 
       // values
@@ -764,31 +831,48 @@ pub fn init_array_prototype(array_proto_val : JSValue) -> Unit {
                   None => JSValue::Undefined
                 }
                 index_box[0] = idx + 1
-                let res = JSObject::{ properties: {}, prototype: None }
+                let res = JSObject::{
+                  properties: @hashmap.new(),
+                  prototype: None,
+                }
                 res["value"] = val
                 res["done"] = JSValue::Boolean(false)
                 JSValue::Object(res)
               } else {
-                let res = JSObject::{ properties: {}, prototype: None }
+                let res = JSObject::{
+                  properties: @hashmap.new(),
+                  prototype: None,
+                }
                 res["value"] = JSValue::Undefined
                 res["done"] = JSValue::Boolean(true)
                 JSValue::Object(res)
               }
             }
             _ => {
-              let res = JSObject::{ properties: {}, prototype: None }
+              let res = JSObject::{
+                properties: @hashmap.new(),
+                prototype: None,
+              }
               res["value"] = JSValue::Undefined
               res["done"] = JSValue::Boolean(true)
               JSValue::Object(res)
             }
           }
         })
-        let iter_obj = JSObject::{ properties: {}, prototype: None }
-        let next_func_obj = JSFunction::new(name="next", body=next_fn)
+        let iter_obj = JSObject::{ properties: @hashmap.new(), prototype: None }
+        let next_func_obj = JSFunction::new(
+          name="next",
+          body=next_fn,
+          prototype=func_proto,
+        )
         iter_obj["next"] = JSValue::Function(next_func_obj)
         JSValue::Object(iter_obj)
       })
-      let values_obj = JSFunction::new(name="values", body=values_fn)
+      let values_obj = JSFunction::new(
+        name="values",
+        body=values_fn,
+        prototype=func_proto,
+      )
       obj["values"] = JSValue::Function(values_obj)
     }
     _ => ()
@@ -877,7 +961,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                     _ => JSValue::Undefined
                   }
               }
-              let obj = JSObject::{ properties: {}, prototype: Some(proto) }
+              let obj = JSObject::{
+                properties: @hashmap.new(),
+                prototype: Some(proto),
+              }
               let this_obj = JSValue::Object(obj)
               let res = ctx.invoke(ctor, this_obj, []) catch { _ => this_obj }
               match res {
@@ -890,7 +977,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                 Function(f) => f.properties.get("prototype")
                 _ => None
               }
-              JSValue::Object(JSObject::{ properties: {}, prototype: proto })
+              JSValue::Object(JSObject::{
+                properties: @hashmap.new(),
+                prototype: proto,
+              })
             }
           }
           let new_array_obj = match new_array_val {
@@ -975,7 +1065,10 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                   _ => JSValue::Undefined
                 }
             }
-            let obj = JSObject::{ properties: {}, prototype: Some(proto) }
+            let obj = JSObject::{
+              properties: @hashmap.new(),
+              prototype: Some(proto),
+            }
             let this_obj = JSValue::Object(obj)
             let res = ctx.invoke(ctor, this_obj, [
               JSValue::Number(len.to_double()),
@@ -994,7 +1087,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
               Function(f) => f.properties.get("prototype")
               _ => None
             }
-            let obj = JSObject::{ properties: {}, prototype: proto }
+            let obj = JSObject::{ properties: @hashmap.new(), prototype: proto }
             obj.properties["length"] = JSValue::Number(len.to_double())
             JSValue::Object(obj)
           }

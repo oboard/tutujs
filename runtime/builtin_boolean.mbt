@@ -1,5 +1,8 @@
 ///|
-pub fn init_boolean_prototype(boolean_proto_val : JSValue) -> Unit {
+pub fn init_boolean_prototype(
+  boolean_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match boolean_proto_val {
     Object(obj) => {
       // valueOf
@@ -13,7 +16,11 @@ pub fn init_boolean_prototype(boolean_proto_val : JSValue) -> Unit {
           },
         )
       })
-      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
+      let value_of_obj = JSFunction::new(
+        name="valueOf",
+        body=value_of_fn,
+        prototype=func_proto,
+      )
       obj["valueOf"] = JSValue::Function(value_of_obj)
 
       // toString
@@ -25,7 +32,11 @@ pub fn init_boolean_prototype(boolean_proto_val : JSValue) -> Unit {
         }
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
     }
     _ => ()

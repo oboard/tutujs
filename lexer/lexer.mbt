@@ -32,7 +32,7 @@ fn Lexer::add_token(
 }
 
 ///|
-fn Lexer::tokenize(self : Lexer) -> Array[LexToken] {
+pub fn Lexer::tokenize(self : Lexer) -> Array[LexToken] {
   let input = self.input
   lex_tokens(input, self)
   let needs_eof = match self.tokens.last() {

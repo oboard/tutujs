@@ -3,6 +3,7 @@ package "oboard/tutujs/runtime"
 
 import(
   "moonbitlang/core/bigint"
+  "moonbitlang/core/hashmap"
   "moonbitlang/core/json"
   "moonbitlang/regexp"
   "oboard/tutujs/parser"
@@ -32,6 +33,8 @@ pub fn create_number_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_object_constructor(JSValue, JSValue) -> JSValue
 
+pub fn create_reflect_object(JSValue) -> JSValue
+
 pub fn create_regexp_object(JSValue, JSValue) -> JSValue
 
 pub fn create_string_constructor(JSValue, JSValue) -> JSValue
@@ -42,19 +45,27 @@ pub fn format_js_error(JSValue) -> String
 
 pub fn init_array_constructor(JSValue) -> Unit
 
-pub fn init_array_prototype(JSValue) -> Unit
+pub fn init_array_prototype(JSValue, JSValue) -> Unit
 
-pub fn init_boolean_prototype(JSValue) -> Unit
+pub fn init_boolean_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_function_prototype(JSValue) -> Unit
 
-pub fn init_number_prototype(JSValue) -> Unit
+pub fn init_global_functions(Context) -> Unit
+
+pub fn init_number_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_object_prototype(JSValue, JSValue) -> Unit
 
-pub fn init_string_prototype(JSValue) -> Unit
+pub fn init_string_prototype(JSValue, JSValue) -> Unit
 
-pub fn init_symbol_prototype(JSValue) -> Unit
+pub fn init_symbol_prototype(JSValue, JSValue) -> Unit
+
+pub fn js_to_number(Context, JSValue) -> Double raise EvalError
+
+pub fn js_to_string(Context, JSValue) -> String raise EvalError
+
+pub fn to_primitive(Context, JSValue, hint? : String) -> JSValue raise EvalError
 
 // Errors
 pub suberror EvalError {
@@ -67,7 +78,7 @@ pub impl Show for EvalError
 
 // Types and methods
 pub(all) struct Context {
-  scope : Map[String, JSValue]
+  scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
   mut pending_labels : Array[String]
   mut strict : Bool
@@ -81,6 +92,11 @@ pub fn Context::invoke(Self, JSFunction, JSValue, Array[JSValue]) -> JSValue rai
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
 pub fn Context::resolve(Self, String) -> JSValue
+pub fn Context::throw_error(Self, String, String) -> Unit raise EvalError
+pub fn Context::throw_range_error(Self, String) -> Unit raise EvalError
+pub fn Context::throw_reference_error(Self, String) -> Unit raise EvalError
+pub fn Context::throw_syntax_error(Self, String) -> Unit raise EvalError
+pub fn Context::throw_type_error(Self, String) -> Unit raise EvalError
 pub impl Compare for Context
 pub impl Eq for Context
 pub impl Hash for Context
@@ -102,13 +118,13 @@ pub(all) struct JSFunction {
   params : Array[String]
   body : FunctionBody
   context : Context
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue?
   strict : Bool
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue
-pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool) -> Self
+pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool) -> Self
 #alias("_[_]=_")
 pub fn JSFunction::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSFunction
@@ -131,7 +147,7 @@ pub impl ToJson for JSInternal
 pub impl @json.FromJson for JSInternal
 
 pub(all) struct JSObject {
-  properties : Map[String, JSValue]
+  properties : @hashmap.HashMap[String, JSValue]
   prototype : JSValue?
 }
 pub fn JSObject::op_get(Self, String) -> JSValue
@@ -171,7 +187,7 @@ pub fn JSValue::strict_equal(Self, Self) -> Bool
 pub fn JSValue::to_int32(Self) -> Int
 pub fn JSValue::to_number(Self) -> Double
 pub fn JSValue::unsigned_right_shift(Self, Self) -> Self
-pub fn JSValue::unstrict_equal(Self, Self) -> Bool
+pub fn JSValue::unstrict_equal(Self, Self, Context) -> Bool raise EvalError
 pub impl Add for JSValue
 pub impl Compare for JSValue
 pub impl Div for JSValue

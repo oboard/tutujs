@@ -1,10 +1,20 @@
 ///|
 pub(all) struct Context {
-  scope : Map[String, JSValue]
+  scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
   mut pending_labels : Array[String]
   mut strict : Bool
-} derive(FromJson, ToJson, Show)
+} derive(Show)
+
+///|
+pub impl ToJson for Context with to_json(_) {
+  JSValue::Null.to_json()
+}
+
+///|
+pub impl FromJson for Context with from_json(_, _) {
+  Context::new()
+}
 
 ///|
 pub impl Eq for Context with equal(_, _) {
@@ -15,7 +25,7 @@ pub impl Eq for Context with equal(_, _) {
 ///|
 #as_free_fn(new)
 pub fn Context::new(parent? : Context, strict? : Bool) -> Context {
-  let scope = {}
+  let scope = @hashmap.new()
   match parent {
     None => {
       scope.set("NaN", Number(@double.not_a_number))
@@ -53,7 +63,7 @@ pub fn Context::create_global() -> Context {
   let ctx = Context::new()
 
   // Object.prototype
-  let object_proto_props = {}
+  let object_proto_props = @hashmap.new()
   let object_proto = JSObject::{
     properties: object_proto_props,
     prototype: None,
@@ -61,7 +71,7 @@ pub fn Context::create_global() -> Context {
   let object_proto_val = JSValue::Object(object_proto)
 
   // Function.prototype
-  let func_proto_props = {}
+  let func_proto_props = @hashmap.new()
   let func_proto = JSObject::{
     properties: func_proto_props,
     prototype: Some(object_proto_val),
@@ -85,17 +95,17 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("Function", func_ctor_val)
 
   // Array.prototype
-  let array_proto_props = {}
+  let array_proto_props = @hashmap.new()
   let array_proto = JSObject::{
     properties: array_proto_props,
     prototype: Some(object_proto_val),
   }
   let array_proto_val = JSValue::Object(array_proto)
-  init_array_prototype(array_proto_val)
+  init_array_prototype(array_proto_val, func_proto_val)
 
   // Array Constructor
   let array_fn_body = Native(fn(_ctx, _this_val, args) {
-    let arr_props = {}
+    let arr_props = @hashmap.new()
     let mut len = 0.0
     match args {
       [Number(n)] => len = n
@@ -115,7 +125,7 @@ pub fn Context::create_global() -> Context {
     arr_props.set("length", Number(len))
     Object({ properties: arr_props, prototype: Some(array_proto_val) })
   })
-  let array_fn_props = {}
+  let array_fn_props = @hashmap.new()
   array_fn_props.set("prototype", array_proto_val)
   let array_fn = JSFunction::new(
     name="Array",
@@ -132,13 +142,13 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("Array", array_fn_val)
 
   // String.prototype
-  let string_proto_props = {}
+  let string_proto_props = @hashmap.new()
   let string_proto = JSObject::{
     properties: string_proto_props,
     prototype: Some(object_proto_val),
   }
   let string_proto_val = JSValue::Object(string_proto)
-  init_string_prototype(string_proto_val)
+  init_string_prototype(string_proto_val, func_proto_val)
 
   // String Constructor
   let string_ctor_val = create_string_constructor(
@@ -148,13 +158,13 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("String", string_ctor_val)
 
   // Number.prototype
-  let number_proto_props = {}
+  let number_proto_props = @hashmap.new()
   let number_proto = JSObject::{
     properties: number_proto_props,
     prototype: Some(object_proto_val),
   }
   let number_proto_val = JSValue::Object(number_proto)
-  init_number_prototype(number_proto_val)
+  init_number_prototype(number_proto_val, func_proto_val)
 
   // Number Constructor
   let number_ctor_val = create_number_constructor(
@@ -168,13 +178,13 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("console", console_val)
 
   // Boolean.prototype
-  let boolean_proto_props = {}
+  let boolean_proto_props = @hashmap.new()
   let boolean_proto = JSObject::{
     properties: boolean_proto_props,
     prototype: Some(object_proto_val),
   }
   let boolean_proto_val = JSValue::Object(boolean_proto)
-  init_boolean_prototype(boolean_proto_val)
+  init_boolean_prototype(boolean_proto_val, func_proto_val)
 
   // Boolean Constructor
   let boolean_ctor_val = create_boolean_constructor(
@@ -196,13 +206,13 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("JSON", json_val)
 
   // Symbol.prototype
-  let symbol_proto_props = {}
+  let symbol_proto_props = @hashmap.new()
   let symbol_proto = JSObject::{
     properties: symbol_proto_props,
     prototype: Some(object_proto_val),
   }
   let symbol_proto_val = JSValue::Object(symbol_proto)
-  init_symbol_prototype(symbol_proto_val)
+  init_symbol_prototype(symbol_proto_val, func_proto_val)
 
   // Symbol Constructor
   let symbol_ctor_val = create_symbol_constructor(
@@ -238,6 +248,13 @@ pub fn Context::create_global() -> Context {
   }
   let regexp_val = create_regexp_object(object_proto_val, syntax_error_val)
   ctx.scope.set("RegExp", regexp_val)
+
+  // Reflect Object
+  let reflect_val = create_reflect_object(object_proto_val)
+  ctx.scope.set("Reflect", reflect_val)
+
+  // Global functions (eval, isNaN, etc.)
+  init_global_functions(ctx)
   ctx
 }
 

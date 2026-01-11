@@ -1,5 +1,8 @@
 ///|
-pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
+pub fn init_number_prototype(
+  number_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match number_proto_val {
     Object(obj) => {
       // valueOf
@@ -11,7 +14,11 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
           _ => JSValue::Number(0.0) // Should throw TypeError
         }
       })
-      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
+      let value_of_obj = JSFunction::new(
+        name="valueOf",
+        body=value_of_fn,
+        prototype=func_proto,
+      )
       obj["valueOf"] = JSValue::Function(value_of_obj)
 
       // toString
@@ -26,7 +33,11 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
         // For now we just return standard string representation
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
 
       // toFixed
@@ -114,7 +125,11 @@ pub fn init_number_prototype(number_proto_val : JSValue) -> Unit {
           _ => JSValue::String("RangeError: Internal error in toFixed")
         }
       })
-      let to_fixed_obj = JSFunction::new(name="toFixed", body=to_fixed_fn)
+      let to_fixed_obj = JSFunction::new(
+        name="toFixed",
+        body=to_fixed_fn,
+        prototype=func_proto,
+      )
       obj["toFixed"] = JSValue::Function(to_fixed_obj)
     }
     _ => ()
@@ -126,18 +141,10 @@ pub fn create_number_constructor(
   proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let ctor_fn = Native(fn(_ctx, this_val, args) {
+  let ctor_fn = Native(fn(ctx, this_val, args) {
     let val = if args is [arg0, ..] {
-      match arg0 {
-        Number(n) => n
-        String(s) =>
-          @strconv.parse_double(s) catch {
-            _ => @double.not_a_number
-          }
-        Boolean(b) => if b { 1.0 } else { 0.0 }
-        Null => 0.0
-        Undefined => @double.not_a_number
-        _ => @double.not_a_number // Object toPrimitive
+      js_to_number(ctx, arg0) catch {
+        _ => @double.not_a_number
       }
     } else {
       0.0

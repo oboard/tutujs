@@ -1,9 +1,13 @@
 ///|
-pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
+pub fn init_string_prototype(
+  string_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match string_proto_val {
     Object(obj) => {
       // PrimitiveValue = ""
-      obj.properties["PrimitiveValue"] = JSValue::String("")
+      obj.properties.set("PrimitiveValue", JSValue::String(""))
+      obj.properties.set("length", JSValue::Number(0.0))
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
@@ -13,7 +17,11 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
           _ => JSValue::String("")
         }
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
 
       // valueOf
@@ -25,7 +33,11 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
           _ => JSValue::String("")
         }
       })
-      let value_of_obj = JSFunction::new(name="valueOf", body=value_of_fn)
+      let value_of_obj = JSFunction::new(
+        name="valueOf",
+        body=value_of_fn,
+        prototype=func_proto,
+      )
       obj["valueOf"] = JSValue::Function(value_of_obj)
 
       // charAt
@@ -48,7 +60,11 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
           JSValue::String("")
         }
       })
-      let char_at_obj = JSFunction::new(name="charAt", body=char_at_fn)
+      let char_at_obj = JSFunction::new(
+        name="charAt",
+        body=char_at_fn,
+        prototype=func_proto,
+      )
       obj["charAt"] = JSValue::Function(char_at_obj)
 
       // split
@@ -73,7 +89,10 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
           Function(f) => f.properties.get("prototype")
           _ => None
         }
-        let arr_obj = JSObject::{ properties: {}, prototype: array_proto }
+        let arr_obj = JSObject::{
+          properties: @hashmap.new(),
+          prototype: array_proto,
+        }
         arr_obj.properties["length"] = JSValue::Number(1.0)
         arr_obj.properties["0"] = JSValue::String(s)
         JSValue::Object(arr_obj)
@@ -82,6 +101,7 @@ pub fn init_string_prototype(string_proto_val : JSValue) -> Unit {
         name="split",
         params=["separator", "limit"],
         body=split_fn,
+        prototype=func_proto,
       )
       obj["split"] = JSValue::Function(split_obj)
     }
@@ -94,8 +114,14 @@ pub fn create_string_constructor(
   proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let ctor_fn = Native(fn(_ctx, this_val, args) {
-    let val = if args is [arg, ..] { arg.to_string() } else { "" }
+  let ctor_fn = Native(fn(ctx, this_val, args) {
+    let val = if args is [arg, ..] {
+      js_to_string(ctx, arg) catch {
+        e => raise e
+      }
+    } else {
+      ""
+    }
     let is_constructor = match this_val {
       Object({ prototype: Some(Object({ properties: p_props, .. })), .. }) =>
         match proto {

@@ -148,7 +148,7 @@ fn Context::evaluate(
             Function(f) => f.properties.get("prototype")
             _ => None
           }
-          let func_props = {}
+          let func_props = @hashmap.new()
           let func = match func_proto {
             Some(proto) =>
               JSFunction::new(
@@ -177,7 +177,7 @@ fn Context::evaluate(
             Function(f) => f.properties.get("prototype")
             _ => None
           }
-          let proto_props = {}
+          let proto_props = @hashmap.new()
           let proto_obj = JSObject::{
             properties: proto_props,
             prototype: obj_proto,
@@ -495,7 +495,10 @@ fn Context::evaluate(
                 Some(p) => Some(p)
                 None => Some(Null)
               }
-              let new_obj = JSValue::Object({ properties: {}, prototype: proto })
+              let new_obj = JSValue::Object({
+                properties: @hashmap.new(),
+                prototype: proto,
+              })
               let res = match func.body {
                 User(block) => {
                   let new_ctx = new(parent=func.context, strict=func.strict)
@@ -525,7 +528,13 @@ fn Context::evaluate(
                 _ => new_obj
               }
             }
-            _ => Undefined
+            _ => {
+              self.throw_type_error(
+                self.evaluate(Expression(callee)).to_string() +
+                " is not a constructor",
+              )
+              Undefined
+            }
           }
         }
         CallExpression({ callee, arguments, .. }) => {
@@ -552,7 +561,13 @@ fn Context::evaluate(
               }
               self.invoke(func, this_val, args_values)
             }
-            _ => Undefined
+            _ => {
+              self.throw_type_error(
+                self.evaluate(Expression(callee)).to_string() +
+                " is not a function",
+              )
+              Undefined
+            }
           }
         }
         ConditionalExpression({ test_, consequent, alternate }) =>
@@ -567,10 +582,10 @@ fn Context::evaluate(
           match operator {
             Minus => left - right
             Plus => left + right
-            StrictNotEqual => Boolean(!left.strict_equal(right))
+            StrictNotEqual => Boolean(not(left.strict_equal(right)))
             StrictEqual => Boolean(left.strict_equal(right))
-            NotEqual => Boolean(!left.unstrict_equal(right))
-            Equal => Boolean(left.unstrict_equal(right))
+            NotEqual => Boolean(not(left.unstrict_equal(right, self)))
+            Equal => Boolean(left.unstrict_equal(right, self))
             LessThan => Boolean(left < right)
             LessThanOrEqual => Boolean(left <= right)
             GreaterThan => Boolean(left > right)
@@ -647,7 +662,7 @@ fn Context::evaluate(
                 None => Some(Null)
               }
               let new_obj = JSValue::Object(JSObject::{
-                properties: {},
+                properties: @hashmap.new(),
                 prototype: proto,
               })
               let args = [pattern_val, flags_val]
@@ -675,22 +690,24 @@ fn Context::evaluate(
                     }
                   }
                   match obj_val {
-                    Object(obj) => {
+                    Object(obj) =>
                       if prop_name == "prototype" {
-                         Boolean(false)
+                        Boolean(false)
                       } else {
                         obj.properties.remove(prop_name)
                         Boolean(true)
                       }
-                    }
-                    Function(func) => {
-                      if prop_name == "prototype" || prop_name == "length" || prop_name == "name" || prop_name == "arguments" || prop_name == "caller" {
+                    Function(func) =>
+                      if prop_name == "prototype" ||
+                        prop_name == "length" ||
+                        prop_name == "name" ||
+                        prop_name == "arguments" ||
+                        prop_name == "caller" {
                         Boolean(false)
                       } else {
                         func.properties.remove(prop_name)
                         Boolean(true)
                       }
-                    }
                     _ => Boolean(true)
                   }
                 }
@@ -730,7 +747,7 @@ fn Context::evaluate(
             }
           }
         ObjectExpression({ properties }) => {
-          let obj_props = {}
+          let obj_props = @hashmap.new()
           for prop in properties {
             match prop {
               ObjectProperty({ key, value, computed, .. }) => {
@@ -827,7 +844,7 @@ fn Context::evaluate(
           Object({ properties: obj_props, prototype: Some(Null) })
         }
         ArrayLiteralExpression({ elements }) => {
-          let arr_props = {}
+          let arr_props = @hashmap.new()
           let mut len = 0
           for element in elements {
             match element {
@@ -867,7 +884,7 @@ fn Context::evaluate(
             Function(f) => f.properties.get("prototype")
             _ => None
           }
-          let func_props = {}
+          let func_props = @hashmap.new()
           let func = JSFunction::new(
             name?,
             params=param_names,
@@ -882,7 +899,7 @@ fn Context::evaluate(
             Function(f) => f.properties.get("prototype")
             _ => None
           }
-          let proto_props = {}
+          let proto_props = @hashmap.new()
           let proto_obj = JSObject::{
             properties: proto_props,
             prototype: obj_proto,

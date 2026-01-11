@@ -1,5 +1,8 @@
 ///|
-pub fn init_symbol_prototype(symbol_proto_val : JSValue) -> Unit {
+pub fn init_symbol_prototype(
+  symbol_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
   match symbol_proto_val {
     Object(obj) => {
       // toString
@@ -9,7 +12,11 @@ pub fn init_symbol_prototype(symbol_proto_val : JSValue) -> Unit {
           _ => JSValue::String("Symbol()")
         }
       })
-      let to_string_obj = JSFunction::new(name="toString", body=to_string_fn)
+      let to_string_obj = JSFunction::new(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
       obj["toString"] = JSValue::Function(to_string_obj)
     }
     _ => ()

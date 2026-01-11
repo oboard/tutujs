@@ -1,6 +1,6 @@
 ///|
 pub fn create_date_object(object_proto : JSValue) -> JSValue {
-  let date_proto_props = {}
+  let date_proto_props = @hashmap.new()
   let date_proto = JSValue::Object(JSObject::{
     properties: date_proto_props,
     prototype: Some(object_proto),
@@ -100,7 +100,7 @@ pub fn create_date_object(object_proto : JSValue) -> JSValue {
   let now_fn = Native(fn(_ctx, _this, _args) {
     JSValue::Number(@env.now().to_double() * 1000.0)
   })
-  let date_ctor_props = {}
+  let date_ctor_props = @hashmap.new()
   date_ctor_props.set("prototype", date_proto)
   date_ctor_props.set(
     "now",

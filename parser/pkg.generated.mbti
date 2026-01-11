@@ -10,6 +10,8 @@ import(
 // Values
 pub fn parse(Array[@lexer.LexToken]) -> Program
 
+pub fn unescape_string_literal(String) -> String
+
 // Errors
 
 // Types and methods
