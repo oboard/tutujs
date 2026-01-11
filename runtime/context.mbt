@@ -252,6 +252,10 @@ pub fn Context::create_global() -> Context {
   let reflect_val = create_reflect_object(object_proto_val)
   ctx.scope.set("Reflect", reflect_val)
 
+  // Proxy Constructor
+  let proxy_ctor_val = create_proxy_constructor(func_proto_val)
+  ctx.scope.set("Proxy", proxy_ctor_val)
+
   // IteratorPrototype
   let iterator_proto_props = @hashmap.new()
   let iterator_proto = JSObject::new(

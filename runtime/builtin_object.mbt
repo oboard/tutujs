@@ -254,13 +254,59 @@ pub fn create_object_constructor(
   proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let object_fn_body = Native(fn(_ctx, _this_val, args) {
+  let object_fn_body = Native(fn(ctx, _this_val, args) {
     if args is [val, ..] {
       match val {
-        Object(_) => val
+        Object(_) | Function(_) => val
         Null | Undefined =>
           Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
-        _ => val // TODO: Box primitive
+        String(s) => {
+          let string_proto = match ctx.resolve("String") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+          let obj = JSObject::new(prototype=string_proto)
+          obj.properties.set("PrimitiveValue", val)
+          obj.properties.set("length", Number(s.length().to_double()))
+          Object(obj)
+        }
+        Number(_) => {
+          let number_proto = match ctx.resolve("Number") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+          let obj = JSObject::new(prototype=number_proto)
+          obj.properties.set("PrimitiveValue", val)
+          Object(obj)
+        }
+        Boolean(_) => {
+          let boolean_proto = match ctx.resolve("Boolean") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+          let obj = JSObject::new(prototype=boolean_proto)
+          obj.properties.set("PrimitiveValue", val)
+          Object(obj)
+        }
+        Symbol(_, _) => {
+          let symbol_proto = match ctx.resolve("Symbol") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+          let obj = JSObject::new(prototype=symbol_proto)
+          obj.properties.set("PrimitiveValue", val)
+          Object(obj)
+        }
+        BigInt(_) => {
+          let big_proto = match ctx.resolve("BigInt") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+          let obj = JSObject::new(prototype=big_proto)
+          obj.properties.set("PrimitiveValue", val)
+          Object(obj)
+        }
+        _ => val
       }
     } else {
       Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
@@ -268,25 +314,38 @@ pub fn create_object_constructor(
   })
   let object_fn = JSFunction::new(
     name="Object",
+    params=["value"],
     body=object_fn_body,
     prototype=func_proto,
     is_constructor=true,
   )
   object_fn["prototype"] = proto
+  object_fn.properties.set("length", JSValue::Number(1.0))
 
   // Object.keys
-  let keys_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [Object({ properties, .. }), ..] {
-      let keys_array = JSObject::new(properties=@hashmap.new(), prototype=proto) // Should be Array.prototype ideally
+  let keys_fn = Native(fn(ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      let obj_props = match obj_arg {
+        Object({ properties, .. }) | Function({ properties, .. }) => properties
+        _ => return JSValue::Undefined // TypeError
+      }
+      let array_proto = match ctx.resolve("Array") {
+        Function(f) => f.get("prototype")
+        _ => proto
+      }
+      let keys_array = JSObject::new(
+        properties=@hashmap.new(),
+        prototype=array_proto,
+      )
       let mut i = 0.0
-      // Handle String exotic object indices
-      let is_string_obj = properties.contains("PrimitiveValue") &&
-        (match properties.get("PrimitiveValue") {
+      // Handle String indices
+      let is_string_obj = obj_props.contains("PrimitiveValue") &&
+        (match obj_props.get("PrimitiveValue") {
           Some(String(_)) => true
           _ => false
         })
       if is_string_obj {
-        let len = match properties.get("length") {
+        let len = match obj_props.get("length") {
           Some(Number(n)) => n.to_int()
           _ => 0
         }
@@ -295,37 +354,19 @@ pub fn create_object_constructor(
           i = i + 1.0
         }
       }
-      for k, _ in properties {
-        if not(k.has_prefix("__")) && k != "PrimitiveValue" && k != "length" {
-          // For String objects, we already added indices. 
-          // But indices are not in properties map usually.
-          // If they are, we should avoid duplicates?
-          // Assuming they are NOT in map.
+      for k, _ in obj_props {
+        if not(k.has_prefix("Symbol(")) &&
+          not(k.has_prefix("__")) &&
+          k != "PrimitiveValue" &&
+          k != "length" {
           keys_array[i.to_string()] = JSValue::String(k)
           i = i + 1.0
-        } else if not(is_string_obj) || (k != "PrimitiveValue" && k != "length") {
-          // Logic simplification:
-          // If is_string_obj, skip PrimitiveValue and length (length is non-enumerable anyway but keys() skips non-enumerable)
-          // Wait, keys() should only return ENUMERABLE properties.
-          // My implementation iterates ALL properties in HashMap.
-          // I need to check enumerable!
-          // But my HashMap doesn't store attributes.
-          // I assumed all properties in HashMap are enumerable except internal ones.
-          // But 'length' on String is NOT enumerable.
-          // So I must skip 'length' explicitly for String objects?
-          // Or generally? Array length is also non-enumerable.
-          // I should probably have a better way to check enumerability.
-          // For now, hardcode skipping 'length' and 'PrimitiveValue'.
-          if k != "length" && k != "PrimitiveValue" {
-            keys_array[i.to_string()] = JSValue::String(k)
-            i = i + 1.0
-          }
         }
       }
       keys_array["length"] = JSValue::Number(i)
       JSValue::Object(keys_array)
     } else {
-      JSValue::Undefined // TypeError
+      JSValue::Undefined
     }
   })
   let keys_obj = JSFunction::new(
@@ -357,7 +398,28 @@ pub fn create_object_constructor(
   object_fn["create"] = JSValue::Function(create_obj)
 
   // Object.defineProperty (Simplified but handles accessors)
-  let define_property_fn = Native(fn(_ctx, _this_val, args) {
+  let define_property_fn = Native(fn(ctx, _this_val, args) {
+    if args
+      is [
+        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) as proxy,
+        prop_arg,
+        desc_arg,
+        ..,
+      ] {
+      let trap = handler.get_property("defineProperty")
+      match trap {
+        Function(f) => {
+          let res = ctx.invoke(f, handler, [target, prop_arg, desc_arg]) catch {
+            e => raise e
+          }
+          if not(res.is_truthy()) {
+            // TypeError
+          }
+          return proxy
+        }
+        _ => ()
+      }
+    }
     if args
       is [
         Object({ properties, .. } as o),
@@ -395,10 +457,24 @@ pub fn create_object_constructor(
   )
   object_fn["defineProperty"] = JSValue::Function(define_property_obj)
 
-  // Object.freeze (Stub)
+  // Object.freeze
   let freeze_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [obj, ..] {
-      obj
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => {
+          o.extensible = false
+          o.is_sealed = true
+          o.is_frozen = true
+          obj_arg
+        }
+        Function(f) => {
+          f.extensible = false
+          f.is_sealed = true
+          f.is_frozen = true
+          obj_arg
+        }
+        _ => obj_arg
+      }
     } else {
       JSValue::Undefined
     }
@@ -410,14 +486,102 @@ pub fn create_object_constructor(
   )
   object_fn["freeze"] = JSValue::Function(freeze_obj)
 
+  // Object.isFrozen
+  let is_frozen_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => JSValue::Boolean(o.is_frozen)
+        Function(f) => JSValue::Boolean(f.is_frozen)
+        _ => JSValue::Boolean(true) // Primitives are always frozen in ES6+
+      }
+    } else {
+      JSValue::Boolean(true)
+    }
+  })
+  let is_frozen_obj = JSFunction::new(
+    name="isFrozen",
+    body=is_frozen_fn,
+    prototype=func_proto,
+  )
+  object_fn["isFrozen"] = JSValue::Function(is_frozen_obj)
+
+  // Object.seal
+  let seal_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => {
+          o.extensible = false
+          o.is_sealed = true
+          obj_arg
+        }
+        Function(f) => {
+          f.extensible = false
+          f.is_sealed = true
+          obj_arg
+        }
+        _ => obj_arg
+      }
+    } else {
+      JSValue::Undefined
+    }
+  })
+  let seal_obj = JSFunction::new(
+    name="seal",
+    body=seal_fn,
+    prototype=func_proto,
+  )
+  object_fn["seal"] = JSValue::Function(seal_obj)
+
+  // Object.isSealed
+  let is_sealed_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => JSValue::Boolean(o.is_sealed)
+        Function(f) => JSValue::Boolean(f.is_sealed)
+        _ => JSValue::Boolean(true)
+      }
+    } else {
+      JSValue::Boolean(true)
+    }
+  })
+  let is_sealed_obj = JSFunction::new(
+    name="isSealed",
+    body=is_sealed_fn,
+    prototype=func_proto,
+  )
+  object_fn["isSealed"] = JSValue::Function(is_sealed_obj)
+
   // Object.preventExtensions
-  let prevent_extensions_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [Object({ properties, .. } as o), ..] {
-      // println("DEBUG: preventExtensions called")
-      properties["__internal_extensible__"] = JSValue::Boolean(false)
-      JSValue::Object(o)
-    } else if args is [val, ..] {
-      val
+  let prevent_extensions_fn = Native(fn(ctx, _this_val, args) {
+    if args
+      is [
+        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) as proxy,
+        ..,
+      ] {
+      let trap = handler.get_property("preventExtensions")
+      match trap {
+        Function(f) => {
+          let res = ctx.invoke(f, handler, [target]) catch { e => raise e }
+          if not(res.is_truthy()) {
+            // TypeError
+          }
+          return proxy
+        }
+        _ => ()
+      }
+    }
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => {
+          o.extensible = false
+          obj_arg
+        }
+        Function(f) => {
+          f.extensible = false
+          obj_arg
+        }
+        _ => obj_arg
+      }
     } else {
       JSValue::Undefined
     }
@@ -429,9 +593,117 @@ pub fn create_object_constructor(
   )
   object_fn["preventExtensions"] = JSValue::Function(prevent_extensions_obj)
 
+  // Object.isExtensible
+  let is_extensible_fn = Native(fn(_ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      match obj_arg {
+        Object(o) => JSValue::Boolean(o.extensible)
+        Function(f) => JSValue::Boolean(f.extensible)
+        _ => JSValue::Boolean(false)
+      }
+    } else {
+      JSValue::Boolean(false)
+    }
+  })
+  let is_extensible_obj = JSFunction::new(
+    name="isExtensible",
+    body=is_extensible_fn,
+    prototype=func_proto,
+  )
+  object_fn["isExtensible"] = JSValue::Function(is_extensible_obj)
+
+  // Object.getOwnPropertySymbols
+  let get_own_property_symbols_fn = Native(fn(ctx, _this_val, args) {
+    if args is [obj_arg, ..] {
+      let obj_props = match obj_arg {
+        Object({ properties, .. }) | Function({ properties, .. }) => properties
+        _ => {
+          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+            ctx.throw_type_error(
+              "Cannot convert undefined or null to object",
+            )
+          }
+          // For primitives, return []
+          let array_proto = match ctx.resolve("Array") {
+            Function(f) => f.get("prototype")
+            _ => proto
+          }
+          let empty_array = JSObject::new(
+            properties=@hashmap.new(),
+            prototype=array_proto,
+          )
+          empty_array["length"] = JSValue::Number(0.0)
+          return JSValue::Object(empty_array)
+        }
+      }
+      let array_proto = match ctx.resolve("Array") {
+        Function(f) => f.get("prototype")
+        _ => proto
+      }
+      let symbols_array = JSObject::new(
+        properties=@hashmap.new(),
+        prototype=array_proto,
+      )
+      let mut i = 0.0
+      for k, _ in obj_props {
+        try {
+          if k.has_prefix("Symbol(") {
+            let s = k[7:k.length() - 1].to_string()
+            let comma_idx = s.find(",").unwrap_or(-1)
+            if comma_idx != -1 {
+              let id_str = s[:comma_idx].to_string()
+              let desc = s[comma_idx + 1:].to_string()
+              let id = @strconv.parse_int(id_str) catch { _ => -1 }
+              if id >= 0 {
+                symbols_array[i.to_string()] = JSValue::Symbol(id, desc)
+                i = i + 1.0
+              }
+            }
+          }
+        } catch {
+          _ => continue
+        }
+      }
+      symbols_array["length"] = JSValue::Number(i)
+      JSValue::Object(symbols_array)
+    } else {
+      raise EvalError::Throw(
+        JSValue::String("TypeError: Cannot convert undefined or null to object"),
+      )
+    }
+  })
+  let get_own_property_symbols_obj = JSFunction::new(
+    name="getOwnPropertySymbols",
+    body=get_own_property_symbols_fn,
+    prototype=func_proto,
+  )
+  object_fn["getOwnPropertySymbols"] = JSValue::Function(
+    get_own_property_symbols_obj,
+  )
+
   // Object.getOwnPropertyDescriptor
   let get_own_property_descriptor_fn = Native(fn(ctx, _this_val, args) {
     if args is [obj_arg, prop_arg, ..] {
+      // Proxy trap
+      match obj_arg {
+        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
+        | Function(
+          { proxy_target: Some(target), proxy_handler: Some(handler), .. }
+        ) => {
+          let trap = handler.get_property("getOwnPropertyDescriptor")
+          match trap {
+            Function(f) => {
+              let trap_res = ctx.invoke(f, handler, [target, prop_arg]) catch {
+                e => raise e
+              }
+              return trap_res
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
+
       // Check if obj_arg is global object
       let mut root_ctx = ctx
       while true {
@@ -444,23 +716,45 @@ pub fn create_object_constructor(
         Some(g) => g.strict_equal(obj_arg)
         None => false
       }
-      let (obj_props, is_func, is_native_func, is_string_obj, is_global) = match
-        obj_arg {
-        Object({ properties, .. }) => {
+      let (
+        obj_props,
+        is_func,
+        is_native_func,
+        is_string_obj,
+        is_global,
+        is_frozen,
+        is_sealed,
+      ) = match obj_arg {
+        Object(o) => {
+          let properties = o.properties
+          let is_frozen = o.is_frozen
+          let is_sealed = o.is_sealed
           let is_str = match properties.get("PrimitiveValue") {
             Some(String(_)) => true
             _ => false
           }
-          (properties, false, false, is_str, is_global)
+          (properties, false, false, is_str, is_global, is_frozen, is_sealed)
         }
-        Function({ properties, body, .. }) => {
-          let is_native = match body {
+        Function(f) => {
+          let properties = f.properties
+          let is_frozen = f.is_frozen
+          let is_sealed = f.is_sealed
+          let is_native = match f.body {
             Native(_) => true
             _ => false
           }
-          (properties, true, is_native, false, false)
+          (properties, true, is_native, false, false, is_frozen, is_sealed)
         }
-        _ => return JSValue::Undefined // TypeError in spec
+        _ => {
+          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+            raise EvalError::Throw(
+              JSValue::String(
+                "TypeError: Cannot convert undefined or null to object",
+              ),
+            )
+          }
+          return JSValue::Undefined
+        }
       }
       let prop = match prop_arg {
         _ => prop_arg.to_string()
@@ -514,8 +808,8 @@ pub fn create_object_constructor(
               desc["set"] = setter
                 .map(JSValue::Function(_))
                 .unwrap_or(Undefined)
-              desc["enumerable"] = JSValue::Boolean(false) // Accessors default to non-enumerable? No, defineProperty defaults to false, but if existing...
-              desc["configurable"] = JSValue::Boolean(true)
+              desc["enumerable"] = JSValue::Boolean(true)
+              desc["configurable"] = JSValue::Boolean(not(is_sealed))
             }
             _ => {
               let is_symbol_to_string_tag = prop.contains("toStringTag")
@@ -525,7 +819,9 @@ pub fn create_object_constructor(
                 d_props.set("enumerable", JSValue::Boolean(false))
                 d_props.set("configurable", JSValue::Boolean(true))
                 d_props.set("value", val)
-                return JSValue::Object(JSObject::new(properties=d_props, prototype=proto))
+                return JSValue::Object(
+                  JSObject::new(properties=d_props, prototype=proto),
+                )
               }
               let is_symbol_iterator = prop.contains("iterator")
               if is_symbol_iterator {
@@ -539,9 +835,9 @@ pub fn create_object_constructor(
                 )
               }
               desc["value"] = val
-              desc["writable"] = JSValue::Boolean(true)
+              desc["writable"] = JSValue::Boolean(not(is_frozen))
               desc["enumerable"] = JSValue::Boolean(true)
-              desc["configurable"] = JSValue::Boolean(true)
+              desc["configurable"] = JSValue::Boolean(not(is_sealed))
               if is_func {
                 if prop == "length" || prop == "name" {
                   desc["writable"] = JSValue::Boolean(false)
@@ -660,16 +956,50 @@ pub fn create_object_constructor(
   object_fn["getPrototypeOf"] = JSValue::Function(get_prototype_of_obj)
 
   // Object.getOwnPropertyNames
-  let get_own_property_names_fn = Native(fn(_ctx, _this_val, args) {
+  let get_own_property_names_fn = Native(fn(ctx, _this_val, args) {
     if args is [obj_arg, ..] {
       let obj_props = match obj_arg {
         Object({ properties, .. }) | Function({ properties, .. }) => properties
-        _ => return JSValue::Undefined // TypeError
+        _ => {
+          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+            raise EvalError::Throw(
+              JSValue::String(
+                "TypeError: Cannot convert undefined or null to object",
+              ),
+            )
+          }
+          // For primitives, return their keys (e.g. string indices)
+          let array_proto = match ctx.resolve("Array") {
+            Function(f) => f.get("prototype")
+            _ => proto
+          }
+          let names_array = JSObject::new(
+            properties=@hashmap.new(),
+            prototype=array_proto,
+          )
+          let mut i = 0.0
+          match obj_arg {
+            String(s) => {
+              let len = s.length()
+              for idx = 0; idx < len; idx = idx + 1 {
+                names_array[i.to_string()] = JSValue::String(idx.to_string())
+                i = i + 1.0
+              }
+              names_array["length"] = JSValue::Number(i)
+            }
+            _ => names_array["length"] = JSValue::Number(0.0)
+          }
+          return JSValue::Object(names_array)
+        }
+      }
+      let array_proto = match ctx.resolve("Array") {
+        Function(f) => f.get("prototype")
+        _ => proto
       }
       let names_array = JSObject::new(
         properties=@hashmap.new(),
-        prototype=proto,
-      ) // Array.prototype
+        prototype=array_proto,
+      )
       let mut i = 0.0
       // Handle String indices
       let is_string_obj = obj_props.contains("PrimitiveValue") &&
@@ -688,7 +1018,9 @@ pub fn create_object_constructor(
         }
       }
       for k, _ in obj_props {
-        if not(k.has_prefix("__")) && k != "PrimitiveValue" {
+        if not(k.has_prefix("Symbol(")) &&
+          not(k.has_prefix("__")) &&
+          k != "PrimitiveValue" {
           names_array[i.to_string()] = JSValue::String(k)
           i = i + 1.0
         }
@@ -696,7 +1028,9 @@ pub fn create_object_constructor(
       names_array["length"] = JSValue::Number(i)
       JSValue::Object(names_array)
     } else {
-      JSValue::Undefined // TypeError
+      raise EvalError::Throw(
+        JSValue::String("TypeError: Cannot convert undefined or null to object"),
+      )
     }
   })
   let get_own_property_names_obj = JSFunction::new(

@@ -148,6 +148,22 @@ pub fn Context::invoke(
       }
       let new_ctx = new(parent=func.context, strict~)
       new_ctx.scope.set("this", this_binding)
+
+      // Create arguments object
+      let arg_obj_props = @hashmap.new()
+      for i, val in args {
+        arg_obj_props.set(i.to_string(), val)
+      }
+      arg_obj_props.set("length", JSValue::Number(args.length().to_double()))
+      let object_proto = match self.resolve("Object") {
+        Function(f) => f.properties.get("prototype")
+        _ => None
+      }
+      let arg_obj = JSObject::new(
+        properties=arg_obj_props,
+        prototype=object_proto.unwrap_or(Undefined),
+      )
+      new_ctx.scope.set("arguments", JSValue::Object(arg_obj))
       let param_len = func.params.length()
       for i, val in args {
         if i < param_len {
@@ -887,15 +903,16 @@ fn Context::evaluate(
           let pattern_val = JSValue::String(pattern[:])
           let mut flags_str = ""
           for f in flags {
-            match f {
-              @parser.RegExpFlag::G => flags_str = flags_str + "g"
-              @parser.RegExpFlag::I => flags_str = flags_str + "i"
-              @parser.RegExpFlag::M => flags_str = flags_str + "m"
-              @parser.RegExpFlag::S => flags_str = flags_str + "s"
-              @parser.RegExpFlag::U => flags_str = flags_str + "u"
-              @parser.RegExpFlag::Y => flags_str = flags_str + "y"
-              @parser.RegExpFlag::V => flags_str = flags_str + "v"
-            }
+            flags_str = flags_str +
+              (match f {
+                @parser.RegExpFlag::G => "g"
+                @parser.RegExpFlag::I => "i"
+                @parser.RegExpFlag::M => "m"
+                @parser.RegExpFlag::S => "s"
+                @parser.RegExpFlag::U => "u"
+                @parser.RegExpFlag::Y => "y"
+                @parser.RegExpFlag::V => "v"
+              })
           }
           let flags_val = JSValue::String(flags_str[:])
           match self.resolve("RegExp") {
@@ -937,47 +954,90 @@ fn Context::evaluate(
                     }
                   }
                   let res = match obj_val {
-                    Object(obj) => {
-                      let is_string_obj = obj.properties.contains(
-                          "PrimitiveValue",
-                        ) &&
-                        (match obj.properties.get("PrimitiveValue") {
-                          Some(String(_)) => true
-                          _ => false
-                        })
-                      if is_string_obj {
-                        if prop_name == "length" {
-                          Boolean(false)
-                        } else {
-                          let idx = @strconv.parse_int(prop_name) catch {
-                            _ => -1
+                    Object(obj) =>
+                      match (obj.proxy_target, obj.proxy_handler) {
+                        (Some(target), Some(handler)) => {
+                          let trap = handler.get_property("deleteProperty")
+                          match trap {
+                            Function(f) => {
+                              let trap_res = self.invoke(f, handler, [
+                                target,
+                                JSValue::String(prop_name),
+                              ]) catch {
+                                e => raise e
+                              }
+                              Boolean(trap_res.is_truthy())
+                            }
+                            _ =>
+                              // Should really re-evaluate Delete on target
+                              Boolean(true) // Simplified
                           }
-                          let len = match obj.properties.get("length") {
-                            Some(Number(n)) => n.to_int()
-                            _ => 0
+                        }
+                        _ =>
+                          if obj.is_sealed || obj.is_frozen {
+                            Boolean(false)
+                          } else {
+                            let is_string_obj = obj.properties.contains(
+                                "PrimitiveValue",
+                              ) &&
+                              (match obj.properties.get("PrimitiveValue") {
+                                Some(String(_)) => true
+                                _ => false
+                              })
+                            if is_string_obj {
+                              if prop_name == "length" {
+                                Boolean(false)
+                              } else {
+                                let idx = @strconv.parse_int(prop_name) catch {
+                                  _ => -1
+                                }
+                                let len = match obj.properties.get("length") {
+                                  Some(Number(n)) => n.to_int()
+                                  _ => 0
+                                }
+                                if idx >= 0 && idx < len {
+                                  Boolean(false)
+                                } else if prop_name == "prototype" {
+                                  Boolean(false)
+                                } else {
+                                  obj.properties.remove(prop_name)
+                                  Boolean(true)
+                                }
+                              }
+                            } else if prop_name == "prototype" {
+                              Boolean(false)
+                            } else {
+                              obj.properties.remove(prop_name)
+                              Boolean(true)
+                            }
                           }
-                          if idx >= 0 && idx < len {
+                      }
+                    Function(func) =>
+                      match (func.proxy_target, func.proxy_handler) {
+                        (Some(target), Some(handler)) => {
+                          let trap = handler.get_property("deleteProperty")
+                          match trap {
+                            Function(f) => {
+                              let trap_res = self.invoke(f, handler, [
+                                target,
+                                JSValue::String(prop_name),
+                              ]) catch {
+                                e => raise e
+                              }
+                              Boolean(trap_res.is_truthy())
+                            }
+                            _ => Boolean(true)
+                          }
+                        }
+                        _ =>
+                          if func.is_sealed || func.is_frozen {
                             Boolean(false)
                           } else if prop_name == "prototype" {
                             Boolean(false)
                           } else {
-                            obj.properties.remove(prop_name)
+                            func.properties.remove(prop_name)
                             Boolean(true)
                           }
-                        }
-                      } else if prop_name == "prototype" {
-                        Boolean(false)
-                      } else {
-                        obj.properties.remove(prop_name)
-                        Boolean(true)
-                      }
-                    }
-                    Function(func) =>
-                      if prop_name == "prototype" {
-                        Boolean(false)
-                      } else {
-                        func.properties.remove(prop_name)
-                        Boolean(true)
                       }
                     _ => Boolean(true)
                   }

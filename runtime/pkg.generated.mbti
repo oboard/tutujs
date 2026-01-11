@@ -35,6 +35,8 @@ pub fn create_number_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_object_constructor(JSValue, JSValue) -> JSValue
 
+pub fn create_proxy_constructor(JSValue) -> JSValue
+
 pub fn create_reflect_object(JSValue) -> JSValue
 
 pub fn create_regexp_object(JSValue, JSValue) -> JSValue
@@ -119,14 +121,19 @@ pub impl @json.FromJson for FunctionBody
 
 pub(all) struct JSFunction {
   _id : Int
-  name : String?
+  mut name : String?
   params : Array[String]
   body : FunctionBody
   context : Context
   properties : @hashmap.HashMap[String, JSValue]
-  prototype : JSValue?
+  mut prototype : JSValue?
   strict : Bool
   is_constructor : Bool
+  mut extensible : Bool
+  mut is_sealed : Bool
+  mut is_frozen : Bool
+  mut proxy_target : JSValue?
+  mut proxy_handler : JSValue?
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue
@@ -157,7 +164,12 @@ pub impl @json.FromJson for JSInternal
 pub(all) struct JSObject {
   _id : Int
   properties : @hashmap.HashMap[String, JSValue]
-  prototype : JSValue?
+  mut prototype : JSValue?
+  mut extensible : Bool
+  mut is_sealed : Bool
+  mut is_frozen : Bool
+  mut proxy_target : JSValue?
+  mut proxy_handler : JSValue?
 }
 pub fn JSObject::new(properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue) -> Self
 pub fn JSObject::op_get(Self, String) -> JSValue

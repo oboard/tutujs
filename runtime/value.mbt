@@ -135,7 +135,13 @@ pub impl Show for JSValue with output(self, logger) {
     Number(n) => n.output(logger)
     Boolean(b) => b.output(logger)
     BigInt(i) => i.output(logger)
-    Symbol(_, s) => logger.write_string("Symbol(" + s + ")")
+    Symbol(id, s) => {
+      logger.write_string("Symbol(")
+      id.output(logger)
+      logger.write_string(",")
+      logger.write_string(s)
+      logger.write_string(")")
+    }
     Function(f) =>
       logger.write_string("Function: " + f.name.unwrap_or("anonymous"))
     Object(_) => logger.write_string("[object Object]")
@@ -175,14 +181,19 @@ pub impl FromJson for FunctionBody with from_json(_, _) {
 ///|
 pub(all) struct JSFunction {
   _id : Int
-  name : String?
+  mut name : String?
   params : Array[String]
   body : FunctionBody
   context : Context
   properties : @hashmap.HashMap[String, JSValue]
-  prototype : JSValue? // [[Prototype]]
+  mut prototype : JSValue? // [[Prototype]]
   strict : Bool
   is_constructor : Bool
+  mut extensible : Bool
+  mut is_sealed : Bool
+  mut is_frozen : Bool
+  mut proxy_target : JSValue?
+  mut proxy_handler : JSValue?
 } derive(Show, Eq, ToJson)
 
 ///|
@@ -226,6 +237,11 @@ pub fn JSFunction::new(
     prototype,
     strict: strict.unwrap_or(false),
     is_constructor: is_ctor,
+    extensible: true,
+    is_sealed: false,
+    is_frozen: false,
+    proxy_target: None,
+    proxy_handler: None,
   }
 }
 
@@ -248,6 +264,11 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     prototype: None,
     strict: false,
     is_constructor: true,
+    extensible: true,
+    is_sealed: false,
+    is_frozen: false,
+    proxy_target: None,
+    proxy_handler: None,
   }
 }
 
@@ -256,7 +277,12 @@ pub(all) struct JSObject {
   _id : Int
   properties : @hashmap.HashMap[String, JSValue]
   /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
-  prototype : JSValue?
+  mut prototype : JSValue?
+  mut extensible : Bool
+  mut is_sealed : Bool
+  mut is_frozen : Bool
+  mut proxy_target : JSValue?
+  mut proxy_handler : JSValue?
 } derive(Show, Eq)
 
 ///|
@@ -268,6 +294,11 @@ pub fn JSObject::new(
     _id: next_object_id(),
     properties: properties.unwrap_or(@hashmap.new()),
     prototype,
+    extensible: true,
+    is_sealed: false,
+    is_frozen: false,
+    proxy_target: None,
+    proxy_handler: None,
   }
 }
 
@@ -288,7 +319,16 @@ pub impl ToJson for JSObject with to_json(_) {
 
 ///|
 pub impl FromJson for JSObject with from_json(_, _) {
-  { _id: next_object_id(), properties: @hashmap.new(), prototype: None }
+  {
+    _id: next_object_id(),
+    properties: @hashmap.new(),
+    prototype: None,
+    extensible: true,
+    is_sealed: false,
+    is_frozen: false,
+    proxy_target: None,
+    proxy_handler: None,
+  }
 }
 
 ///|
@@ -344,6 +384,23 @@ pub fn JSValue::get_property_internal(
 ) -> JSValue {
   match self {
     Object(obj) => {
+      match (obj.proxy_target, obj.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("get")
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ]) catch {
+                _ => Undefined
+              }
+            _ => return target.get_property_internal(name, receiver)
+          }
+        }
+        _ => ()
+      }
       let is_string_obj = obj.properties.contains("PrimitiveValue") &&
         (match obj.properties.get("PrimitiveValue") {
           Some(String(_)) => true
@@ -387,7 +444,24 @@ pub fn JSValue::get_property_internal(
           }
       }
     }
-    Function(func) =>
+    Function(func) => {
+      match (func.proxy_target, func.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("get")
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ]) catch {
+                _ => Undefined
+              }
+            _ => return target.get_property_internal(name, receiver)
+          }
+        }
+        _ => ()
+      }
       match func.properties.get(name) {
         Some(v) => v
         None =>
@@ -396,7 +470,8 @@ pub fn JSValue::get_property_internal(
             None => Undefined
           }
       }
-    _ => Undefined // TODO: Primitives wrapping
+    }
+    _ => Undefined
   }
 }
 
@@ -416,6 +491,21 @@ pub fn JSValue::get_property_internal_throw(
 ) -> JSValue raise EvalError {
   match self {
     Object(obj) => {
+      match (obj.proxy_target, obj.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("get")
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ])
+            _ => return target.get_property_internal_throw(name, receiver)
+          }
+        }
+        _ => ()
+      }
       let is_string_obj = obj.properties.contains("PrimitiveValue") &&
         (match obj.properties.get("PrimitiveValue") {
           Some(String(_)) => true
@@ -457,7 +547,22 @@ pub fn JSValue::get_property_internal_throw(
           }
       }
     }
-    Function(func) =>
+    Function(func) => {
+      match (func.proxy_target, func.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("get")
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ])
+            _ => return target.get_property_internal_throw(name, receiver)
+          }
+        }
+        _ => ()
+      }
       match func.properties.get(name) {
         Some(v) => v
         None =>
@@ -466,6 +571,7 @@ pub fn JSValue::get_property_internal_throw(
             None => Undefined
           }
       }
+    }
     _ => Undefined
   }
 }
@@ -478,7 +584,68 @@ pub fn JSValue::set_property(
   strict? : Bool = false,
 ) -> Unit raise EvalError {
   match self {
-    Object({ properties, .. }) => {
+    Object({ properties, .. } as obj) => {
+      match (obj.proxy_target, obj.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("set")
+          match trap {
+            Function(f) => {
+              let res = f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                value,
+                self,
+              ])
+              if not(res.is_truthy()) && strict {
+                raise EvalError::Throw(
+                  JSValue::String("TypeError: Proxy set trap returned false"),
+                )
+              }
+              return
+            }
+            _ => return target.set_property(name, value, strict~)
+          }
+        }
+        _ => ()
+      }
+      // Check for accessor
+      match properties.get(name) {
+        Some(Internal(Accessor(_, Some(setter)))) => {
+          let _ = setter.context.invoke(setter, self, [value]) catch {
+            e => raise e
+          }
+          return
+        }
+        Some(Internal(Accessor(_, None))) => {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String("TypeError: Cannot assign to read-only accessor"),
+            )
+          }
+          return
+        }
+        _ => ()
+      }
+      if obj.is_frozen {
+        if strict {
+          raise EvalError::Throw(
+            JSValue::String("TypeError: Cannot assign to read only property"),
+          )
+        }
+        return
+      }
+      if not(properties.contains(name)) {
+        if not(obj.extensible) || obj.is_sealed {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String(
+                "TypeError: Cannot add property to non-extensible object",
+              ),
+            )
+          }
+          return
+        }
+      }
       // Check for String object length
       let is_string_obj = properties.contains("PrimitiveValue") &&
         (match properties.get("PrimitiveValue") {
@@ -525,6 +692,67 @@ pub fn JSValue::set_property(
       }
     }
     Function(func) => {
+      match (func.proxy_target, func.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("set")
+          match trap {
+            Function(f) => {
+              let res = f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                value,
+                self,
+              ])
+              if not(res.is_truthy()) && strict {
+                raise EvalError::Throw(
+                  JSValue::String("TypeError: Proxy set trap returned false"),
+                )
+              }
+              return
+            }
+            _ => return target.set_property(name, value, strict~)
+          }
+        }
+        _ => ()
+      }
+      // Check for accessor
+      match func.properties.get(name) {
+        Some(Internal(Accessor(_, Some(setter)))) => {
+          let _ = setter.context.invoke(setter, self, [value]) catch {
+            e => raise e
+          }
+          return
+        }
+        Some(Internal(Accessor(_, None))) => {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String("TypeError: Cannot assign to read-only accessor"),
+            )
+          }
+          return
+        }
+        _ => ()
+      }
+      if func.is_frozen {
+        if strict {
+          raise EvalError::Throw(
+            JSValue::String("TypeError: Cannot assign to read only property"),
+          )
+        }
+        return
+      }
+      if not(func.properties.contains(name)) {
+        if not(func.extensible) || func.is_sealed {
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String(
+                "TypeError: Cannot add property to non-extensible object",
+              ),
+            )
+          }
+          return
+        }
+      }
       if name == "length" || name == "name" {
         if strict {
           raise EvalError::Throw(

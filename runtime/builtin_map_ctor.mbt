@@ -139,11 +139,7 @@ fn iterator_close(ctx : Context, iterator : JSValue) -> Unit {
   let return_val = iterator.get_property("return")
   match return_val {
     Function(f) => {
-      let _ = ctx.invoke(f, iterator, []) catch {
-        _ => {
-          Undefined
-        }
-      }
+      let _ = ctx.invoke(f, iterator, []) catch { _ => Undefined }
       ()
     }
     _ => ()
