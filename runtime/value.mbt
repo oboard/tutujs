@@ -209,15 +209,15 @@ pub fn JSFunction::new(
 ) -> JSFunction {
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or(@hashmap.new())
+  if not(properties.contains("length")) {
+    properties.set("length", JSValue::Number(params.length().to_double()))
+  }
   match name {
     Some(n) =>
       if not(properties.contains("name")) {
         properties.set("name", JSValue::String(n))
       }
     None => ()
-  }
-  if not(properties.contains("length")) {
-    properties.set("length", JSValue::Number(params.length().to_double()))
   }
   let is_ctor = match is_constructor {
     Some(b) => b
@@ -500,7 +500,7 @@ pub fn JSValue::get_property_internal(
 }
 
 ///|
-fn JSValue::resolve_in_ctx(self : JSValue, name : String) -> JSValue {
+fn JSValue::resolve_in_ctx(_self : JSValue, _name : String) -> JSValue {
   // This is a hack because we don't have easy access to context here.
   // But wait, many internal objects were created with a context? No.
   // Actually, we can't easily resolve without a context.

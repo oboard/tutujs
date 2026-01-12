@@ -274,6 +274,52 @@ fn Context::evaluate(
           }
           Undefined
         }
+        ClassDeclaration({ id, superClass, .. }) => {
+          let name = id.name
+          let super_val = match superClass {
+            Some(expr) => self.evaluate(Expression(expr))
+            None => self.resolve("Object")
+          }
+          let func_props = @hashmap.new()
+          let func = JSFunction::new(
+            name~,
+            params=[],
+            body=Native(fn(ctx, this_val, args) {
+              match super_val {
+                Function(f) => {
+                  let res = ctx.invoke(f, this_val, args) catch {
+                    EvalError::Return(v) => return v
+                    e => raise e
+                  }
+                  match res {
+                    Object(_) | Function(_) => return res
+                    _ => ()
+                  }
+                }
+                _ => ()
+              }
+              this_val
+            }),
+            context=self,
+            properties=func_props,
+            is_constructor=true,
+          )
+          let func_val = JSValue::Function(func)
+          let super_proto = match super_val {
+            Function(f) => f.get("prototype")
+            _ => self.resolve("Object").get_property("prototype")
+          }
+          let proto_props = @hashmap.new()
+          let proto_obj = JSObject::new(
+            properties=proto_props,
+            prototype=super_proto,
+          )
+          let proto_val = JSValue::Object(proto_obj)
+          proto_props.set("constructor", func_val)
+          func_props.set("prototype", proto_val)
+          self.scope.set(name, func_val)
+          Undefined
+        }
         _ => Undefined
       }
     Statement(statement) =>
@@ -787,10 +833,10 @@ fn Context::evaluate(
               }
             }
             _ => {
-              self.throw_type_error(
-                self.evaluate(Expression(callee)).to_string() +
-                " is not a constructor",
-              )
+              let msg = self.evaluate(Expression(callee)).to_string() +
+                " is not a constructor"
+              self.throw_type_error(msg)
+              // abort("NewExpression failed: " + msg)
               Undefined
             }
           }
@@ -863,6 +909,13 @@ fn Context::evaluate(
             LeftShift => left.left_shift(right)
             Instanceof => Boolean(left.instanceof(right))
           }
+        }
+        SequenceExpression({ expressions }) => {
+          let mut res = JSValue::Undefined
+          for expr in expressions {
+            res = self.evaluate(Expression(expr))
+          }
+          res
         }
         LogicalExpression({ operator, left, right }) => {
           let left_val = self.evaluate(Expression(left))

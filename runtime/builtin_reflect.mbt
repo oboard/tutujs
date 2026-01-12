@@ -9,14 +9,16 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
   let construct_fn = Native(fn(ctx, _this_val, args) {
     if args.length() < 2 {
       ctx.throw_type_error("Reflect.construct requires at least 2 arguments")
-      return JSValue::Undefined // unreachable
+      return JSValue::Undefined
     }
     let target = args[0]
     let args_list = args[1]
     let _new_target = if args.length() > 2 { args[2] } else { target }
-    match target {
-      Function(func) =>
-        if not(func.is_constructor) {
+    let func = match target {
+      Function(f) =>
+        if f.is_constructor {
+          f
+        } else {
           ctx.throw_type_error(
             "Reflect.construct: target must be a constructor",
           )
@@ -27,9 +29,11 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         return JSValue::Undefined
       }
     }
-    match _new_target {
-      Function(func) =>
-        if not(func.is_constructor) {
+    let nt = match _new_target {
+      Function(f) =>
+        if f.is_constructor {
+          f
+        } else {
           ctx.throw_type_error(
             "Reflect.construct: newTarget must be a constructor",
           )
@@ -44,7 +48,6 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
     }
     let args_array = match args_list {
       Object({ properties, .. }) => {
-        // Convert array-like to array of values
         let len = match properties.get("length") {
           Some(Number(n)) => n.to_int()
           _ => 0
@@ -65,48 +68,29 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         return JSValue::Undefined
       }
     }
-
-    // Invoke constructor
-    // We reuse logic from NewExpression in eval.mbt if possible, but here we need to invoke directly.
-    // We can use ctx.invoke, but we need to pass 'this' as a new object?
-    // Wait, invoke handles function call. NewExpression logic handles creating new object and passing it as 'this'.
-    // We need 'construct' capability on JSFunction.
-
-    // For now, let's duplicate the logic or extract it.
-    // Ideally Context should have a 'construct' method.
-
-    match target {
-      Function(func) => {
-        let proto = match _new_target {
-          Function(f) =>
-            match f.properties.get("prototype") {
-              Some(Object(_) as p) => Some(p)
-              _ =>
-                // Fallback to target's prototype (intrinsicDefaultProto)
-                match func.properties.get("prototype") {
-                  Some(p) => Some(p)
-                  None => Some(Null)
-                }
+    let proto = match nt.properties.get("prototype") {
+      Some(Object(_) as p) => p
+      _ =>
+        match func.properties.get("prototype") {
+          Some(Object(_) as p) => p
+          _ =>
+            // Default to Object.prototype
+            match ctx.resolve("Object") {
+              Function(obj_ctor) => obj_ctor.get("prototype")
+              _ => Null
             }
-          _ => Some(Null)
         }
-        let new_obj = match proto {
-          Some(p) =>
-            JSValue::Object(
-              JSObject::new(properties=@hashmap.new(), prototype=p),
-            )
-          None => JSValue::Object(JSObject::new(properties=@hashmap.new()))
-        }
-        let res = ctx.invoke(func, new_obj, args_array) catch {
-          EvalError::Return(v) => v // Constructors can return object to override 'this'
-          e => raise e
-        }
-        match res {
-          Object(_) | Function(_) => res
-          _ => new_obj
-        }
-      }
-      _ => Undefined
+    }
+    let new_obj = JSValue::Object(
+      JSObject::new(properties=@hashmap.new(), prototype=proto),
+    )
+    let res = ctx.invoke(func, new_obj, args_array) catch {
+      EvalError::Return(v) => v
+      e => raise e
+    }
+    match res {
+      Object(_) | Function(_) => res
+      _ => new_obj
     }
   })
   let construct_obj = JSFunction::new(name="construct", body=construct_fn)
