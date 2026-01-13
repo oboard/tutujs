@@ -342,7 +342,7 @@ pub fn JSObject::new(
 ///|
 #alias("_[_]=_")
 pub fn JSObject::set(self : JSObject, key : String, value : JSValue) -> Unit {
-  self[key] = value
+  self.properties[key] = value
 }
 
 ///|
