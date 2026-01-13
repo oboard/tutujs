@@ -182,9 +182,11 @@ pub(all) struct JSObject {
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
 }
+#alias("_[_]")
+pub fn JSObject::get(Self, String) -> JSValue
 pub fn JSObject::new(properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue) -> Self
-pub fn JSObject::op_get(Self, String) -> JSValue
-pub fn JSObject::op_set(Self, String, JSValue) -> Unit
+#alias("_[_]=_")
+pub fn JSObject::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSObject
 pub impl Eq for JSObject
 pub impl Hash for JSObject

@@ -197,6 +197,19 @@ pub impl FromJson for FunctionBody with from_json(_, _) {
 }
 
 ///|
+pub(all) struct JSObject {
+  _id : Int
+  properties : @hashmap.HashMap[String, JSValue]
+  /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
+  mut prototype : JSValue?
+  mut extensible : Bool
+  mut is_sealed : Bool
+  mut is_frozen : Bool
+  mut proxy_target : JSValue?
+  mut proxy_handler : JSValue?
+} derive(Show, Eq)
+
+///|
 pub(all) struct JSFunction {
   _id : Int
   mut name : String?
@@ -214,6 +227,17 @@ pub(all) struct JSFunction {
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
 } derive(Show, Eq, ToJson)
+
+// ///|
+// pub(open) trait JSObjectLike {
+//   set_extensible(self : Self, val : Bool) -> Unit
+//   get_extensible(self : Self) -> Bool
+//   set_prototype_of(self : Self, proto : JSValue) -> Bool
+//   get_prototype_of(self : Self) -> JSValue
+//   get_is_sealed(self : Self) -> Bool
+//   set_is_sealed(self : Self, val : Bool) -> Bool
+
+// }
 
 ///|
 pub fn JSFunction::new(
@@ -295,19 +319,6 @@ pub impl FromJson for JSFunction with from_json(_, _) {
 }
 
 ///|
-pub(all) struct JSObject {
-  _id : Int
-  properties : @hashmap.HashMap[String, JSValue]
-  /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
-  mut prototype : JSValue?
-  mut extensible : Bool
-  mut is_sealed : Bool
-  mut is_frozen : Bool
-  mut proxy_target : JSValue?
-  mut proxy_handler : JSValue?
-} derive(Show, Eq)
-
-///|
 pub fn JSObject::new(
   properties? : @hashmap.HashMap[String, JSValue],
   prototype? : JSValue,
@@ -325,12 +336,14 @@ pub fn JSObject::new(
 }
 
 ///|
-pub fn JSObject::op_set(self : JSObject, key : String, value : JSValue) -> Unit {
+#alias("_[_]=_")
+pub fn JSObject::set(self : JSObject, key : String, value : JSValue) -> Unit {
   self.properties.set(key, value)
 }
 
 ///|
-pub fn JSObject::op_get(self : JSObject, key : String) -> JSValue {
+#alias("_[_]")
+pub fn JSObject::get(self : JSObject, key : String) -> JSValue {
   JSValue::Object(self).get_property(key)
 }
 

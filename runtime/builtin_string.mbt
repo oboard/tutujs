@@ -6,8 +6,8 @@ pub fn init_string_prototype(
   match string_proto_val {
     Object(obj) => {
       // PrimitiveValue = ""
-      obj.properties.set("PrimitiveValue", JSValue::String(""))
-      obj.properties.set("length", JSValue::Number(0.0))
+      obj["PrimitiveValue"] = JSValue::String("")
+      obj["length"] = JSValue::Number(0.0)
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
@@ -105,8 +105,8 @@ pub fn init_string_prototype(
           Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
           None => JSObject::new(properties=@hashmap.new())
         }
-        arr_obj.properties["length"] = JSValue::Number(1.0)
-        arr_obj.properties["0"] = JSValue::String(s)
+        arr_obj["length"] = JSValue::Number(1.0)
+        arr_obj["0"] = JSValue::String(s)
         JSValue::Object(arr_obj)
       })
       let split_obj = JSFunction::new(

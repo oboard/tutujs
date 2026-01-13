@@ -288,8 +288,8 @@ pub fn create_object_constructor(
             _ => Undefined
           }
           let obj = JSObject::new(prototype=string_proto)
-          obj.properties.set("PrimitiveValue", val)
-          obj.properties.set("length", Number(s.length().to_double()))
+          obj["PrimitiveValue"] = val
+          obj["length"] = Number(s.length().to_double())
           let res = Object(obj)
           // Wrapper objects should have constructor pointing to String
           match string_proto {
@@ -308,12 +308,12 @@ pub fn create_object_constructor(
             _ => Undefined
           }
           let obj = JSObject::new(prototype=number_proto)
-          obj.properties.set("PrimitiveValue", val)
+          obj["PrimitiveValue"] = val
           let res = Object(obj)
           match number_proto {
             Object(p) =>
               match p.properties.get("constructor") {
-                Some(ctor) => obj.properties.set("constructor", ctor)
+                Some(ctor) => obj["constructor"] = ctor
                 None => ()
               }
             _ => ()
@@ -331,7 +331,7 @@ pub fn create_object_constructor(
           match boolean_proto {
             Object(p) =>
               match p.properties.get("constructor") {
-                Some(ctor) => obj.properties.set("constructor", ctor)
+                Some(ctor) => obj["constructor"] = ctor
                 None => ()
               }
             _ => ()
@@ -349,7 +349,7 @@ pub fn create_object_constructor(
           match symbol_proto {
             Object(p) =>
               match p.properties.get("constructor") {
-                Some(ctor) => obj.properties.set("constructor", ctor)
+                Some(ctor) => obj["constructor"] = ctor
                 None => ()
               }
             _ => ()
@@ -362,14 +362,11 @@ pub fn create_object_constructor(
             _ => Undefined
           }
           let obj = JSObject::new(prototype=big_proto)
-          obj.properties.set("PrimitiveValue", val)
+          obj["PrimitiveValue"] = val
           let res = Object(obj)
           match big_proto {
-            Object(p) =>
-              match p.properties.get("constructor") {
-                Some(ctor) => obj.properties.set("constructor", ctor)
-                None => ()
-              }
+            Object({ properties: { "constructor": ctor, .. }, .. }) =>
+              obj["constructor"] = ctor
             _ => ()
           }
           res
@@ -434,7 +431,7 @@ pub fn create_object_constructor(
                       let get_own_property_descriptor = match
                         ctx.resolve("Object") {
                         Function(obj_ctor) =>
-                          obj_ctor.get("getOwnPropertyDescriptor")
+                          obj_ctor["getOwnPropertyDescriptor"]
                         _ => Undefined
                       }
                       let desc_val = match get_own_property_descriptor {
@@ -577,14 +574,13 @@ pub fn create_object_constructor(
   let assign_fn = Native(fn(_ctx, _this_val, args) {
     if args is [target_arg, ..] {
       let properties = match target_arg {
-        Object(o) => o.properties
-        Function(f) => f.properties
+        Object({ properties, .. }) | Function({ properties, .. }) => properties
         _ => return target_arg
       }
       for i = 1; i < args.length(); i = i + 1 {
         let src_props = match args[i] {
-          Object(o) => o.properties
-          Function(f) => f.properties
+          Object({ properties, .. }) | Function({ properties, .. }) =>
+            properties
           _ => continue
         }
         for k, v in src_props {
@@ -637,31 +633,28 @@ pub fn create_object_constructor(
         ..,
       ] {
       let prop = prop_arg.to_string()
-      if desc_props.contains("get") || desc_props.contains("set") {
-        let getter = match desc_props.get("get") {
-          Some(Function(f)) => Some(f)
-          _ => None
-        }
-        let setter = match desc_props.get("set") {
-          Some(Function(f)) => Some(f)
-          _ => None
-        }
-        properties[prop] = Internal(Accessor(getter, setter))
-      } else {
-        match desc_props.get("value") {
-          Some(val) => properties[prop] = val
-          None =>
-            if desc_props.contains("writable") {
-              // Data descriptor without value
-              match properties.get(prop) {
-                Some(Internal(Accessor(_, _))) => properties[prop] = Undefined
-                None => properties[prop] = Undefined
-                _ => ()
+      match desc_props {
+        { "get": Function(getter), "set": Function(setter), .. } =>
+          properties[prop] = Internal(Accessor(Some(getter), Some(setter)))
+        { "get": Function(getter), .. } =>
+          properties[prop] = Internal(Accessor(Some(getter), None))
+        { "set": Function(setter), .. } =>
+          properties[prop] = Internal(Accessor(None, Some(setter)))
+        _ =>
+          match desc_props.get("value") {
+            Some(val) => properties[prop] = val
+            None =>
+              if desc_props.contains("writable") {
+                // Data descriptor without value
+                match properties.get(prop) {
+                  Some(Internal(Accessor(_, _))) => properties[prop] = Undefined
+                  None => properties[prop] = Undefined
+                  _ => ()
+                }
+              } else if not(properties.contains(prop)) {
+                properties[prop] = Undefined
               }
-            } else if not(properties.contains(prop)) {
-              properties[prop] = Undefined
-            }
-        }
+          }
       }
       // In a real engine, we'd store writable/enumerable/configurable here.
       // For now, we at least ensure the property exists.

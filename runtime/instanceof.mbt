@@ -8,30 +8,14 @@ pub fn JSValue::instanceof(self : JSValue, other : JSValue) -> Bool {
     Some(proto) => {
       let mut current = self
       loop current {
-        Object(obj) =>
-          match obj.prototype {
-            Some(p) => {
-              // Using strict_equal or referential equality
-              // For objects/functions strict_equal checks identity (via physical_equal)
-              if p.strict_equal(proto) {
-                return true
-              }
-              current = p
-              continue p
-            }
-            None => return false
+        Object({ prototype: Some(p), .. })
+        | Function({ prototype: Some(p), .. }) => {
+          if p.strict_equal(proto) {
+            return true
           }
-        Function(func) =>
-          match func.prototype {
-            Some(p) => {
-              if p.strict_equal(proto) {
-                return true
-              }
-              current = p
-              continue p
-            }
-            None => return false
-          }
+          current = p
+          continue p
+        }
         _ => return false
       }
     }

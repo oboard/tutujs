@@ -13,17 +13,8 @@ pub fn init_set_prototype(
         name="get size",
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) =>
-                  JSValue::Number(m.length().to_double())
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.size called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) =>
+              JSValue::Number(m.length().to_double())
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.size called on incompatible receiver",
@@ -44,24 +35,15 @@ pub fn init_set_prototype(
         body=Native(fn(ctx, this_val, args) {
           let value = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => {
-                  let value = if value == Number(-0.0) {
-                    Number(0.0)
-                  } else {
-                    value
-                  }
-                  m.set(value, Undefined)
-                  this_val
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.add called on incompatible receiver",
-                  )
-                  Undefined
-                }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) => {
+              let value = if value == Number(-0.0) {
+                Number(0.0)
+              } else {
+                value
               }
+              m.set(value, Undefined)
+              this_val
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.add called on incompatible receiver",
@@ -81,23 +63,14 @@ pub fn init_set_prototype(
         body=Native(fn(ctx, this_val, args) {
           let value = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => {
-                  let value = if value == Number(-0.0) {
-                    Number(0.0)
-                  } else {
-                    value
-                  }
-                  Boolean(m.contains(value))
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.has called on incompatible receiver",
-                  )
-                  Undefined
-                }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) => {
+              let value = if value == Number(-0.0) {
+                Number(0.0)
+              } else {
+                value
               }
+              Boolean(m.contains(value))
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.has called on incompatible receiver",
@@ -117,28 +90,21 @@ pub fn init_set_prototype(
         body=Native(fn(ctx, this_val, args) {
           let value = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => {
-                  let value = if value == Number(-0.0) {
-                    Number(0.0)
-                  } else {
-                    value
-                  }
-                  if m.contains(value) {
-                    m.remove(value)
-                    Boolean(true)
-                  } else {
-                    Boolean(false)
-                  }
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.delete called on incompatible receiver",
-                  )
-                  Undefined
-                }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) => {
+              let value = if value == Number(-0.0) {
+                Number(0.0)
+              } else {
+                value
               }
+              Boolean(
+                if m.contains(value) {
+                  m.remove(value)
+                  true
+                } else {
+                  false
+                },
+              )
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.delete called on incompatible receiver",
@@ -157,19 +123,10 @@ pub fn init_set_prototype(
         params=[],
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => {
-                  m.clear()
-                  Undefined
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.clear called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) => {
+              m.clear()
+              Undefined
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.clear called on incompatible receiver",
@@ -198,80 +155,79 @@ pub fn init_set_prototype(
       let set_iter_proto_val = JSValue::Object(set_iter_proto)
       let set_iter_next_fn = Native(fn(ctx, this_val, _args) {
         match this_val {
-          Object({ properties, .. }) =>
-            match properties.get("SetData") {
-              Some(Internal(SetIterator(_m, cursor, kind))) => {
-                // Skip removed entries
-                let mut current = cursor.val
-                while true {
-                  match current {
-                    Some(entry) =>
-                      if entry.removed {
-                        current = entry.next
-                        continue
-                      }
-                    None => ()
+          Object(
+            {
+              properties: {
+                "SetData": Internal(SetIterator(_m, cursor, kind)),
+                ..
+              },
+              ..,
+            }
+          ) => {
+            // Skip removed entries
+            let mut current = cursor.val
+            while true {
+              match current {
+                Some(entry) =>
+                  if entry.removed {
+                    current = entry.next
+                    continue
                   }
-                  break
-                }
-                match current {
-                  Some(entry) => {
-                    cursor.val = entry.next
-                    let value = match kind {
-                      "key" | "value" => entry.key
-                      "key+value" => {
-                        let array_proto = match ctx.scope.get("Array") {
-                          Some(Function({ properties, .. })) =>
-                            properties.get("prototype").unwrap_or(JSValue::Null)
-                          _ => JSValue::Null
-                        }
-                        let arr = JSObject::new(
-                          properties=@hashmap.new(),
-                          prototype=array_proto,
-                        )
-                        arr.properties.set("0", entry.key)
-                        arr.properties.set("1", entry.key) // Set entries are [value, value]
-                        arr.properties.set("length", JSValue::Number(2.0))
-                        JSValue::Object(arr)
-                      }
-                      _ => Undefined
-                    }
-                    let object_proto = match ctx.scope.get("Object") {
-                      Some(Function({ properties, .. })) =>
-                        properties.get("prototype").unwrap_or(JSValue::Null)
-                      _ => JSValue::Null
-                    }
-                    let res = JSObject::new(
-                      properties=@hashmap.new(),
-                      prototype=object_proto,
-                    )
-                    res.properties.set("value", value)
-                    res.properties.set("done", Boolean(false))
-                    JSValue::Object(res)
-                  }
-                  None => {
-                    let object_proto = match ctx.scope.get("Object") {
-                      Some(Function({ properties, .. })) =>
-                        properties.get("prototype").unwrap_or(JSValue::Null)
-                      _ => JSValue::Null
-                    }
-                    let res = JSObject::new(
-                      properties=@hashmap.new(),
-                      prototype=object_proto,
-                    )
-                    res.properties.set("value", Undefined)
-                    res.properties.set("done", Boolean(true))
-                    JSValue::Object(res)
-                  }
-                }
+                None => ()
               }
-              _ => {
-                ctx.throw_type_error(
-                  "Method Set Iterator.prototype.next called on incompatible receiver",
+              break
+            }
+            match current {
+              Some(entry) => {
+                cursor.val = entry.next
+                let value = match kind {
+                  "key" | "value" => entry.key
+                  "key+value" => {
+                    let array_proto = match ctx.scope.get("Array") {
+                      Some(Function({ properties, .. })) =>
+                        properties.get("prototype").unwrap_or(JSValue::Null)
+                      _ => JSValue::Null
+                    }
+                    let arr = JSObject::new(
+                      properties=@hashmap.new(),
+                      prototype=array_proto,
+                    )
+                    arr.properties.set("0", entry.key)
+                    arr.properties.set("1", entry.key) // Set entries are [value, value]
+                    arr.properties.set("length", JSValue::Number(2.0))
+                    JSValue::Object(arr)
+                  }
+                  _ => Undefined
+                }
+                let object_proto = match ctx.scope.get("Object") {
+                  Some(Function({ properties, .. })) =>
+                    properties.get("prototype").unwrap_or(JSValue::Null)
+                  _ => JSValue::Null
+                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                  prototype=object_proto,
                 )
-                Undefined
+                res.properties.set("value", value)
+                res.properties.set("done", Boolean(false))
+                JSValue::Object(res)
+              }
+              None => {
+                let object_proto = match ctx.scope.get("Object") {
+                  Some(Function({ properties, .. })) =>
+                    properties.get("prototype").unwrap_or(JSValue::Null)
+                  _ => JSValue::Null
+                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                  prototype=object_proto,
+                )
+                res.properties.set("value", Undefined)
+                res.properties.set("done", Boolean(true))
+                JSValue::Object(res)
               }
             }
+          }
           _ => {
             ctx.throw_type_error(
               "Method Set Iterator.prototype.next called on incompatible receiver",
@@ -322,16 +278,8 @@ pub fn init_set_prototype(
         params=[],
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => create_set_iter(ctx, m, "key+value")
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.entries called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) =>
+              create_set_iter(ctx, m, "key+value")
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.entries called on incompatible receiver",
@@ -350,16 +298,8 @@ pub fn init_set_prototype(
         params=[],
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) => create_set_iter(ctx, m, "value")
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.values called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
+            Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }) =>
+              create_set_iter(ctx, m, "value")
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.values called on incompatible receiver",
@@ -380,41 +320,24 @@ pub fn init_set_prototype(
         body=Native(fn(ctx, this_val, args) {
           let callback = if args.length() > 0 { args[0] } else { Undefined }
           let this_arg = if args.length() > 1 { args[1] } else { Undefined }
-          match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("SetData") {
-                Some(Internal(Set(m))) =>
-                  match callback {
-                    Function(f) => {
-                      let mut current = m.head
-                      while true {
-                        match current {
-                          Some(entry) => {
-                            ctx.invoke(f, this_arg, [
-                              entry.key,
-                              entry.key,
-                              this_val,
-                            ])
-                            |> ignore
-                            current = entry.next
-                          }
-                          None => break
-                        }
-                      }
-                      Undefined
-                    }
-                    _ => {
-                      ctx.throw_type_error("Callback must be a function")
-                      Undefined
-                    }
+          match (this_val, callback) {
+            (
+              Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }),
+              Function(f),
+            ) => {
+              let mut current = m.head
+              while true {
+                match current {
+                  Some(entry) => {
+                    ctx.invoke(f, this_arg, [entry.key, entry.key, this_val])
+                    |> ignore
+                    current = entry.next
                   }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Set.prototype.forEach called on incompatible receiver",
-                  )
-                  Undefined
+                  None => break
                 }
               }
+              Undefined
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.forEach called on incompatible receiver",

@@ -9,14 +9,10 @@ pub impl Neg for JSValue with neg(self) -> JSValue {
   }
 
   let self = neg_coercion(self)
-  if self == Number(@double.not_a_number) {
-    Number(@double.not_a_number)
-  } else {
-    match self {
-      Number(a) => Number(-a)
-      String(a) =>
-        Number(-(@strconv.parse_double(a) catch { _ => @double.not_a_number }))
-      _ => Number(@double.not_a_number)
-    }
+  match self {
+    Number(a) => Number(-a)
+    String(a) =>
+      Number(-(@strconv.parse_double(a) catch { _ => @double.not_a_number }))
+    _ => Number(@double.not_a_number)
   }
 }

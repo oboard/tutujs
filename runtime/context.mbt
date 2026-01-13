@@ -48,10 +48,10 @@ pub fn Context::new(parent? : Context, strict? : Bool) -> Context {
 pub fn Context::resolve(self : Context, name : String) -> JSValue {
   let current = Option::Some(self)
   loop current {
-    Some(ctx) =>
-      match ctx.scope.get(name) {
+    Some({ scope, parent, .. }) =>
+      match scope.get(name) {
         Some(v) => return v
-        None => continue ctx.parent
+        None => continue parent
       }
     None => return Undefined
   }
@@ -318,8 +318,7 @@ pub fn Context::create_global() -> Context {
     prototype=object_proto_val,
   )
   let global_val = JSValue::Object(global_obj)
-  ctx.scope.set("this", global_val)
-  ctx.scope.set("globalThis", global_val)
+  ctx.scope..set("this", global_val)..set("globalThis", global_val)
   ctx
 }
 
