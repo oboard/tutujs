@@ -43,6 +43,8 @@ pub fn create_reflect_object(JSValue) -> JSValue
 
 pub fn create_regexp_object(JSValue, JSValue) -> JSValue
 
+pub fn create_set_constructor(JSValue, JSValue) -> JSValue
+
 pub fn create_string_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_symbol_constructor(JSValue, JSValue) -> JSValue
@@ -66,6 +68,8 @@ pub fn init_map_prototype(Context, JSValue, JSValue) -> Unit
 pub fn init_number_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_object_prototype(JSValue, JSValue) -> Unit
+
+pub fn init_set_prototype(Context, JSValue, JSValue) -> Unit
 
 pub fn init_string_prototype(JSValue, JSValue) -> Unit
 
@@ -133,6 +137,7 @@ pub(all) struct JSFunction {
   mut prototype : JSValue?
   strict : Bool
   is_constructor : Bool
+  is_arrow : Bool
   mut extensible : Bool
   mut is_sealed : Bool
   mut is_frozen : Bool
@@ -141,7 +146,7 @@ pub(all) struct JSFunction {
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue
-pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool) -> Self
+pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
 #alias("_[_]=_")
 pub fn JSFunction::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSFunction
@@ -156,6 +161,8 @@ pub(all) enum JSInternal {
   RegExp(@regexp.Regexp, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String)
+  Set(LinkedMap)
+  SetIterator(LinkedMap, Ref[LinkedEntry?], String)
   Accessor(JSFunction?, JSFunction?)
 }
 pub impl Compare for JSInternal
@@ -216,6 +223,7 @@ pub fn JSValue::set_property(Self, String, Self, strict? : Bool) -> Unit raise E
 pub fn JSValue::strict_equal(Self, Self) -> Bool
 pub fn JSValue::to_int32(Self) -> Int
 pub fn JSValue::to_number(Self) -> Double
+pub fn JSValue::to_property_key(Self) -> String
 pub fn JSValue::unsigned_right_shift(Self, Self) -> Self
 pub fn JSValue::unstrict_equal(Self, Self, Context) -> Bool raise EvalError
 pub impl Add for JSValue

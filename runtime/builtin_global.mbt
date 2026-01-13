@@ -115,7 +115,7 @@ pub fn init_global_functions(ctx : Context) -> Unit {
   let dummy_ctor_fn = Native(fn(_ctx, _this, _args) {
     JSValue::Object(JSObject::new())
   })
-  let dummies = ["Set", "WeakMap", "WeakSet", "WeakRef"]
+  let dummies = ["WeakMap", "WeakSet", "WeakRef"]
   for name in dummies {
     let ctor = JSFunction::new(name~, body=dummy_ctor_fn, is_constructor=true)
     ctx.scope.set(name, JSValue::Function(ctor))

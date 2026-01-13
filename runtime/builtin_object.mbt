@@ -58,7 +58,7 @@ pub fn init_object_prototype(
       // hasOwnProperty
       let has_own_property_fn = Native(fn(_ctx, this_val, args) {
         if args is [prop, ..] {
-          let key = prop.to_string()
+          let key = prop.to_property_key()
           match this_val {
             Object(
               {
@@ -154,7 +154,7 @@ pub fn init_object_prototype(
       // propertyIsEnumerable
       let property_is_enumerable_fn = Native(fn(ctx, this_val, args) {
         if args is [prop, ..] {
-          let key = prop.to_string()
+          let key = prop.to_property_key()
           match this_val {
             Object({ properties, .. }) | Function({ properties, .. }) => {
               // Global check
@@ -198,10 +198,11 @@ pub fn init_object_prototype(
                 return Boolean(false)
               }
 
-              // Map.prototype check
+              // Map.prototype and Set.prototype check
               if key
                 is ("get"
                 | "set"
+                | "add"
                 | "has"
                 | "delete"
                 | "clear"
@@ -212,8 +213,9 @@ pub fn init_object_prototype(
                 | "forEach"
                 | "getOrInsertComputed"
                 | "constructor") {
-                if properties.get("Symbol(Symbol.toStringTag)") ==
-                  Some(JSValue::String("Map")) {
+                let tag = properties.get("Symbol(Symbol.toStringTag)")
+                if tag == Some(JSValue::String("Map")) ||
+                  tag == Some(JSValue::String("Set")) {
                   return Boolean(false)
                 }
               }
@@ -1173,7 +1175,7 @@ pub fn create_object_constructor(
         }
       }
       let prop = match prop_arg {
-        _ => prop_arg.to_string()
+        _ => prop_arg.to_property_key()
       }
       if prop == "length" && not(is_string_obj) {
         // Force check PrimitiveValue
@@ -1308,10 +1310,11 @@ pub fn create_object_constructor(
                 }
               }
 
-              // Map.prototype methods (heuristic)
+              // Map.prototype and Set.prototype methods (heuristic)
               if prop
                 is ("get"
                 | "set"
+                | "add"
                 | "has"
                 | "delete"
                 | "clear"
@@ -1322,11 +1325,13 @@ pub fn create_object_constructor(
                 | "forEach"
                 | "getOrInsertComputed"
                 | "constructor") {
-                // Check if it's on Map.prototype or a Map instance
-                let is_map_related = obj_props.contains("MapData") ||
-                  obj_props.get("Symbol(Symbol.toStringTag)") ==
-                  Some(JSValue::String("Map"))
-                if is_map_related {
+                // Check if it's on Map.prototype/Set.prototype or an instance
+                let tag = obj_props.get("Symbol(Symbol.toStringTag)")
+                let is_related = obj_props.contains("MapData") ||
+                  obj_props.contains("SetData") ||
+                  tag == Some(JSValue::String("Map")) ||
+                  tag == Some(JSValue::String("Set"))
+                if is_related {
                   desc["enumerable"] = JSValue::Boolean(false)
                 }
               }

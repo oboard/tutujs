@@ -295,6 +295,20 @@ pub fn Context::create_global() -> Context {
   map_proto_props.set("constructor", map_ctor_val)
   ctx.scope.set("Map", map_ctor_val)
 
+  // Set.prototype
+  let set_proto_props = @hashmap.new()
+  let set_proto = JSObject::new(
+    properties=set_proto_props,
+    prototype=object_proto_val,
+  )
+  let set_proto_val = JSValue::Object(set_proto)
+  init_set_prototype(ctx, set_proto_val, func_proto_val)
+
+  // Set Constructor
+  let set_ctor_val = create_set_constructor(set_proto_val, func_proto_val)
+  set_proto_props.set("constructor", set_ctor_val)
+  ctx.scope.set("Set", set_ctor_val)
+
   // Global functions (eval, isNaN, etc.)
   init_global_functions(ctx)
 

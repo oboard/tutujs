@@ -147,7 +147,9 @@ pub fn Context::invoke(
         this_val
       }
       let new_ctx = new(parent=func.context, strict~)
-      new_ctx.scope.set("this", this_binding)
+      if not(func.is_arrow) {
+        new_ctx.scope.set("this", this_binding)
+      }
 
       // Create arguments object
       let arg_obj_props = @hashmap.new()
@@ -846,7 +848,7 @@ fn Context::evaluate(
             MemberExpression({ object, property, computed, .. }) => {
               let obj_val = self.evaluate(Expression(object))
               let prop_name = if computed {
-                self.evaluate(Expression(property)).to_string()
+                self.evaluate(Expression(property)).to_property_key()
               } else {
                 match property {
                   Identifier({ name, .. }) => name
@@ -937,7 +939,7 @@ fn Context::evaluate(
         MemberExpression({ object, property, computed, .. }) => {
           let obj_val = self.evaluate(Expression(object))
           let prop_name = if computed {
-            self.evaluate(Expression(property)).to_string()
+            self.evaluate(Expression(property)).to_property_key()
           } else {
             match property {
               Identifier({ name, .. }) => name
@@ -999,7 +1001,7 @@ fn Context::evaluate(
                 MemberExpression({ object, property, computed, .. }) => {
                   let obj_val = self.evaluate(Expression(object))
                   let prop_name = if computed {
-                    self.evaluate(Expression(property)).to_string()
+                    self.evaluate(Expression(property)).to_property_key()
                   } else {
                     match property {
                       Identifier({ name, .. }) => name
@@ -1149,11 +1151,7 @@ fn Context::evaluate(
             match prop {
               ObjectProperty({ key, value, computed, .. }) => {
                 let key_str = if computed {
-                  let k = self.evaluate(Expression(key))
-                  match k {
-                    String(s) => s.to_string()
-                    _ => k.to_string()
-                  }
+                  self.evaluate(Expression(key)).to_property_key()
                 } else {
                   match key {
                     Identifier({ name, .. }) => name
@@ -1174,11 +1172,7 @@ fn Context::evaluate(
               }
               ObjectMethod({ key, kind, computed, params, body, .. }) => {
                 let key_str = if computed {
-                  let k = self.evaluate(Expression(key))
-                  match k {
-                    String(s) => s.to_string()
-                    _ => k.to_string()
-                  }
+                  self.evaluate(Expression(key)).to_property_key()
                 } else {
                   match key {
                     Identifier({ name, .. }) => name
@@ -1350,6 +1344,7 @@ fn Context::evaluate(
             prototype?=func_proto,
             strict=self.strict,
             is_constructor=false,
+            is_arrow=true,
           )
           Function(func)
         }
@@ -1359,7 +1354,7 @@ fn Context::evaluate(
             MemberExpression({ object, property, computed, .. }) => {
               let obj_val = self.evaluate(Expression(object))
               let prop_name = if computed {
-                self.evaluate(Expression(property)).to_string()
+                self.evaluate(Expression(property)).to_property_key()
               } else {
                 match property {
                   Identifier({ name, .. }) => name

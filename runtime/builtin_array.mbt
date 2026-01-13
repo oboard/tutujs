@@ -1045,7 +1045,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         let iterator_method = match ctx.resolve("Symbol") {
           Function(f) =>
             match f.properties.get("iterator") {
-              Some(sym) => items.get_property(sym.to_string())
+              Some(sym) => items.get_property(sym.to_property_key())
               None => JSValue::Undefined
             }
           _ => JSValue::Undefined

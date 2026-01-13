@@ -72,6 +72,8 @@ pub(all) enum JSInternal {
   RegExp(@regexp.Regexp, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
+  Set(LinkedMap)
+  SetIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
   Accessor(JSFunction?, JSFunction?) // Getter, Setter
 }
 
@@ -83,6 +85,9 @@ pub impl Eq for JSInternal with equal(self, other) {
     (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
     (Map(m1), Map(m2)) => physical_equal(m1, m2)
     (MapIterator(m1, n1, k1), MapIterator(m2, n2, k2)) =>
+      physical_equal(m1, m2) && n1.val == n2.val && k1 == k2
+    (Set(m1), Set(m2)) => physical_equal(m1, m2)
+    (SetIterator(m1, n1, k1), SetIterator(m2, n2, k2)) =>
       physical_equal(m1, m2) && n1.val == n2.val && k1 == k2
     _ => false
   }
@@ -114,6 +119,8 @@ pub impl Hash for JSInternal with hash_combine(self, hasher) {
     }
     Map(_) => hasher.combine("Map")
     MapIterator(_, _, k) => hasher.combine("MapIterator" + k)
+    Set(_) => hasher.combine("Set")
+    SetIterator(_, _, k) => hasher.combine("SetIterator" + k)
   }
 }
 
@@ -125,6 +132,8 @@ pub impl Show for JSInternal with output(self, logger) {
     Accessor(_, _) => logger.write_string("[Accessor]")
     Map(_) => logger.write_string("[Map]")
     MapIterator(_, _, k) => logger.write_string("[Map Iterator] " + k)
+    Set(_) => logger.write_string("[Set]")
+    SetIterator(_, _, k) => logger.write_string("[Set Iterator] " + k)
   }
 }
 
@@ -148,6 +157,15 @@ pub impl Show for JSValue with output(self, logger) {
     Null => logger.write_string("null")
     Undefined => logger.write_string("undefined")
     Internal(i) => i.output(logger)
+  }
+}
+
+///|
+pub fn JSValue::to_property_key(self : JSValue) -> String {
+  match self {
+    String(s) => s.to_string()
+    Symbol(_, s) => "Symbol(" + s + ")"
+    _ => self.to_string()
   }
 }
 
@@ -189,6 +207,7 @@ pub(all) struct JSFunction {
   mut prototype : JSValue? // [[Prototype]]
   strict : Bool
   is_constructor : Bool
+  is_arrow : Bool
   mut extensible : Bool
   mut is_sealed : Bool
   mut is_frozen : Bool
@@ -206,6 +225,7 @@ pub fn JSFunction::new(
   prototype? : JSValue,
   strict? : Bool,
   is_constructor? : Bool,
+  is_arrow? : Bool,
 ) -> JSFunction {
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or(@hashmap.new())
@@ -237,6 +257,7 @@ pub fn JSFunction::new(
     prototype,
     strict: strict.unwrap_or(false),
     is_constructor: is_ctor,
+    is_arrow: is_arrow.unwrap_or(false),
     extensible: true,
     is_sealed: false,
     is_frozen: false,
@@ -264,6 +285,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     prototype: None,
     strict: false,
     is_constructor: true,
+    is_arrow: false,
     extensible: true,
     is_sealed: false,
     is_frozen: false,
@@ -485,6 +507,11 @@ pub fn JSValue::get_property_internal(
           }
         Map(_) =>
           match receiver.resolve_in_ctx("Map") {
+            Function(f) => f.get("prototype")
+            _ => Undefined
+          }
+        Set(_) =>
+          match receiver.resolve_in_ctx("Set") {
             Function(f) => f.get("prototype")
             _ => Undefined
           }
