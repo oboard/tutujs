@@ -28,7 +28,7 @@ test "strict mode: assignment to read-only property throws" {
     #|   e
     #| }
   let result = parse_and_eval(code)
-  inspect(result, content="TypeError: Cannot assign to read only property")
+  inspect(result, content="TypeError: Cannot assign to read-only accessor")
 }
 
 ///|
@@ -48,7 +48,7 @@ test "strict mode: assignment to read-only property inside function" {
     #|   e
     #| }
   let result = parse_and_eval(code)
-  inspect(result, content="TypeError: Cannot assign to read only property")
+  inspect(result, content="TypeError: Cannot assign to read-only accessor")
 }
 
 ///|
