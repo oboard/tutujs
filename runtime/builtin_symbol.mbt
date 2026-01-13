@@ -46,20 +46,20 @@ pub fn create_symbol_constructor(
   let ctor_val = JSValue::Function(ctor)
   match ctor_val {
     Function(f) => {
-      f.properties["prototype"] = symbol_proto_val
-      f.properties["iterator"] = JSValue::Symbol(1001, "Symbol.iterator")
-      f.properties["toStringTag"] = JSValue::Symbol(1002, "Symbol.toStringTag")
-      f.properties["hasInstance"] = JSValue::Symbol(1003, "Symbol.hasInstance")
-      f.properties["isConcatSpreadable"] = JSValue::Symbol(
+      f.base["prototype"] = symbol_proto_val
+      f.base["iterator"] = JSValue::Symbol(1001, "Symbol.iterator")
+      f.base["toStringTag"] = JSValue::Symbol(1002, "Symbol.toStringTag")
+      f.base["hasInstance"] = JSValue::Symbol(1003, "Symbol.hasInstance")
+      f.base["isConcatSpreadable"] = JSValue::Symbol(
         1004, "Symbol.isConcatSpreadable",
       )
-      f.properties["match"] = JSValue::Symbol(1005, "Symbol.match")
-      f.properties["replace"] = JSValue::Symbol(1006, "Symbol.replace")
-      f.properties["search"] = JSValue::Symbol(1007, "Symbol.search")
-      f.properties["species"] = JSValue::Symbol(1008, "Symbol.species")
-      f.properties["split"] = JSValue::Symbol(1009, "Symbol.split")
-      f.properties["toPrimitive"] = JSValue::Symbol(1010, "Symbol.toPrimitive")
-      f.properties["unscopables"] = JSValue::Symbol(1011, "Symbol.unscopables")
+      f.base["match"] = JSValue::Symbol(1005, "Symbol.match")
+      f.base["replace"] = JSValue::Symbol(1006, "Symbol.replace")
+      f.base["search"] = JSValue::Symbol(1007, "Symbol.search")
+      f.base["species"] = JSValue::Symbol(1008, "Symbol.species")
+      f.base["split"] = JSValue::Symbol(1009, "Symbol.split")
+      f.base["toPrimitive"] = JSValue::Symbol(1010, "Symbol.toPrimitive")
+      f.base["unscopables"] = JSValue::Symbol(1011, "Symbol.unscopables")
     }
     _ => ()
   }

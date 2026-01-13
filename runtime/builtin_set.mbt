@@ -6,7 +6,7 @@ pub fn init_set_prototype(
 ) -> Unit {
   match set_proto {
     Object(proto) => {
-      proto.properties.set("constructor", JSValue::Undefined) // Will be set later
+      proto["constructor"] = JSValue::Undefined // Will be set later
 
       // size getter
       let size_getter = JSFunction::new(
@@ -26,7 +26,7 @@ pub fn init_set_prototype(
         prototype=func_proto,
       )
       let size_accessor = JSInternal::Accessor(Some(size_getter), None)
-      proto.properties.set("size", JSValue::Internal(size_accessor))
+      proto["size"] = JSValue::Internal(size_accessor)
 
       // add
       let add_fn = JSFunction::new(
@@ -54,7 +54,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("add", JSValue::Function(add_fn))
+      proto["add"] = JSValue::Function(add_fn)
 
       // has
       let has_fn = JSFunction::new(
@@ -81,7 +81,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("has", JSValue::Function(has_fn))
+      proto["has"] = JSValue::Function(has_fn)
 
       // delete
       let delete_fn = JSFunction::new(
@@ -115,7 +115,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("delete", JSValue::Function(delete_fn))
+      proto["delete"] = JSValue::Function(delete_fn)
 
       // clear
       let clear_fn = JSFunction::new(
@@ -137,7 +137,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("clear", JSValue::Function(clear_fn))
+      proto["clear"] = JSValue::Function(clear_fn)
 
       // Iterator Setup
       let iterator_proto = match ctx.scope.get("IteratorPrototype") {
@@ -184,7 +184,7 @@ pub fn init_set_prototype(
                   "key" | "value" => entry.key
                   "key+value" => {
                     let array_proto = match ctx.scope.get("Array") {
-                      Some(Function({ properties, .. })) =>
+                      Some(Function({ base: { properties, .. }, .. })) =>
                         properties.get("prototype").unwrap_or(JSValue::Null)
                       _ => JSValue::Null
                     }
@@ -192,15 +192,15 @@ pub fn init_set_prototype(
                       properties=@hashmap.new(),
                       prototype=array_proto,
                     )
-                    arr.properties.set("0", entry.key)
-                    arr.properties.set("1", entry.key) // Set entries are [value, value]
-                    arr.properties.set("length", JSValue::Number(2.0))
+                    arr["0"] = entry.key
+                    arr["1"] = entry.key // Set entries are [value, value]
+                    arr["length"] = JSValue::Number(2.0)
                     JSValue::Object(arr)
                   }
                   _ => Undefined
                 }
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ properties, .. })) =>
+                  Some(Function({ base: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -208,13 +208,13 @@ pub fn init_set_prototype(
                   properties=@hashmap.new(),
                   prototype=object_proto,
                 )
-                res.properties.set("value", value)
-                res.properties.set("done", Boolean(false))
+                res["value"] = value
+                res["done"] = Boolean(false)
                 JSValue::Object(res)
               }
               None => {
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ properties, .. })) =>
+                  Some(Function({ base: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -222,8 +222,8 @@ pub fn init_set_prototype(
                   properties=@hashmap.new(),
                   prototype=object_proto,
                 )
-                res.properties.set("value", Undefined)
-                res.properties.set("done", Boolean(true))
+                res["value"] = Undefined
+                res["done"] = Boolean(true)
                 JSValue::Object(res)
               }
             }
@@ -241,7 +241,7 @@ pub fn init_set_prototype(
         body=set_iter_next_fn,
         prototype=func_proto,
       )
-      set_iter_proto.properties.set("next", JSValue::Function(set_iter_next))
+      set_iter_proto["next"] = JSValue::Function(set_iter_next)
 
       // Symbol.iterator -> this
       let set_iter_sym_iter_fn = Native(fn(_ctx, this_val, _args) { this_val })
@@ -290,7 +290,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("entries", JSValue::Function(entries_fn))
+      proto["entries"] = JSValue::Function(entries_fn)
 
       // values
       let values_fn = JSFunction::new(
@@ -310,8 +310,8 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("values", JSValue::Function(values_fn))
-      proto.properties.set("keys", JSValue::Function(values_fn))
+      proto["values"] = JSValue::Function(values_fn)
+      proto["keys"] = JSValue::Function(values_fn)
 
       // forEach
       let for_each_fn = JSFunction::new(
@@ -348,7 +348,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("forEach", JSValue::Function(for_each_fn))
+      proto["forEach"] = JSValue::Function(for_each_fn)
 
       // Symbol.iterator -> values
       proto.properties.set(

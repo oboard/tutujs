@@ -7,7 +7,7 @@ pub fn create_set_constructor(
     match this_val {
       Object(obj) => {
         let set_data = LinkedMap::new()
-        obj.properties.set("SetData", JSValue::Internal(Set(set_data)))
+        obj["SetData"] = JSValue::Internal(Set(set_data))
         if args.length() > 0 && not(args[0] is (Undefined | Null)) {
           let iterable = args[0]
           let adder_val = this_val.get_property_throw("add") catch {
@@ -24,7 +24,7 @@ pub fn create_set_constructor(
           // General Iterator Protocol
           let iterator_sym = match ctx.resolve("Symbol") {
             Function(f) =>
-              f.properties.get("iterator").unwrap_or(JSValue::Undefined)
+              f.base.properties.get("iterator").unwrap_or(JSValue::Undefined)
             _ => JSValue::Undefined
           }
           let iterator_key = match iterator_sym {
@@ -108,6 +108,6 @@ pub fn create_set_constructor(
     prototype=func_proto,
     is_constructor=true,
   )
-  ctor_obj.properties.set("prototype", set_proto)
+  ctor_obj.base["prototype"] = set_proto
   JSValue::Function(ctor_obj)
 }

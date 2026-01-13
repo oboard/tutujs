@@ -984,7 +984,7 @@ pub fn init_array_prototype(
 pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
   // println("DEBUG: init_array_constructor called")
   match array_ctor {
-    Function(obj) => {
+    Function({ base: obj, .. }) => {
       let func_proto = obj.prototype
       let func_proto_val = func_proto.unwrap_or(JSValue::Undefined)
       // isArray
@@ -1002,7 +1002,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         body=is_array_fn,
         prototype=func_proto_val,
       )
-      obj.properties["isArray"] = JSValue::Function(is_array_obj)
+      obj["isArray"] = JSValue::Function(is_array_obj)
 
       // from
       let from_fn = Native(fn(ctx, this_val, args) raise EvalError {
@@ -1044,7 +1044,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         // Check for iterator
         let iterator_method = match ctx.resolve("Symbol") {
           Function(f) =>
-            match f.properties.get("iterator") {
+            match f.base.properties.get("iterator") {
               Some(sym) => items.get_property(sym.to_property_key())
               None => JSValue::Undefined
             }
@@ -1054,11 +1054,11 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           let iterator = ctx.invoke(iter_fn, items, []) catch { e => raise e }
           let new_array_val = match this_val {
             Function(ctor) => {
-              let proto = match ctor.properties.get("prototype") {
+              let proto = match ctor.base.properties.get("prototype") {
                 Some(p) => p
                 None =>
                   match ctx.resolve("Object") {
-                    Function(f) => f.properties.get("prototype").unwrap()
+                    Function(f) => f.base.properties.get("prototype").unwrap()
                     _ => JSValue::Undefined
                   }
               }
@@ -1075,7 +1075,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
             }
             _ => {
               let proto = match ctx.resolve("Array") {
-                Function(f) => f.properties.get("prototype")
+                Function(f) => f.base.properties.get("prototype")
                 _ => None
               }
               JSValue::Object(
@@ -1117,9 +1117,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
             }
             let done = next_result.get_property("done").is_truthy()
             if done {
-              new_array_obj.properties["length"] = JSValue::Number(
-                k.to_double(),
-              )
+              new_array_obj["length"] = JSValue::Number(k.to_double())
               break
             }
             let value = next_result.get_property("value")
@@ -1145,7 +1143,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                 ),
               )
             }
-            new_array_obj.properties[key] = mapped_val
+            new_array_obj[key] = mapped_val
             k = k + 1
           }
           return new_array_val
@@ -1161,11 +1159,11 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         let new_array_val = match this_val {
           Function(ctor) => {
             // Construct(C, [len])
-            let proto = match ctor.properties.get("prototype") {
+            let proto = match ctor.base.properties.get("prototype") {
               Some(p) => p
               None =>
                 match ctx.resolve("Object") {
-                  Function(f) => f.properties.get("prototype").unwrap()
+                  Function(f) => f.base.properties.get("prototype").unwrap()
                   _ => JSValue::Undefined
                 }
             }
@@ -1185,14 +1183,14 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           _ => {
             // ArrayCreate(len)
             let proto = match ctx.resolve("Array") {
-              Function(f) => f.properties.get("prototype")
+              Function(f) => f.base.properties.get("prototype")
               _ => None
             }
             let obj = match proto {
               Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
               None => JSObject::new(properties=@hashmap.new())
             }
-            obj.properties["length"] = JSValue::Number(len.to_double())
+            obj["length"] = JSValue::Number(len.to_double())
             JSValue::Object(obj)
           }
         }
@@ -1242,7 +1240,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
             }
             raise EvalError::Throw(type_error)
           }
-          new_array_obj.properties[key] = mapped_val
+          new_array_obj[key] = mapped_val
         }
 
         // CreateDataPropertyOrThrow logic for length
@@ -1271,7 +1269,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           }
           raise EvalError::Throw(type_error)
         }
-        new_array_obj.properties["length"] = JSValue::Number(len.to_double())
+        new_array_obj["length"] = JSValue::Number(len.to_double())
         new_array_val
       })
       let from_obj = JSFunction::new(
@@ -1279,7 +1277,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         body=from_fn,
         prototype=func_proto_val,
       )
-      obj.properties["from"] = JSValue::Function(from_obj)
+      obj["from"] = JSValue::Function(from_obj)
     }
     _ => ()
   }

@@ -35,7 +35,7 @@ pub fn create_regexp_object(
     }
     if not(valid) {
       let syntax_error_proto = match syntax_error_ctor {
-        Function(f) => f.properties.get("prototype")
+        Function(f) => f.base.properties.get("prototype")
         Object(o) => o.properties.get("prototype")
         _ => None
       }
@@ -52,8 +52,8 @@ pub fn create_regexp_object(
       raise EvalError::Throw(JSValue::Object(err))
     }
     let init_regexp_props = fn(obj : JSObject) {
-      obj.properties.set("lastIndex", JSValue::Number(0.0))
-      obj.properties.set("source", JSValue::String(pattern_view))
+      obj["lastIndex"] = JSValue::Number(0.0)
+      obj["source"] = JSValue::String(pattern_view)
       obj.properties.set("global", JSValue::Boolean(flags_str.contains("g")))
       obj.properties.set(
         "ignoreCase",

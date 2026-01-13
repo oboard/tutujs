@@ -19,9 +19,9 @@ pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
             is_constructor=t_func.is_constructor,
           )
           proxy_func.name = t_func.name
-          proxy_func.prototype = t_func.prototype
-          proxy_func.proxy_target = Some(target)
-          proxy_func.proxy_handler = Some(handler)
+          proxy_func.base.prototype = t_func.base.prototype
+          proxy_func.base.proxy_target = Some(target)
+          proxy_func.base.proxy_handler = Some(handler)
           JSValue::Function(proxy_func)
         }
         _ => JSValue::Undefined // TypeError

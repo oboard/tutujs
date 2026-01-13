@@ -36,8 +36,8 @@ pub impl Eq for JSValue with equal(self, other) {
     (String(a), String(b)) => a == b
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
-    (Object(a), Object(b)) => a._id == b._id
-    (Function(a), Function(b)) => a._id == b._id
+    (Object(a), Object(b))
+    | (Function({ base: a, .. }), Function({ base: b, .. })) => a._id == b._id
     (Internal(a), Internal(b)) => a == b
     _ => false
   }
@@ -60,8 +60,7 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
     String(s) => hasher.combine(s)
     BigInt(i) => hasher.combine(i)
     Symbol(id, _) => hasher.combine(id)
-    Object(o) => hasher.combine(o._id)
-    Function(f) => hasher.combine(f._id)
+    Object(o) | Function({ base: o, .. }) => hasher.combine(o._id)
     Internal(i) => hasher.combine(i)
   }
 }
@@ -211,21 +210,22 @@ pub(all) struct JSObject {
 
 ///|
 pub(all) struct JSFunction {
-  _id : Int
   mut name : String?
   params : Array[String]
   body : FunctionBody
   context : Context
-  properties : @hashmap.HashMap[String, JSValue]
-  mut prototype : JSValue? // [[Prototype]]
   strict : Bool
   is_constructor : Bool
   is_arrow : Bool
-  mut extensible : Bool
-  mut is_sealed : Bool
-  mut is_frozen : Bool
-  mut proxy_target : JSValue?
-  mut proxy_handler : JSValue?
+  base : JSObject
+  // _id : Int
+  // properties : @hashmap.HashMap[String, JSValue]
+  // mut prototype : JSValue? // [[Prototype]]
+  // mut extensible : Bool
+  // mut is_sealed : Bool
+  // mut is_frozen : Bool
+  // mut proxy_target : JSValue?
+  // mut proxy_handler : JSValue?
 } derive(Show, Eq, ToJson)
 
 // ///|
@@ -272,21 +272,23 @@ pub fn JSFunction::new(
       }
   }
   {
-    _id: next_object_id(),
     name,
     params,
     body,
     context: context.unwrap_or(Context::new()),
-    properties,
-    prototype,
     strict: strict.unwrap_or(false),
     is_constructor: is_ctor,
     is_arrow: is_arrow.unwrap_or(false),
-    extensible: true,
-    is_sealed: false,
-    is_frozen: false,
-    proxy_target: None,
-    proxy_handler: None,
+    base: {
+      _id: next_object_id(),
+      properties,
+      prototype,
+      extensible: true,
+      is_sealed: false,
+      is_frozen: false,
+      proxy_target: None,
+      proxy_handler: None,
+    },
   }
 }
 
@@ -300,21 +302,23 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     strict: false,
   }
   {
-    _id: next_object_id(),
     name: None,
     params: [],
     body: User(@parser.BlockStatement::{ body: [], directives: [] }),
     context: ctx,
-    properties: @hashmap.new(),
-    prototype: None,
     strict: false,
     is_constructor: true,
     is_arrow: false,
-    extensible: true,
-    is_sealed: false,
-    is_frozen: false,
-    proxy_target: None,
-    proxy_handler: None,
+    base: {
+      _id: next_object_id(),
+      properties: @hashmap.new(),
+      prototype: None,
+      extensible: true,
+      is_sealed: false,
+      is_frozen: false,
+      proxy_target: None,
+      proxy_handler: None,
+    },
   }
 }
 
@@ -338,7 +342,7 @@ pub fn JSObject::new(
 ///|
 #alias("_[_]=_")
 pub fn JSObject::set(self : JSObject, key : String, value : JSValue) -> Unit {
-  self.properties.set(key, value)
+  self[key] = value
 }
 
 ///|
@@ -383,7 +387,7 @@ pub impl Compare for JSFunction with compare(_, _) -> Int {
 
 ///|
 pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
-  hasher.combine(self._id)
+  hasher.combine(self.base._id)
 }
 
 ///|
@@ -393,13 +397,13 @@ pub fn JSFunction::set(
   key : String,
   value : JSValue,
 ) -> Unit {
-  self.properties.set(key, value)
+  self.base[key] = value
 }
 
 ///|
 #alias("_[_]")
 pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
-  match self.properties.get(key) {
+  match self.base.properties.get(key) {
     Some(v) => v
     None => Undefined
   }
@@ -480,7 +484,7 @@ pub fn JSValue::get_property_internal(
       }
     }
     Function(func) => {
-      match (func.proxy_target, func.proxy_handler) {
+      match (func.base.proxy_target, func.base.proxy_handler) {
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("get")
           match trap {
@@ -497,10 +501,10 @@ pub fn JSValue::get_property_internal(
         }
         _ => ()
       }
-      match func.properties.get(name) {
+      match func.base.properties.get(name) {
         Some(v) => v
         None =>
-          match func.prototype {
+          match func.base.prototype {
             Some(proto) => proto.get_property_internal(name, receiver)
             None => Undefined
           }
@@ -621,7 +625,7 @@ pub fn JSValue::get_property_internal_throw(
       }
     }
     Function(func) => {
-      match (func.proxy_target, func.proxy_handler) {
+      match (func.base.proxy_target, func.base.proxy_handler) {
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("get")
           match trap {
@@ -636,10 +640,10 @@ pub fn JSValue::get_property_internal_throw(
         }
         _ => ()
       }
-      match func.properties.get(name) {
+      match func.base.properties.get(name) {
         Some(v) => v
         None =>
-          match func.prototype {
+          match func.base.prototype {
             Some(proto) => proto.get_property_internal_throw(name, receiver)
             None => Undefined
           }
@@ -765,7 +769,7 @@ pub fn JSValue::set_property(
       }
     }
     Function(func) => {
-      match (func.proxy_target, func.proxy_handler) {
+      match (func.base.proxy_target, func.base.proxy_handler) {
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("set")
           match trap {
@@ -789,7 +793,7 @@ pub fn JSValue::set_property(
         _ => ()
       }
       // Check for accessor
-      match func.properties.get(name) {
+      match func.base.properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let _ = setter.context.invoke(setter, self, [value]) catch {
             e => raise e
@@ -806,7 +810,7 @@ pub fn JSValue::set_property(
         }
         _ => ()
       }
-      if func.is_frozen {
+      if func.base.is_frozen {
         if strict {
           raise EvalError::Throw(
             JSValue::String("TypeError: Cannot assign to read only property"),
@@ -814,8 +818,8 @@ pub fn JSValue::set_property(
         }
         return
       }
-      if not(func.properties.contains(name)) {
-        if not(func.extensible) || func.is_sealed {
+      if not(func.base.properties.contains(name)) {
+        if not(func.base.extensible) || func.base.is_sealed {
           if strict {
             raise EvalError::Throw(
               JSValue::String(
@@ -864,7 +868,7 @@ pub fn JSValue::set_property(
           return
         }
       }
-      func.properties.set(name, value)
+      func.base[name] = value
     }
     _ =>
       if strict {

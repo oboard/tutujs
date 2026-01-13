@@ -68,11 +68,12 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         return JSValue::Undefined
       }
     }
-    let proto = match nt.properties.get("prototype") {
-      Some(Object(_) as p) => p
+    let proto = match nt {
+      { base: { properties: { "prototype": Object(_) as p, .. }, .. }, .. } => p
       _ =>
-        match func.properties.get("prototype") {
-          Some(Object(_) as p) => p
+        match func {
+          { base: { properties: { "prototype": Object(_) as p, .. }, .. }, .. } =>
+            p
           _ =>
             // Default to Object.prototype
             match ctx.resolve("Object") {
@@ -94,29 +95,29 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
     }
   })
   let construct_obj = JSFunction::new(name="construct", body=construct_fn)
-  reflect_obj.properties["construct"] = JSValue::Function(construct_obj)
+  reflect_obj["construct"] = JSValue::Function(construct_obj)
 
   // Reflect.defineProperty(target, propertyKey, attributes)
   let define_property_fn = Native(fn(ctx, _this_val, args) {
-    if args is [target, prop, desc, ..] {
-      match ctx.resolve("Object") {
-        Function(obj_ctor) =>
-          match obj_ctor.get("defineProperty") {
-            Function(f) => {
-              let _ = ctx.invoke(f, Undefined, [target, prop, desc]) catch {
-                _ => return JSValue::Boolean(false)
-              }
-              JSValue::Boolean(true)
-            }
-            _ => JSValue::Boolean(false)
+    match (args, ctx.resolve("Object")) {
+      (
+        [_, _, _, ..],
+        Function(
+          {
+            base: { properties: { "defineProperty": Function(f), .. }, .. },
+            ..,
           }
-        _ => JSValue::Boolean(false)
+        ),
+      ) => {
+        let _ = ctx.invoke(f, Undefined, args) catch {
+          _ => return JSValue::Boolean(false)
+        }
+        JSValue::Boolean(true)
       }
-    } else {
-      JSValue::Boolean(false)
+      _ => JSValue::Boolean(false)
     }
   })
-  reflect_obj.properties["defineProperty"] = JSValue::Function(
+  reflect_obj["defineProperty"] = JSValue::Function(
     JSFunction::new(name="defineProperty", body=define_property_fn),
   )
 
@@ -140,7 +141,7 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
       JSValue::Boolean(false)
     }
   })
-  reflect_obj.properties["preventExtensions"] = JSValue::Function(
+  reflect_obj["preventExtensions"] = JSValue::Function(
     JSFunction::new(name="preventExtensions", body=prevent_extensions_fn),
   )
 
@@ -164,7 +165,7 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
       JSValue::Boolean(false)
     }
   })
-  reflect_obj.properties["isExtensible"] = JSValue::Function(
+  reflect_obj["isExtensible"] = JSValue::Function(
     JSFunction::new(name="isExtensible", body=is_extensible_fn),
   )
   JSValue::Object(reflect_obj)

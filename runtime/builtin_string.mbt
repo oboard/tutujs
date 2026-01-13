@@ -98,7 +98,7 @@ pub fn init_string_prototype(
           JSValue::Undefined
         }
         let array_proto = match ctx.resolve("Array") {
-          Function(f) => f.properties.get("prototype")
+          Function(f) => f.base.properties.get("prototype")
           _ => None
         }
         let arr_obj = match array_proto {

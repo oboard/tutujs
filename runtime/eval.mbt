@@ -158,7 +158,7 @@ pub fn Context::invoke(
       }
       arg_obj_props.set("length", JSValue::Number(args.length().to_double()))
       let object_proto = match self.resolve("Object") {
-        Function(f) => f.properties.get("prototype")
+        Function(f) => f.base.properties.get("prototype")
         _ => None
       }
       let arg_obj = JSObject::new(
@@ -218,7 +218,7 @@ fn Context::evaluate(
             }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.properties.get("prototype")
+            Function(f) => f.base.properties.get("prototype")
             _ => None
           }
           let func_props = @hashmap.new()
@@ -247,7 +247,7 @@ fn Context::evaluate(
 
           // Setup prototype property
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.properties.get("prototype")
+            Function(f) => f.base.properties.get("prototype")
             _ => None
           }
           let proto_props = @hashmap.new()
@@ -785,7 +785,7 @@ fn Context::evaluate(
                 )
                 return Undefined
               }
-              let proto = match func.properties.get("prototype") {
+              let proto = match func.base.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -972,7 +972,7 @@ fn Context::evaluate(
           let flags_val = JSValue::String(flags_str[:])
           match self.resolve("RegExp") {
             Function(f) => {
-              let proto = match f.properties.get("prototype") {
+              let proto = match f.base.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -1068,7 +1068,7 @@ fn Context::evaluate(
                           }
                       }
                     Function(func) =>
-                      match (func.proxy_target, func.proxy_handler) {
+                      match (func.base.proxy_target, func.base.proxy_handler) {
                         (Some(target), Some(handler)) => {
                           let trap = handler.get_property("deleteProperty")
                           match trap {
@@ -1085,12 +1085,12 @@ fn Context::evaluate(
                           }
                         }
                         _ =>
-                          if func.is_sealed || func.is_frozen {
+                          if func.base.is_sealed || func.base.is_frozen {
                             Boolean(false)
                           } else if prop_name == "prototype" {
                             Boolean(false)
                           } else {
-                            func.properties.remove(prop_name)
+                            func.base.properties.remove(prop_name)
                             Boolean(true)
                           }
                       }
@@ -1234,7 +1234,7 @@ fn Context::evaluate(
           }
           let object_proto = match self.resolve("Object") {
             Function(f) =>
-              match f.properties.get("prototype") {
+              match f.base.properties.get("prototype") {
                 Some(p) => p
                 None => Null
               }
@@ -1259,7 +1259,7 @@ fn Context::evaluate(
           arr_props.set("length", Number(len.to_double()))
           let proto = match self.resolve("Array") {
             Function(f) =>
-              match f.properties.get("prototype") {
+              match f.base.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -1285,7 +1285,7 @@ fn Context::evaluate(
             None => None
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.properties.get("prototype")
+            Function(f) => f.base.properties.get("prototype")
             _ => None
           }
           let func_props = @hashmap.new()
@@ -1300,7 +1300,7 @@ fn Context::evaluate(
           )
           let func_val = JSValue::Function(func)
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.properties.get("prototype")
+            Function(f) => f.base.properties.get("prototype")
             _ => None
           }
           let proto_props = @hashmap.new()
@@ -1334,7 +1334,7 @@ fn Context::evaluate(
               }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.properties.get("prototype")
+            Function(f) => f.base.properties.get("prototype")
             _ => None
           }
           let func = JSFunction::new(

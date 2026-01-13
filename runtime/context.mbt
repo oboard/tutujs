@@ -336,7 +336,7 @@ pub fn Context::get_property(
       } else {
         match self.resolve("String") {
           Function(f) =>
-            match f.properties.get("prototype") {
+            match f.base.properties.get("prototype") {
               Some(proto) => proto.get_property(name)
               None => Undefined
             }
@@ -346,7 +346,7 @@ pub fn Context::get_property(
     Number(_) =>
       match self.resolve("Number") {
         Function(f) =>
-          match f.properties.get("prototype") {
+          match f.base.properties.get("prototype") {
             Some(proto) => proto.get_property(name)
             None => Undefined
           }
@@ -355,7 +355,7 @@ pub fn Context::get_property(
     Boolean(_) =>
       match self.resolve("Boolean") {
         Function(f) =>
-          match f.properties.get("prototype") {
+          match f.base.properties.get("prototype") {
             Some(proto) => proto.get_property(name)
             None => Undefined
           }

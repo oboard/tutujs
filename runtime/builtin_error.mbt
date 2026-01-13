@@ -60,7 +60,7 @@ pub fn create_error_constructor(
 
   // Set constructor on prototype
   match error_proto {
-    Object(o) => o.properties.set("constructor", ctor_val)
+    Object(o) => o["constructor"] = ctor_val
     _ => ()
   }
   ctor_val

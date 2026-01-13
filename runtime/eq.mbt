@@ -12,8 +12,9 @@ pub fn JSValue::unstrict_equal(
     (Number(a), Number(b)) => a == b
     (String(a), String(b)) => a == b
     (Boolean(a), Boolean(b)) => a == b
-    (Object(a), Object(b)) => physical_equal(a.properties, b.properties)
-    (Function(a), Function(b)) => physical_equal(a.properties, b.properties)
+    (Object(a), Object(b))
+    | (Function({ base: a, .. }), Function({ base: b, .. })) =>
+      physical_equal(a.properties, b.properties)
     (Number(a), String(b)) =>
       a == (@strconv.parse_double(b) catch { _ => @double.not_a_number })
     (String(a), Number(b)) =>

@@ -128,21 +128,14 @@ pub impl ToJson for FunctionBody
 pub impl @json.FromJson for FunctionBody
 
 pub(all) struct JSFunction {
-  _id : Int
   mut name : String?
   params : Array[String]
   body : FunctionBody
   context : Context
-  properties : @hashmap.HashMap[String, JSValue]
-  mut prototype : JSValue?
   strict : Bool
   is_constructor : Bool
   is_arrow : Bool
-  mut extensible : Bool
-  mut is_sealed : Bool
-  mut is_frozen : Bool
-  mut proxy_target : JSValue?
-  mut proxy_handler : JSValue?
+  base : JSObject
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue

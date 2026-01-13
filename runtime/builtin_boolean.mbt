@@ -26,7 +26,7 @@ pub fn init_boolean_prototype(
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj.properties.set("valueOf", JSValue::Function(value_of_obj))
+      obj["valueOf"] = JSValue::Function(value_of_obj)
 
       // toString
       let to_string_fn = Native(fn(ctx, this_val, _args) {

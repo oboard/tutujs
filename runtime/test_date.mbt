@@ -29,7 +29,7 @@ test "Date Constructor and Methods" {
   let new_date_obj = JSValue::Object(
     JSObject::new(
       properties=new_date_obj_props,
-      prototype=date_ctor.prototype.unwrap(),
+      prototype=date_ctor.base.prototype.unwrap(),
     ),
   )
   let _ = match date_ctor.body {
@@ -52,7 +52,7 @@ test "Date Constructor and Methods" {
   let iso_date_obj = JSValue::Object(
     JSObject::new(
       properties=iso_date_obj_props,
-      prototype=date_ctor.prototype.unwrap(),
+      prototype=date_ctor.base.prototype.unwrap(),
     ),
   )
   let _ = match date_ctor.body {

@@ -318,7 +318,7 @@ test "floor_div_int" {
   inspect(
     try? floor_div_int(10, 0),
     content=(
-      #|Err(Failure("division by zero"))
+      #|Err(Failure("time/util.mbt:305:5-305:29@oboard/tutujs FAILED: division by zero"))
     ),
   )
 }

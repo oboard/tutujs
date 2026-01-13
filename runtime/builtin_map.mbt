@@ -6,7 +6,7 @@ pub fn init_map_prototype(
 ) -> Unit {
   match map_proto {
     Object(proto) => {
-      proto.properties.set("constructor", JSValue::Undefined) // Will be set later
+      proto["constructor"] = JSValue::Undefined // Will be set later
 
       // size getter
       let size_getter = JSFunction::new(
@@ -35,7 +35,7 @@ pub fn init_map_prototype(
         prototype=func_proto,
       )
       let size_accessor = JSInternal::Accessor(Some(size_getter), None)
-      proto.properties.set("size", JSValue::Internal(size_accessor))
+      proto["size"] = JSValue::Internal(size_accessor)
 
       // set
       let set_fn = JSFunction::new(
@@ -69,7 +69,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("set", JSValue::Function(set_fn))
+      proto["set"] = JSValue::Function(set_fn)
 
       // get
       let get_fn = JSFunction::new(
@@ -78,22 +78,13 @@ pub fn init_map_prototype(
         body=Native(fn(ctx, this_val, args) {
           let key = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("MapData") {
-                Some(Internal(Map(m))) => {
-                  let key = if key == Number(-0.0) { Number(0.0) } else { key }
-                  match m.get(key) {
-                    Some(v) => v
-                    None => Undefined
-                  }
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Map.prototype.get called on incompatible receiver",
-                  )
-                  Undefined
-                }
+            Object({ properties: { "MapData": Internal(Map(m)), .. }, .. }) => {
+              let key = if key == Number(-0.0) { Number(0.0) } else { key }
+              match m.get(key) {
+                Some(v) => v
+                None => Undefined
               }
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Map.prototype.get called on incompatible receiver",
@@ -104,7 +95,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("get", JSValue::Function(get_fn))
+      proto["get"] = JSValue::Function(get_fn)
 
       // has
       let has_fn = JSFunction::new(
@@ -113,19 +104,10 @@ pub fn init_map_prototype(
         body=Native(fn(ctx, this_val, args) {
           let key = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("MapData") {
-                Some(Internal(Map(m))) => {
-                  let key = if key == Number(-0.0) { Number(0.0) } else { key }
-                  Boolean(m.contains(key))
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Map.prototype.has called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
+            Object({ properties: { "MapData": Internal(Map(m)), .. }, .. }) => {
+              let key = if key == Number(-0.0) { Number(0.0) } else { key }
+              Boolean(m.contains(key))
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Map.prototype.has called on incompatible receiver",
@@ -136,7 +118,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("has", JSValue::Function(has_fn))
+      proto["has"] = JSValue::Function(has_fn)
 
       // delete
       let delete_fn = JSFunction::new(
@@ -145,24 +127,15 @@ pub fn init_map_prototype(
         body=Native(fn(ctx, this_val, args) {
           let key = if args.length() > 0 { args[0] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("MapData") {
-                Some(Internal(Map(m))) => {
-                  let key = if key == Number(-0.0) { Number(0.0) } else { key }
-                  if m.contains(key) {
-                    m.remove(key)
-                    Boolean(true)
-                  } else {
-                    Boolean(false)
-                  }
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Map.prototype.delete called on incompatible receiver",
-                  )
-                  Undefined
-                }
+            Object({ properties: { "MapData": Internal(Map(m)), .. }, .. }) => {
+              let key = if key == Number(-0.0) { Number(0.0) } else { key }
+              if m.contains(key) {
+                m.remove(key)
+                Boolean(true)
+              } else {
+                Boolean(false)
               }
+            }
             _ => {
               ctx.throw_type_error(
                 "Method Map.prototype.delete called on incompatible receiver",
@@ -173,7 +146,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("delete", JSValue::Function(delete_fn))
+      proto["delete"] = JSValue::Function(delete_fn)
 
       // clear
       let clear_fn = JSFunction::new(
@@ -181,30 +154,18 @@ pub fn init_map_prototype(
         params=[],
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("MapData") {
-                Some(Internal(Map(m))) => {
-                  m.clear()
-                  Undefined
-                }
-                _ => {
-                  ctx.throw_type_error(
-                    "Method Map.prototype.clear called on incompatible receiver",
-                  )
-                  Undefined
-                }
-              }
-            _ => {
+            Object({ properties: { "MapData": Internal(Map(m)), .. }, .. }) =>
+              m.clear()
+            _ =>
               ctx.throw_type_error(
                 "Method Map.prototype.clear called on incompatible receiver",
               )
-              Undefined
-            }
           }
+          Undefined
         }),
         prototype=func_proto,
       )
-      proto.properties.set("clear", JSValue::Function(clear_fn))
+      proto["clear"] = JSValue::Function(clear_fn)
 
       // getOrInsertComputed
       let get_or_insert_computed_fn = JSFunction::new(
@@ -214,33 +175,20 @@ pub fn init_map_prototype(
           let key = if args.length() > 0 { args[0] } else { Undefined }
           let callback = if args.length() > 1 { args[1] } else { Undefined }
           match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("MapData") {
-                Some(Internal(Map(m))) =>
-                  match callback {
-                    Function(f) => {
-                      let key = if key == Number(-0.0) {
-                        Number(0.0)
-                      } else {
-                        key
-                      }
-                      if m.contains(key) {
-                        m.get(key).unwrap()
-                      } else {
-                        let value = ctx.invoke(f, Undefined, [key])
-                        m.set(key, value)
-                        value
-                      }
-                    }
-                    _ => {
-                      ctx.throw_type_error("Callback must be a function")
-                      Undefined
-                    }
+            Object({ properties: { "MapData": Internal(Map(m)), .. }, .. }) =>
+              match callback {
+                Function(f) => {
+                  let key = if key == Number(-0.0) { Number(0.0) } else { key }
+                  if m.contains(key) {
+                    m.get(key).unwrap()
+                  } else {
+                    let value = ctx.invoke(f, Undefined, [key])
+                    m.set(key, value)
+                    value
                   }
+                }
                 _ => {
-                  ctx.throw_type_error(
-                    "Method Map.prototype.getOrInsertComputed called on incompatible receiver",
-                  )
+                  ctx.throw_type_error("Callback must be a function")
                   Undefined
                 }
               }
@@ -275,81 +223,80 @@ pub fn init_map_prototype(
       let map_iter_proto_val = JSValue::Object(map_iter_proto)
       let map_iter_next_fn = Native(fn(ctx, this_val, _args) {
         match this_val {
-          Object({ properties, .. }) =>
-            match properties.get("MapData") {
-              Some(Internal(MapIterator(_m, cursor, kind))) => {
-                // Skip removed entries
-                let mut current = cursor.val
-                while true {
-                  match current {
-                    Some(entry) =>
-                      if entry.removed {
-                        current = entry.next
-                        continue
-                      }
-                    None => ()
+          Object(
+            {
+              properties: {
+                "MapData": Internal(MapIterator(_m, cursor, kind)),
+                ..
+              },
+              ..,
+            }
+          ) => {
+            // Skip removed entries
+            let mut current = cursor.val
+            while true {
+              match current {
+                Some(entry) =>
+                  if entry.removed {
+                    current = entry.next
+                    continue
                   }
-                  break
-                }
-                match current {
-                  Some(entry) => {
-                    cursor.val = entry.next
-                    let value = match kind {
-                      "key" => entry.key
-                      "value" => entry.value
-                      "key+value" => {
-                        let array_proto = match ctx.scope.get("Array") {
-                          Some(Function({ properties, .. })) =>
-                            properties.get("prototype").unwrap_or(JSValue::Null)
-                          _ => JSValue::Null
-                        }
-                        let arr = JSObject::new(
-                          properties=@hashmap.new(),
-                          prototype=array_proto,
-                        )
-                        arr.properties.set("0", entry.key)
-                        arr.properties.set("1", entry.value)
-                        arr.properties.set("length", JSValue::Number(2.0))
-                        JSValue::Object(arr)
-                      }
-                      _ => Undefined
-                    }
-                    let object_proto = match ctx.scope.get("Object") {
-                      Some(Function({ properties, .. })) =>
-                        properties.get("prototype").unwrap_or(JSValue::Null)
-                      _ => JSValue::Null
-                    }
-                    let res = JSObject::new(
-                      properties=@hashmap.new(),
-                      prototype=object_proto,
-                    )
-                    res.properties.set("value", value)
-                    res.properties.set("done", Boolean(false))
-                    JSValue::Object(res)
-                  }
-                  None => {
-                    let object_proto = match ctx.scope.get("Object") {
-                      Some(Function({ properties, .. })) =>
-                        properties.get("prototype").unwrap_or(JSValue::Null)
-                      _ => JSValue::Null
-                    }
-                    let res = JSObject::new(
-                      properties=@hashmap.new(),
-                      prototype=object_proto,
-                    )
-                    res.properties.set("value", Undefined)
-                    res.properties.set("done", Boolean(true))
-                    JSValue::Object(res)
-                  }
-                }
+                None => ()
               }
-              _ => {
-                ctx.throw_type_error(
-                  "Method Map Iterator.prototype.next called on incompatible receiver",
+              break
+            }
+            match current {
+              Some(entry) => {
+                cursor.val = entry.next
+                let value = match kind {
+                  "key" => entry.key
+                  "value" => entry.value
+                  "key+value" => {
+                    let array_proto = match ctx.scope.get("Array") {
+                      Some(Function({ base: { properties, .. }, .. })) =>
+                        properties.get("prototype").unwrap_or(JSValue::Null)
+                      _ => JSValue::Null
+                    }
+                    let arr = JSObject::new(
+                      properties=@hashmap.new(),
+                      prototype=array_proto,
+                    )
+                    arr["0"] = entry.key
+                    arr["1"] = entry.value
+                    arr["length"] = JSValue::Number(2.0)
+                    JSValue::Object(arr)
+                  }
+                  _ => Undefined
+                }
+                let object_proto = match ctx.scope.get("Object") {
+                  Some(Function({ base: { properties, .. }, .. })) =>
+                    properties.get("prototype").unwrap_or(JSValue::Null)
+                  _ => JSValue::Null
+                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                  prototype=object_proto,
                 )
-                Undefined
+                res["value"] = value
+                res["done"] = Boolean(false)
+                JSValue::Object(res)
+              }
+              None => {
+                let object_proto = match ctx.scope.get("Object") {
+                  Some(Function({ base: { properties, .. }, .. })) =>
+                    properties.get("prototype").unwrap_or(JSValue::Null)
+                  _ => JSValue::Null
+                }
+                let res = JSObject::new(
+                  properties=@hashmap.new(),
+                  prototype=object_proto,
+                )
+                res["value"] = Undefined
+                res["done"] = Boolean(true)
+                JSValue::Object(res)
               }
             }
+          }
           _ => {
             ctx.throw_type_error(
               "Method Map Iterator.prototype.next called on incompatible receiver",
@@ -363,7 +310,7 @@ pub fn init_map_prototype(
         body=map_iter_next_fn,
         prototype=func_proto,
       )
-      map_iter_proto.properties.set("next", JSValue::Function(map_iter_next))
+      map_iter_proto["next"] = JSValue::Function(map_iter_next)
 
       // Symbol.iterator -> this
       let map_iter_sym_iter_fn = Native(fn(_ctx, this_val, _args) { this_val })
@@ -420,7 +367,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("entries", JSValue::Function(entries_fn))
+      proto["entries"] = JSValue::Function(entries_fn)
 
       // keys
       let keys_fn = JSFunction::new(
@@ -448,7 +395,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("keys", JSValue::Function(keys_fn))
+      proto["keys"] = JSValue::Function(keys_fn)
 
       // values
       let values_fn = JSFunction::new(
@@ -476,7 +423,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("values", JSValue::Function(values_fn))
+      proto["values"] = JSValue::Function(values_fn)
 
       // forEach
       let for_each_fn = JSFunction::new(
@@ -530,7 +477,7 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set("forEach", JSValue::Function(for_each_fn))
+      proto["forEach"] = JSValue::Function(for_each_fn)
 
       // Symbol.iterator -> entries
       proto.properties.set(
