@@ -163,7 +163,14 @@ pub impl Show for JSValue with output(self, logger) {
 pub fn JSValue::to_property_key(self : JSValue) -> String {
   match self {
     String(s) => s.to_string()
-    Symbol(_, s) => "Symbol(" + s + ")"
+    Symbol(id, s) =>
+      if id >= 1001 &&
+        id <= 1011 &&
+        s.has_prefix("Symbol.") {
+        "Symbol(" + s + ")"
+      } else {
+        "Symbol(" + id.to_string() + "," + s + ")"
+      }
     _ => self.to_string()
   }
 }

@@ -255,8 +255,76 @@ pub fn create_object_constructor(
   proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
+  let desc_key = "__descriptors"
+  let ensure_desc_map = fn(o : JSObject) -> JSObject {
+    match o.properties.get(desc_key) {
+      Some(Object(m)) => m
+      _ => {
+        let m = JSObject::new(properties=@hashmap.new(), prototype=Null)
+        o.properties.set(desc_key, JSValue::Object(m))
+        m
+      }
+    }
+  }
+  let get_desc_entry = fn(o : JSObject, prop : String) -> JSObject? {
+    match o.properties.get(desc_key) {
+      Some(Object(m)) =>
+        match m.properties.get(prop) {
+          Some(Object(d)) => Some(d)
+          _ => None
+        }
+      _ => None
+    }
+  }
+  let set_desc_entry = fn(o : JSObject, prop : String, desc : JSObject) -> Unit {
+    let m = ensure_desc_map(o)
+    m.properties.set(prop, JSValue::Object(desc))
+  }
+  let infer_desc_entry = fn(o : JSObject, prop : String) -> JSObject {
+    match o.properties.get(prop) {
+      Some(Internal(Accessor(getter, setter))) => {
+        let d_props = @hashmap.new()
+        d_props.set(
+          "get",
+          getter.map(JSValue::Function(_)).unwrap_or(Undefined),
+        )
+        d_props.set(
+          "set",
+          setter.map(JSValue::Function(_)).unwrap_or(Undefined),
+        )
+        d_props.set("enumerable", JSValue::Boolean(true))
+        d_props.set("configurable", JSValue::Boolean(true))
+        JSObject::new(properties=d_props, prototype=proto)
+      }
+      Some(v) => {
+        let d_props = @hashmap.new()
+        d_props.set("value", v)
+        d_props.set("writable", JSValue::Boolean(true))
+        d_props.set("enumerable", JSValue::Boolean(true))
+        d_props.set("configurable", JSValue::Boolean(true))
+        JSObject::new(properties=d_props, prototype=proto)
+      }
+      None => {
+        let d_props = @hashmap.new()
+        d_props.set("value", Undefined)
+        d_props.set("writable", JSValue::Boolean(false))
+        d_props.set("enumerable", JSValue::Boolean(false))
+        d_props.set("configurable", JSValue::Boolean(false))
+        JSObject::new(properties=d_props, prototype=proto)
+      }
+    }
+  }
   let object_fn_body = Native(fn(ctx, this_val, args) {
     if args is [val, ..] {
+      let is_subclass_this = match this_val {
+        Object({ prototype: Some(p), .. })
+        | Function({ base: { prototype: Some(p), .. }, .. }) =>
+          not(p.strict_equal(proto))
+        _ => false
+      }
+      if is_subclass_this {
+        return this_val
+      }
       match val {
         Object(_) | Function(_) => val
         Null | Undefined =>
@@ -625,32 +693,122 @@ pub fn create_object_constructor(
         Object({ properties: desc_props, .. }),
         ..,
       ] {
-      let prop = prop_arg.to_string()
-      match desc_props {
-        { "get": Function(getter), "set": Function(setter), .. } =>
-          properties[prop] = Internal(Accessor(Some(getter), Some(setter)))
-        { "get": Function(getter), .. } =>
-          properties[prop] = Internal(Accessor(Some(getter), None))
-        { "set": Function(setter), .. } =>
-          properties[prop] = Internal(Accessor(None, Some(setter)))
-        _ =>
-          match desc_props.get("value") {
-            Some(val) => properties[prop] = val
-            None =>
-              if desc_props.contains("writable") {
-                // Data descriptor without value
-                match properties.get(prop) {
-                  Some(Internal(Accessor(_, _))) => properties[prop] = Undefined
-                  None => properties[prop] = Undefined
-                  _ => ()
-                }
-              } else if not(properties.contains(prop)) {
-                properties[prop] = Undefined
-              }
+      let prop = prop_arg.to_property_key()
+
+      let mut current_desc = match get_desc_entry(o, prop) {
+        Some(d) => d
+        None =>
+          if properties.contains(prop) {
+            infer_desc_entry(o, prop)
+          } else {
+            let d_props = @hashmap.new()
+            let is_accessor = desc_props.contains("get") ||
+              desc_props.contains("set")
+            if is_accessor {
+              d_props.set("get", Undefined)
+              d_props.set("set", Undefined)
+              d_props.set("enumerable", JSValue::Boolean(false))
+              d_props.set("configurable", JSValue::Boolean(false))
+              JSObject::new(properties=d_props, prototype=proto)
+            } else {
+              d_props.set("value", Undefined)
+              d_props.set("writable", JSValue::Boolean(false))
+              d_props.set("enumerable", JSValue::Boolean(false))
+              d_props.set("configurable", JSValue::Boolean(false))
+              JSObject::new(properties=d_props, prototype=proto)
+            }
           }
       }
-      // In a real engine, we'd store writable/enumerable/configurable here.
-      // For now, we at least ensure the property exists.
+
+      if desc_props.contains("get") || desc_props.contains("set") {
+        let get_val = match desc_props.get("get") {
+          Some(v) => v
+          None => current_desc.get("get")
+        }
+        let set_val = match desc_props.get("set") {
+          Some(v) => v
+          None => current_desc.get("set")
+        }
+        let getter = match get_val {
+          Function(f) => Some(f)
+          _ => None
+        }
+        let setter = match set_val {
+          Function(f) => Some(f)
+          _ => None
+        }
+        properties[prop] = Internal(Accessor(getter, setter))
+
+        let d_props = @hashmap.new()
+        d_props.set("get", get_val)
+        d_props.set("set", set_val)
+        let enumerable = match desc_props.get("enumerable") {
+          Some(Boolean(b)) => b
+          _ =>
+            match current_desc.properties.get("enumerable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+        }
+        let configurable = match desc_props.get("configurable") {
+          Some(Boolean(b)) => b
+          _ =>
+            match current_desc.properties.get("configurable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+        }
+        d_props.set("enumerable", JSValue::Boolean(enumerable))
+        d_props.set("configurable", JSValue::Boolean(configurable))
+        current_desc = JSObject::new(properties=d_props, prototype=proto)
+      } else {
+        let value = match desc_props.get("value") {
+          Some(v) => v
+          None =>
+            match current_desc.properties.get("value") {
+              Some(v) => v
+              None =>
+                match properties.get(prop) {
+                  Some(v) => v
+                  None => Undefined
+                }
+            }
+        }
+        properties[prop] = value
+
+        let d_props = @hashmap.new()
+        let writable = match desc_props.get("writable") {
+          Some(Boolean(b)) => b
+          _ =>
+            match current_desc.properties.get("writable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+        }
+        let enumerable = match desc_props.get("enumerable") {
+          Some(Boolean(b)) => b
+          _ =>
+            match current_desc.properties.get("enumerable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+        }
+        let configurable = match desc_props.get("configurable") {
+          Some(Boolean(b)) => b
+          _ =>
+            match current_desc.properties.get("configurable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+        }
+        d_props.set("value", value)
+        d_props.set("writable", JSValue::Boolean(writable))
+        d_props.set("enumerable", JSValue::Boolean(enumerable))
+        d_props.set("configurable", JSValue::Boolean(configurable))
+        current_desc = JSObject::new(properties=d_props, prototype=proto)
+      }
+
+      set_desc_entry(o, prop, current_desc)
       Object(o)
     } else {
       ctx.throw_type_error(
@@ -697,53 +855,91 @@ pub fn create_object_constructor(
               // For freeze, we also need to make all properties non-configurable/non-writable
               // This is complex for Proxy. ES spec says we should call [[GetOwnPropertyKeys]]
               // and then [[DefineProperty]] for each.
-              let keys_fn = match ctx.resolve("Object") {
+              let get_names_fn = match ctx.resolve("Object") {
                 Function(obj_ctor) => obj_ctor.get("getOwnPropertyNames")
                 _ => Undefined
               }
-              let keys_val = match keys_fn {
-                Function(f) =>
-                  ctx.invoke(f, Undefined, [obj_arg]) catch {
-                    _ => Undefined
-                  }
+              let get_syms_fn = match ctx.resolve("Object") {
+                Function(obj_ctor) => obj_ctor.get("getOwnPropertySymbols")
                 _ => Undefined
               }
-              match keys_val {
+              let names_val = match get_names_fn {
+                Function(f) =>
+                  ctx.invoke(f, Undefined, [obj_arg]) catch { _ => Undefined }
+                _ => Undefined
+              }
+              let syms_val = match get_syms_fn {
+                Function(f) =>
+                  ctx.invoke(f, Undefined, [obj_arg]) catch { _ => Undefined }
+                _ => Undefined
+              }
+              let keys = []
+              match names_val {
                 Object({ properties: keys_props, .. }) => {
                   let len = match keys_props.get("length") {
                     Some(Number(n)) => n.to_int()
                     _ => 0
                   }
-                  let define_prop_fn = match ctx.resolve("Object") {
-                    Function(obj_ctor) => obj_ctor.get("defineProperty")
-                    _ => Undefined
-                  }
                   for i = 0; i < len; i = i + 1 {
-                    let k = match keys_props.get(i.to_string()) {
-                      Some(v) => v
-                      None => Undefined
-                    }
-                    let desc = JSObject::new()
-                    desc["configurable"] = JSValue::Boolean(false)
-                    // If it's a data property, also make it non-writable
-                    // We should check existing descriptor first
-                    desc["writable"] = JSValue::Boolean(false)
-                    match define_prop_fn {
-                      Function(f) => {
-                        let _ = ctx.invoke(f, Undefined, [
-                          obj_arg,
-                          k,
-                          JSValue::Object(desc),
-                        ]) catch {
-                          e => raise e
-                        }
-
-                      }
-                      _ => ()
+                    match keys_props.get(i.to_string()) {
+                      Some(v) => keys.push(v)
+                      None => keys.push(Undefined)
                     }
                   }
                 }
                 _ => ()
+              }
+              match syms_val {
+                Object({ properties: keys_props, .. }) => {
+                  let len = match keys_props.get("length") {
+                    Some(Number(n)) => n.to_int()
+                    _ => 0
+                  }
+                  for i = 0; i < len; i = i + 1 {
+                    match keys_props.get(i.to_string()) {
+                      Some(v) => keys.push(v)
+                      None => keys.push(Undefined)
+                    }
+                  }
+                }
+                _ => ()
+              }
+              let define_prop_fn = match ctx.resolve("Object") {
+                Function(obj_ctor) => obj_ctor.get("defineProperty")
+                _ => Undefined
+              }
+              let target_props = match target {
+                Object(o) => o.properties
+                Function(f) => f.base.properties
+                _ => @hashmap.new()
+              }
+              for k in keys {
+                let key_str = match k {
+                  String(s) => s.to_string()
+                  Symbol(_, _) => k.to_property_key()
+                  _ => k.to_string()
+                }
+                let is_accessor = match target_props.get(key_str) {
+                  Some(Internal(Accessor(_, _))) => true
+                  _ => false
+                }
+                let desc = JSObject::new()
+                desc["configurable"] = JSValue::Boolean(false)
+                if not(is_accessor) {
+                  desc["writable"] = JSValue::Boolean(false)
+                }
+                match define_prop_fn {
+                  Function(f) => {
+                    let _ = ctx.invoke(f, Undefined, [
+                      obj_arg,
+                      k,
+                      JSValue::Object(desc),
+                    ]) catch {
+                      e => raise e
+                    }
+                  }
+                  _ => ()
+                }
               }
             }
             _ => ()
