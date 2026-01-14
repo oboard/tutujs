@@ -29,7 +29,8 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         return JSValue::Undefined
       }
     }
-    let nt = match _new_target {
+    let nt_val = _new_target
+    let _nt = match nt_val {
       Function(f) =>
         if f.is_constructor {
           f
@@ -68,14 +69,13 @@ pub fn create_reflect_object(object_proto : JSValue) -> JSValue {
         return JSValue::Undefined
       }
     }
-    let proto = match nt {
-      { base: { properties: { "prototype": Object(_) as p, .. }, .. }, .. } => p
+    let proto_val = nt_val.get_property("prototype")
+    let proto = match proto_val {
+      Object(_) as p => p
       _ =>
-        match func {
-          { base: { properties: { "prototype": Object(_) as p, .. }, .. }, .. } =>
-            p
+        match JSValue::Function(func).get_property("prototype") {
+          Object(_) as p => p
           _ =>
-            // Default to Object.prototype
             match ctx.resolve("Object") {
               Function(obj_ctor) => obj_ctor.get("prototype")
               _ => Null

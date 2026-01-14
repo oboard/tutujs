@@ -10,9 +10,7 @@ pub fn create_set_constructor(
         obj["SetData"] = JSValue::Internal(Set(set_data))
         if args.length() > 0 && not(args[0] is (Undefined | Null)) {
           let iterable = args[0]
-          let adder_val = this_val.get_property_throw("add") catch {
-            e => raise e
-          }
+          let adder_val = this_val.get_property("add")
           let adder = match adder_val {
             Function(f) => f
             _ => {
@@ -58,21 +56,11 @@ pub fn create_set_constructor(
                 }
                 match next_res {
                   Object(_) | Function(_) as res_obj => {
-                    let done = res_obj.get_property_throw("done").is_truthy() catch {
-                        e => {
-                          iterator_close(ctx, iterator)
-                          raise e
-                        }
-                      }
+                    let done = res_obj.get_property("done").is_truthy()
                     if done {
                       break
                     }
-                    let value = res_obj.get_property_throw("value") catch {
-                      e => {
-                        iterator_close(ctx, iterator)
-                        raise e
-                      }
-                    }
+                    let value = res_obj.get_property("value")
                     try ctx.invoke(adder, this_val, [value]) |> ignore catch {
                       e => {
                         iterator_close(ctx, iterator)

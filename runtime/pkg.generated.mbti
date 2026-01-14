@@ -17,7 +17,7 @@ pub fn create_boolean_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_console_object(JSValue) -> JSValue
 
-pub fn create_date_object(JSValue) -> JSValue
+pub fn create_date_object(JSValue, JSValue) -> JSValue
 
 pub fn create_error_constructor(String, JSValue, JSValue) -> JSValue
 
@@ -106,11 +106,11 @@ pub fn Context::invoke(Self, JSFunction, JSValue, Array[JSValue]) -> JSValue rai
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
 pub fn Context::resolve(Self, String) -> JSValue
-pub fn Context::throw_error(Self, String, String) -> Unit raise EvalError
-pub fn Context::throw_range_error(Self, String) -> Unit raise EvalError
-pub fn Context::throw_reference_error(Self, String) -> Unit raise EvalError
-pub fn Context::throw_syntax_error(Self, String) -> Unit raise EvalError
-pub fn Context::throw_type_error(Self, String) -> Unit raise EvalError
+pub fn[T] Context::throw_error(Self, String, String) -> T raise EvalError
+pub fn[T] Context::throw_range_error(Self, String) -> T raise EvalError
+pub fn[T] Context::throw_reference_error(Self, String) -> T raise EvalError
+pub fn[T] Context::throw_syntax_error(Self, String) -> T raise EvalError
+pub fn[T] Context::throw_type_error(Self, String) -> T raise EvalError
 pub impl Compare for Context
 pub impl Eq for Context
 pub impl Hash for Context
@@ -206,8 +206,8 @@ pub fn JSValue::bitwise_xor(Self, Self) -> Self
 #alias("_[_]")
 pub fn JSValue::get_property(Self, String) -> Self
 pub fn JSValue::get_property_internal(Self, String, Self) -> Self
-pub fn JSValue::get_property_internal_throw(Self, String, Self) -> Self raise EvalError
-pub fn JSValue::get_property_throw(Self, String) -> Self raise EvalError
+pub fn JSValue::get_property_internal_throwing(Self, String, Self) -> Self raise EvalError
+pub fn JSValue::get_property_throwing(Self, String) -> Self raise EvalError
 pub fn JSValue::instanceof(Self, Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self

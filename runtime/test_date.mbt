@@ -1,7 +1,10 @@
 ///|
 test "Date Constructor and Methods" {
   let obj_proto = JSValue::Object(JSObject::new(properties=@hashmap.new()))
-  let date_ctor_val = create_date_object(obj_proto)
+  let func_proto = JSValue::Object(
+    JSObject::new(properties=@hashmap.new(), prototype=obj_proto),
+  )
+  let date_ctor_val = create_date_object(obj_proto, func_proto)
   let date_ctor = match date_ctor_val {
     Function(f) => f
     _ => abort("Date is not a function")

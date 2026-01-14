@@ -36,6 +36,18 @@ fn test_from(path : String) -> Unit raise Error {
     }
     harness_code = harness_code + ph + "\n"
   }
+  if code.contains("assertRelativeDateMs.js") {
+    let ph = @fs.read_file_to_string(harness_dir + "assertRelativeDateMs.js") catch {
+      _ => ""
+    }
+    harness_code = harness_code + ph + "\n"
+  }
+  if code.contains("dateConstants.js") {
+    let ph = @fs.read_file_to_string(harness_dir + "dateConstants.js") catch {
+      _ => ""
+    }
+    harness_code = harness_code + ph + "\n"
+  }
   // Shim for $262.createRealm if not present
   harness_code = harness_code +
     "if (typeof $262 === 'undefined') { var $262 = {}; }\n"

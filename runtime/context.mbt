@@ -213,7 +213,7 @@ pub fn Context::create_global() -> Context {
   ctx.scope.set("Math", math_val)
 
   // Date Object
-  let date_val = create_date_object(object_proto_val)
+  let date_val = create_date_object(object_proto_val, func_proto_val)
   ctx.scope.set("Date", date_val)
 
   // JSON Object

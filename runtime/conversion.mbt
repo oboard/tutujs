@@ -5,22 +5,43 @@ pub fn to_primitive(
   hint? : String,
 ) -> JSValue raise EvalError {
   match val {
-    Object(_) | Function(_) => {
-      let method_names = if hint == Some("String") {
+    Object(_) | Function({ base: _, .. }) => {
+      // 1. Check Symbol.toPrimitive
+      let to_prim_sym = "Symbol(Symbol.toPrimitive)"
+      match val.get_property_throwing(to_prim_sym) {
+        Function(f) => {
+          let h = match hint {
+            Some("String") => JSValue::String("string")
+            Some("Number") => JSValue::String("number")
+            _ => JSValue::String("default")
+          }
+          let res = ctx.invoke(f, val, [h])
+          match res {
+            Object(_) | Function(_) =>
+              ctx.throw_type_error("Symbol.toPrimitive must return a primitive")
+            _ => return res
+          }
+        }
+        _ => ()
+      }
+
+      // 2. Default hint for Date is String
+      let is_date = match val {
+        Object(obj) => obj.properties.contains("__internal_date__")
+        Function(f) => f.base.properties.contains("__internal_date__")
+        _ => false
+      }
+      let effective_hint = match hint {
+        Some(h) => h
+        None => if is_date { "String" } else { "Number" }
+      }
+      let method_names = if effective_hint == "String" {
         ["toString", "valueOf"]
       } else {
         ["valueOf", "toString"]
       }
       for name in method_names {
-        let method_ = match val {
-          Object(_) | Function(_) =>
-            match val.get_property(name) {
-              Function(_) as f => f
-              _ => Undefined
-            }
-          _ => Undefined
-        }
-        match method_ {
+        match val.get_property_throwing(name) {
           Function(f) => {
             let res = ctx.invoke(f, val, [])
             match res {
@@ -32,12 +53,7 @@ pub fn to_primitive(
         }
       }
       ctx.throw_type_error("Cannot convert object to primitive")
-      // The throw_type_error raises EvalError, so this line is unreachable but satisfies type checker if it returns Unit?
-      // Wait, throw_type_error returns Unit raise EvalError.
-      // match requires returning JSValue.
-      // If throw_type_error raises, it never returns.
-      // MoonBit compiler should handle this.
-      JSValue::Undefined // Unreachable
+      JSValue::Undefined
     }
     _ => val
   }

@@ -6,23 +6,42 @@ pub fn init_object_prototype(
   match object_proto_val {
     Object(obj) => {
       // toString
-      let to_string_fn = Native(fn(_ctx, this_val, _args) {
-        JSValue::String(
-          match this_val {
-            Object({ properties, .. }) =>
-              match properties.get("PrimitiveValue") {
-                Some(String(_)) => "[object String]"
-                Some(Number(_)) => "[object Number]"
-                Some(Boolean(_)) => "[object Boolean]"
-                _ => "[object Object]"
+      let to_string_fn = Native(fn(_, this_val, _args) {
+        let tag = match this_val {
+          Undefined => "Undefined"
+          Null => "Null"
+          Object(_) | Function(_) => {
+            let tag_val = this_val.get_property("Symbol(Symbol.toStringTag)")
+            match tag_val {
+              String(s) => s.to_string()
+              _ => {
+                let properties = match this_val {
+                  Object({ properties, .. }) => properties
+                  Function({ base: { properties, .. }, .. }) => properties
+                  _ => @hashmap.new()
+                }
+                match properties.get("PrimitiveValue") {
+                  Some(String(_)) => "String"
+                  Some(Number(_)) => "Number"
+                  Some(Boolean(_)) => "Boolean"
+                  _ =>
+                    if this_val is Function(_) {
+                      "Function"
+                    } else {
+                      "Object"
+                    }
+                }
               }
-            Function(_) => "[object Function]"
-            String(_) => "[object String]"
-            Number(_) => "[object Number]"
-            Boolean(_) => "[object Boolean]"
-            _ => "[object Object]"
-          },
-        )
+            }
+          }
+          String(_) => "String"
+          Number(_) => "Number"
+          Boolean(_) => "Boolean"
+          Symbol(_, _) => "Symbol"
+          BigInt(_) => "BigInt"
+          _ => "Object"
+        }
+        JSValue::String("[object " + tag + "]")
       })
       let to_string_obj = JSFunction::new(
         name="toString",
@@ -276,7 +295,11 @@ pub fn create_object_constructor(
       _ => None
     }
   }
-  let set_desc_entry = fn(o : JSObject, prop : String, desc : JSObject) -> Unit {
+  let set_desc_entry = fn(
+    o : JSObject,
+    prop : String,
+    desc : JSObject,
+  ) -> Unit {
     let m = ensure_desc_map(o)
     m.properties.set(prop, JSValue::Object(desc))
   }
@@ -566,9 +589,22 @@ pub fn create_object_constructor(
           k != "PrimitiveValue" &&
           k != "length" {
           // Object.keys only returns enumerable keys
-          // For now, we assume all are enumerable except length/PrimitiveValue
-          keys_array[i.to_string()] = JSValue::String(k)
-          i = i + 1.0
+          let is_enumerable = match obj_props.get("__descriptors") {
+            Some(Object(d)) =>
+              match d.properties.get(k) {
+                Some(Object(desc)) =>
+                  match desc.properties.get("enumerable") {
+                    Some(Boolean(b)) => b
+                    _ => true
+                  }
+                _ => true
+              }
+            _ => true
+          }
+          if is_enumerable {
+            keys_array[i.to_string()] = JSValue::String(k)
+            i = i + 1.0
+          }
         }
       }
       keys_array["length"] = JSValue::Number(i)
@@ -694,7 +730,6 @@ pub fn create_object_constructor(
         ..,
       ] {
       let prop = prop_arg.to_property_key()
-
       let mut current_desc = match get_desc_entry(o, prop) {
         Some(d) => d
         None =>
@@ -719,7 +754,6 @@ pub fn create_object_constructor(
             }
           }
       }
-
       if desc_props.contains("get") || desc_props.contains("set") {
         let get_val = match desc_props.get("get") {
           Some(v) => v
@@ -738,7 +772,6 @@ pub fn create_object_constructor(
           _ => None
         }
         properties[prop] = Internal(Accessor(getter, setter))
-
         let d_props = @hashmap.new()
         d_props.set("get", get_val)
         d_props.set("set", set_val)
@@ -775,7 +808,6 @@ pub fn create_object_constructor(
             }
         }
         properties[prop] = value
-
         let d_props = @hashmap.new()
         let writable = match desc_props.get("writable") {
           Some(Boolean(b)) => b
@@ -807,7 +839,6 @@ pub fn create_object_constructor(
         d_props.set("configurable", JSValue::Boolean(configurable))
         current_desc = JSObject::new(properties=d_props, prototype=proto)
       }
-
       set_desc_entry(o, prop, current_desc)
       Object(o)
     } else {
@@ -865,12 +896,16 @@ pub fn create_object_constructor(
               }
               let names_val = match get_names_fn {
                 Function(f) =>
-                  ctx.invoke(f, Undefined, [obj_arg]) catch { _ => Undefined }
+                  ctx.invoke(f, Undefined, [obj_arg]) catch {
+                    _ => Undefined
+                  }
                 _ => Undefined
               }
               let syms_val = match get_syms_fn {
                 Function(f) =>
-                  ctx.invoke(f, Undefined, [obj_arg]) catch { _ => Undefined }
+                  ctx.invoke(f, Undefined, [obj_arg]) catch {
+                    _ => Undefined
+                  }
                 _ => Undefined
               }
               let keys = []
@@ -937,6 +972,7 @@ pub fn create_object_constructor(
                     ]) catch {
                       e => raise e
                     }
+
                   }
                   _ => ()
                 }
@@ -1401,6 +1437,22 @@ pub fn create_object_constructor(
         Some(val) => {
           let desc = JSObject::new(properties=@hashmap.new(), prototype=proto)
           // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
+
+          // Check for custom descriptors
+          let custom_desc = match obj_props.get("__descriptors") {
+            Some(Object(d)) => d.properties.get(prop)
+            _ => None
+          }
+          match custom_desc {
+            Some(Object(cd)) =>
+              for k, v in cd.properties {
+                desc[k] = v
+              }
+            _ => ()
+          }
+          if custom_desc is Some(Object(_)) {
+            return JSValue::Object(desc)
+          }
           match val {
             Internal(Accessor(getter, setter)) => {
               desc["get"] = getter

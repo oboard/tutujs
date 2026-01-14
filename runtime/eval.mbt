@@ -174,7 +174,6 @@ pub fn Context::invoke(
           break
         }
       }
-      let mut res = JSValue::Undefined
       try {
         // Hoist FunctionDeclarations
         for stmt in block.body {
@@ -185,9 +184,9 @@ pub fn Context::invoke(
           }
         }
         for stmt in block.body {
-          res = new_ctx.evaluate(Statement(stmt))
+          new_ctx.evaluate(Statement(stmt)) |> ignore
         }
-        res
+        JSValue::Undefined
       } catch {
         EvalError::Return(v) => v
         EvalError::Break(l) => raise EvalError::Break(l)
@@ -770,6 +769,12 @@ fn Context::evaluate(
       }
     Expression(expression) =>
       match expression {
+        MetaProperty({ meta, property }) =>
+          if meta.name == "new" && property.name == "target" {
+            self.resolve("new.target")
+          } else {
+            Undefined
+          }
         NewExpression({ callee, arguments, .. }) => {
           let ctor_val = self.evaluate(Expression(callee))
           let args_values = []
@@ -801,12 +806,12 @@ fn Context::evaluate(
                 User(block) => {
                   let new_ctx = new(parent=func.context, strict=func.strict)
                   new_ctx.scope.set("this", new_obj)
+                  new_ctx.scope.set("new.target", ctor_val)
                   for i, val in args_values {
                     if i < func.params.length() {
                       new_ctx.scope.set(func.params[i], val)
                     }
                   }
-                  let mut ret_val = JSValue::Undefined
                   try {
                     // Hoist FunctionDeclarations
                     for stmt in block.body {
@@ -817,15 +822,15 @@ fn Context::evaluate(
                       }
                     }
                     for stmt in block.body {
-                      ret_val = new_ctx.evaluate(Statement(stmt))
+                      new_ctx.evaluate(Statement(stmt)) |> ignore
                     }
+                    JSValue::Undefined
                   } catch {
-                    EvalError::Return(v) => ret_val = v
+                    EvalError::Return(v) => v
                     EvalError::Break(l) => raise EvalError::Break(l)
                     EvalError::Continue(l) => raise EvalError::Continue(l)
                     EvalError::Throw(v) => raise EvalError::Throw(v)
                   }
-                  ret_val
                 }
                 Native(f) => f(self, new_obj, args_values)
               }

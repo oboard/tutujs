@@ -164,9 +164,7 @@ pub fn JSValue::to_property_key(self : JSValue) -> String {
   match self {
     String(s) => s.to_string()
     Symbol(id, s) =>
-      if id >= 1001 &&
-        id <= 1011 &&
-        s.has_prefix("Symbol.") {
+      if id >= 1001 && id <= 1011 && s.has_prefix("Symbol.") {
         "Symbol(" + s + ")"
       } else {
         "Symbol(" + id.to_string() + "," + s + ")"
@@ -419,7 +417,116 @@ pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
 ///|
 #alias("_[_]")
 pub fn JSValue::get_property(self : JSValue, name : String) -> JSValue {
-  self.get_property_internal(name, self)
+  self.get_property_throwing(name) catch {
+    _ => Undefined
+  }
+}
+
+///|
+pub fn JSValue::get_property_throwing(
+  self : JSValue,
+  name : String,
+) -> JSValue raise EvalError {
+  self.get_property_internal_throwing(name, self)
+}
+
+///|
+pub fn JSValue::get_property_internal_throwing(
+  self : JSValue,
+  name : String,
+  receiver : JSValue,
+) -> JSValue raise EvalError {
+  match self {
+    Object(obj) => {
+      match (obj.proxy_target, obj.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property_throwing("get") catch {
+            _ => Undefined
+          }
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ])
+            _ => return target.get_property_internal_throwing(name, receiver)
+          }
+        }
+        _ => ()
+      }
+      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
+        (match obj.properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        let idx = @strconv.parse_int(name) catch { _ => -1 }
+        if idx >= 0 {
+          let len = match obj.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          if idx < len {
+            let str_val = match obj.properties.get("PrimitiveValue") {
+              Some(String(s)) => s
+              _ => ""
+            }
+            let char_code = str_val[idx].to_int()
+            let c = match char_code.to_char() {
+              Some(c) => c
+              None => ' '
+            }
+            return JSValue::String(String::make(1, c))
+          }
+        }
+      }
+      match obj.properties.get(name) {
+        Some(v) =>
+          match v {
+            Internal(Accessor(Some(getter), _)) =>
+              return getter.context.invoke(getter, receiver, [])
+            Internal(Accessor(None, _)) => return Undefined
+            _ => return v
+          }
+        None =>
+          match obj.prototype {
+            Some(proto) =>
+              return proto.get_property_internal_throwing(name, receiver)
+            None => return Undefined
+          }
+      }
+    }
+    Function(func) => {
+      match (func.base.proxy_target, func.base.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property_throwing("get") catch {
+            _ => Undefined
+          }
+          match trap {
+            Function(f) =>
+              return f.context.invoke(f, handler, [
+                target,
+                JSValue::String(name),
+                receiver,
+              ])
+            _ => return target.get_property_internal_throwing(name, receiver)
+          }
+        }
+        _ => ()
+      }
+      match func.base.properties.get(name) {
+        Some(v) => v
+        None =>
+          match func.base.prototype {
+            Some(proto) => proto.get_property_internal_throwing(name, receiver)
+            None => Undefined
+          }
+      }
+    }
+    Internal(_) => Undefined
+    _ => Undefined
+  }
 }
 
 ///|
@@ -428,234 +535,7 @@ pub fn JSValue::get_property_internal(
   name : String,
   receiver : JSValue,
 ) -> JSValue {
-  match self {
-    Object(obj) => {
-      match (obj.proxy_target, obj.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("get")
-          match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ]) catch {
-                _ => Undefined
-              }
-            _ => return target.get_property_internal(name, receiver)
-          }
-        }
-        _ => ()
-      }
-      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
-        (match obj.properties.get("PrimitiveValue") {
-          Some(String(_)) => true
-          _ => false
-        })
-      if is_string_obj {
-        let idx = @strconv.parse_int(name) catch { _ => -1 }
-        if idx >= 0 {
-          let len = match obj.properties.get("length") {
-            Some(Number(n)) => n.to_int()
-            _ => 0
-          }
-          if idx < len {
-            let str_val = match obj.properties.get("PrimitiveValue") {
-              Some(String(s)) => s
-              _ => ""
-            }
-            let char_code = str_val[idx].to_int()
-            let c = match char_code.to_char() {
-              Some(c) => c
-              None => ' '
-            }
-            return JSValue::String(String::make(1, c))
-          }
-        }
-      }
-      match obj.properties.get(name) {
-        Some(v) =>
-          match v {
-            Internal(Accessor(Some(getter), _)) =>
-              getter.context.invoke(getter, receiver, []) catch {
-                _ => Undefined
-              }
-            Internal(Accessor(None, _)) => Undefined
-            _ => v
-          }
-        None =>
-          match obj.prototype {
-            Some(proto) => proto.get_property_internal(name, receiver)
-            None => Undefined
-          }
-      }
-    }
-    Function(func) => {
-      match (func.base.proxy_target, func.base.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("get")
-          match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ]) catch {
-                _ => Undefined
-              }
-            _ => return target.get_property_internal(name, receiver)
-          }
-        }
-        _ => ()
-      }
-      match func.base.properties.get(name) {
-        Some(v) => v
-        None =>
-          match func.base.prototype {
-            Some(proto) => proto.get_property_internal(name, receiver)
-            None => Undefined
-          }
-      }
-    }
-    Internal(internal) => {
-      let proto = match internal {
-        Date(_) =>
-          match receiver.resolve_in_ctx("Date") {
-            Function(f) => f.get("prototype")
-            _ => Undefined
-          }
-        RegExp(_, _) =>
-          match receiver.resolve_in_ctx("RegExp") {
-            Function(f) => f.get("prototype")
-            _ => Undefined
-          }
-        Map(_) =>
-          match receiver.resolve_in_ctx("Map") {
-            Function(f) => f.get("prototype")
-            _ => Undefined
-          }
-        Set(_) =>
-          match receiver.resolve_in_ctx("Set") {
-            Function(f) => f.get("prototype")
-            _ => Undefined
-          }
-        _ => Undefined
-      }
-      match proto {
-        Object(_) | Function(_) => proto.get_property_internal(name, receiver)
-        _ => Undefined
-      }
-    }
-    _ => Undefined
-  }
-}
-
-///|
-fn JSValue::resolve_in_ctx(_self : JSValue, _name : String) -> JSValue {
-  // This is a hack because we don't have easy access to context here.
-  // But wait, many internal objects were created with a context? No.
-  // Actually, we can't easily resolve without a context.
-  // Let's assume the global object has these.
-  Undefined // TODO: implement correctly
-}
-
-///|
-pub fn JSValue::get_property_throw(
-  self : JSValue,
-  name : String,
-) -> JSValue raise EvalError {
-  self.get_property_internal_throw(name, self)
-}
-
-///|
-pub fn JSValue::get_property_internal_throw(
-  self : JSValue,
-  name : String,
-  receiver : JSValue,
-) -> JSValue raise EvalError {
-  match self {
-    Object(obj) => {
-      match (obj.proxy_target, obj.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("get")
-          match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ])
-            _ => return target.get_property_internal_throw(name, receiver)
-          }
-        }
-        _ => ()
-      }
-      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
-        (match obj.properties.get("PrimitiveValue") {
-          Some(String(_)) => true
-          _ => false
-        })
-      if is_string_obj {
-        let idx = @strconv.parse_int(name) catch { _ => -1 }
-        if idx >= 0 {
-          let len = match obj.properties.get("length") {
-            Some(Number(n)) => n.to_int()
-            _ => 0
-          }
-          if idx < len {
-            let str_val = match obj.properties.get("PrimitiveValue") {
-              Some(String(s)) => s
-              _ => ""
-            }
-            let char_code = str_val[idx].to_int()
-            let c = match char_code.to_char() {
-              Some(c) => c
-              None => ' '
-            }
-            return JSValue::String(String::make(1, c))
-          }
-        }
-      }
-      match obj.properties.get(name) {
-        Some(v) =>
-          match v {
-            Internal(Accessor(Some(getter), _)) =>
-              getter.context.invoke(getter, receiver, [])
-            Internal(Accessor(None, _)) => Undefined
-            _ => v
-          }
-        None =>
-          match obj.prototype {
-            Some(proto) => proto.get_property_internal_throw(name, receiver)
-            None => Undefined
-          }
-      }
-    }
-    Function(func) => {
-      match (func.base.proxy_target, func.base.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("get")
-          match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ])
-            _ => return target.get_property_internal_throw(name, receiver)
-          }
-        }
-        _ => ()
-      }
-      match func.base.properties.get(name) {
-        Some(v) => v
-        None =>
-          match func.base.prototype {
-            Some(proto) => proto.get_property_internal_throw(name, receiver)
-            None => Undefined
-          }
-      }
-    }
+  self.get_property_internal_throwing(name, receiver) catch {
     _ => Undefined
   }
 }
@@ -748,8 +628,6 @@ pub fn JSValue::set_property(
       }
       if name == "Symbol(Symbol.toStringTag)" ||
         name == "Symbol(Symbol.iterator)" {
-        // Heuristic: toStringTag is usually non-writable, iterator is usually writable but let's check spec.
-        // Actually, let's just handle toStringTag for now.
         if name == "Symbol(Symbol.toStringTag)" {
           if strict {
             raise EvalError::Throw(
@@ -845,10 +723,6 @@ pub fn JSValue::set_property(
         }
         return
       }
-      // Check if it is a built-in constructor for prototype property
-      // Heuristic: if name is String, Number, Boolean, Array, Object, Function, Error...
-      // Ideally we should flag this in JSFunction struct.
-      // But for now let's check name.
       if name == "prototype" {
         let func_name = func.name.unwrap_or("")
         if func_name == "String" ||
@@ -924,13 +798,13 @@ pub fn JSValue::to_number(self : JSValue) -> Double {
       }
     Null => 0.0
     Undefined => @double.not_a_number
-    Object(_) => @double.not_a_number // Simplified
+    Object(_) => @double.not_a_number
     Function(_) => @double.not_a_number
     Internal(_) => @double.not_a_number
     BigInt(i) =>
       @strconv.parse_double(i.to_string()) catch {
         _ => @double.not_a_number
       }
-    Symbol(_, _) => @double.not_a_number // TypeError in JS usually
+    Symbol(_, _) => @double.not_a_number
   }
 }
