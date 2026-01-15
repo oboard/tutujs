@@ -160,6 +160,77 @@ pub impl Show for JSValue with output(self, logger) {
 }
 
 ///|
+pub fn JSValue::get_prototype(self : JSValue) -> JSValue? {
+  match self {
+    Object(o) => o.prototype
+    Function(f) => f.base.prototype
+    _ => None
+  }
+}
+
+///|
+pub fn JSValue::own_keys(
+  self : JSValue,
+  ctx : Context,
+) -> Array[String] raise EvalError {
+  match self {
+    Object(o) => {
+      match (o.proxy_target, o.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("ownKeys")
+          match trap {
+            Function(f) => {
+              let keys_list = ctx.invoke(f, handler, [target])
+              let len = keys_list.get_property("length").to_number().to_int()
+              let keys = []
+              for i = 0; i < len; i = i + 1 {
+                keys.push(keys_list.get_property(i.to_string()).to_string())
+              }
+              return keys
+            }
+            _ => return target.own_keys(ctx)
+          }
+        }
+        _ => ()
+      }
+      let keys = []
+      // String indices
+      match o.properties.get("PrimitiveValue") {
+        Some(String(s)) =>
+          for i = 0; i < s.length(); i = i + 1 {
+            keys.push(i.to_string())
+          }
+        _ => ()
+      }
+      for k, _ in o.properties {
+        if not(k.has_prefix("__")) && k != "PrimitiveValue" {
+          keys.push(k)
+        }
+      }
+      keys
+    }
+    Function(f) => {
+      // Similar logic for Function
+      let keys = ["length", "name"]
+      if f.is_constructor {
+        keys.push("prototype")
+      }
+      for k, _ in f.base.properties {
+        if not(k.has_prefix("__")) &&
+          k != "PrimitiveValue" &&
+          k != "length" &&
+          k != "name" &&
+          k != "prototype" {
+          keys.push(k)
+        }
+      }
+      keys
+    }
+    _ => []
+  }
+}
+
+///|
 pub fn JSValue::to_property_key(self : JSValue) -> String {
   match self {
     String(s) => s.to_string()
@@ -209,6 +280,7 @@ pub(all) struct JSObject {
   mut extensible : Bool
   mut is_sealed : Bool
   mut is_frozen : Bool
+  mut is_proxy : Bool
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
 } derive(Show, Eq)
@@ -259,12 +331,44 @@ pub fn JSFunction::new(
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or(@hashmap.new())
   if not(properties.contains("length")) {
-    properties.set("length", JSValue::Number(params.length().to_double()))
+    let len = JSValue::Number(params.length().to_double())
+    properties.set("length", len)
+    // 设置描述符
+    let descriptors = match properties.get("__descriptors") {
+      Some(Object(d)) => d
+      _ => {
+        let d = JSObject::new()
+        properties.set("__descriptors", JSValue::Object(d))
+        d
+      }
+    }
+    let desc = JSObject::new()
+    desc["enumerable"] = JSValue::Boolean(false)
+    desc["configurable"] = JSValue::Boolean(true)
+    desc["writable"] = JSValue::Boolean(false)
+    desc["value"] = len
+    descriptors["length"] = JSValue::Object(desc)
   }
   match name {
     Some(n) =>
       if not(properties.contains("name")) {
-        properties.set("name", JSValue::String(n))
+        let name_val = JSValue::String(n)
+        properties.set("name", name_val)
+        // 设置描述符
+        let descriptors = match properties.get("__descriptors") {
+          Some(Object(d)) => d
+          _ => {
+            let d = JSObject::new()
+            properties.set("__descriptors", JSValue::Object(d))
+            d
+          }
+        }
+        let desc = JSObject::new()
+        desc["enumerable"] = JSValue::Boolean(false)
+        desc["configurable"] = JSValue::Boolean(true)
+        desc["writable"] = JSValue::Boolean(false)
+        desc["value"] = name_val
+        descriptors["name"] = JSValue::Object(desc)
       }
     None => ()
   }
@@ -276,12 +380,21 @@ pub fn JSFunction::new(
         Native(_) => false // Native functions are NOT constructors by default
       }
   }
+  let is_strict = match strict {
+    Some(s) => s
+    None =>
+      match body {
+        User(b) =>
+          b.directives.iter().any(fn(d) { d.value.value == "use strict" })
+        _ => false
+      }
+  }
   {
     name,
     params,
     body,
     context: context.unwrap_or(Context::new()),
-    strict: strict.unwrap_or(false),
+    strict: is_strict,
     is_constructor: is_ctor,
     is_arrow: is_arrow.unwrap_or(false),
     base: {
@@ -291,6 +404,7 @@ pub fn JSFunction::new(
       extensible: true,
       is_sealed: false,
       is_frozen: false,
+      is_proxy: false,
       proxy_target: None,
       proxy_handler: None,
     },
@@ -321,6 +435,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
       extensible: true,
       is_sealed: false,
       is_frozen: false,
+      is_proxy: false,
       proxy_target: None,
       proxy_handler: None,
     },
@@ -339,6 +454,7 @@ pub fn JSObject::new(
     extensible: true,
     is_sealed: false,
     is_frozen: false,
+    is_proxy: false,
     proxy_target: None,
     proxy_handler: None,
   }
@@ -370,6 +486,7 @@ pub impl FromJson for JSObject with from_json(_, _) {
     extensible: true,
     is_sealed: false,
     is_frozen: false,
+    is_proxy: false,
     proxy_target: None,
     proxy_handler: None,
   }
@@ -761,18 +878,170 @@ pub fn JSValue::set_property(
 }
 
 ///|
+pub fn JSValue::delete_property(
+  self : JSValue,
+  ctx : Context,
+  name : String,
+  strict? : Bool = false,
+) -> Bool raise EvalError {
+  match self {
+    Object(obj) => {
+      if obj.is_proxy {
+        match (obj.proxy_target, obj.proxy_handler) {
+          (Some(target), Some(handler)) => {
+            let trap = handler.get_property("deleteProperty")
+            match trap {
+              Function(f) => {
+                let res = ctx.invoke(f, handler, [target, JSValue::String(name)])
+                let is_truthy = res.is_truthy()
+                if not(is_truthy) && strict {
+                  ctx.throw_type_error(
+                    "Proxy deleteProperty trap returned false",
+                  )
+                }
+                // Invariant check: cannot report true for non-configurable property
+                if is_truthy {
+                  let get_own_desc = match ctx.resolve("Object") {
+                    Function(obj_ctor) =>
+                      obj_ctor.get("getOwnPropertyDescriptor")
+                    _ => Undefined
+                  }
+                  match get_own_desc {
+                    Function(get_desc_fn) => {
+                      let desc = ctx.invoke(get_desc_fn, Undefined, [
+                        target,
+                        JSValue::String(name),
+                      ]) catch {
+                        _ => Undefined
+                      }
+                      match desc {
+                        Object(d) => {
+                          let configurable = match
+                            d.properties.get("configurable") {
+                            Some(Boolean(b)) => b
+                            _ => true
+                          }
+                          if not(configurable) {
+                            ctx.throw_type_error(
+                              "Proxy deleteProperty trap invariant violated: cannot report true for non-configurable property",
+                            )
+                          }
+                        }
+                        _ => ()
+                      }
+                    }
+                    _ => ()
+                  }
+                }
+                return is_truthy
+              }
+              Undefined | Null =>
+                return target.delete_property(ctx, name, strict~)
+              _ =>
+                ctx.throw_type_error(
+                  "Proxy deleteProperty trap is not a function",
+                )
+            }
+          }
+          _ =>
+            ctx.throw_type_error(
+              "Cannot perform 'deleteProperty' on a revoked proxy",
+            )
+        }
+      }
+      if obj.is_frozen || obj.is_sealed {
+        if strict {
+          ctx.throw_type_error("Cannot delete property of sealed/frozen object")
+        }
+        return false
+      }
+      // Check if property is configurable
+      let is_configurable = match obj.properties.get("__descriptors") {
+        Some(Object(d)) =>
+          match d.properties.get(name) {
+            Some(Object(desc)) =>
+              match desc.properties.get("configurable") {
+                Some(Boolean(b)) => b
+                _ => true
+              }
+            _ => true
+          }
+        _ => true
+      }
+      // Special case: String object length and indices
+      let is_string_obj = obj.properties.contains("PrimitiveValue") &&
+        (match obj.properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        })
+      if is_string_obj {
+        if name == "length" {
+          if strict {
+            ctx.throw_type_error(
+              "Cannot delete non-configurable property length",
+            )
+          }
+          return false
+        }
+        let idx = @strconv.parse_int(name) catch { _ => -1 }
+        if idx >= 0 {
+          let len = match obj.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          if idx < len {
+            if strict {
+              ctx.throw_type_error(
+                "Cannot delete non-configurable property " + name,
+              )
+            }
+            return false
+          }
+        }
+      }
+      if not(is_configurable) {
+        if strict {
+          ctx.throw_type_error(
+            "Cannot delete non-configurable property " + name,
+          )
+        }
+        return false
+      }
+      obj.properties.remove(name)
+      return true
+    }
+    Function(func) => {
+      if name == "prototype" {
+        if strict {
+          ctx.throw_type_error(
+            "Cannot delete non-configurable property prototype",
+          )
+        }
+        return false
+      }
+      JSValue::Object(func.base).delete_property(ctx, name, strict~)
+    }
+    _ => true
+  }
+}
+
+///|
+pub fn JSValue::is_object(self : JSValue) -> Bool {
+  match self {
+    Object(_) | Function(_) => true
+    _ => false
+  }
+}
+
+///|
 pub fn JSValue::is_truthy(self : JSValue) -> Bool {
   match self {
     String(s) => s.length() > 0
     Number(n) => n != 0.0 && not(n.is_nan())
     Boolean(b) => b
     BigInt(i) => i != 0
-    Symbol(_, _) => true
-    Function(_) => true
-    Object(_) => true
-    Null => false
-    Undefined => false
-    Internal(_) => true
+    Symbol(_, _) | Function(_) | Object(_) | Internal(_) => true
+    Null | Undefined => false
   }
 }
 

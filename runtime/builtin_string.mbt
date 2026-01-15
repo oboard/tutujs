@@ -164,7 +164,7 @@ pub fn create_string_constructor(
         }
         _ => ()
       }
-      JSValue::String(val_str)
+      this_val
     } else {
       JSValue::String(val_str)
     }

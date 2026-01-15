@@ -1013,107 +1013,12 @@ fn Context::evaluate(
                       _ => "unknown"
                     }
                   }
-                  let res = match obj_val {
-                    Object(obj) =>
-                      match (obj.proxy_target, obj.proxy_handler) {
-                        (Some(target), Some(handler)) => {
-                          let trap = handler.get_property("deleteProperty")
-                          match trap {
-                            Function(f) => {
-                              let trap_res = self.invoke(f, handler, [
-                                target,
-                                JSValue::String(prop_name),
-                              ]) catch {
-                                e => raise e
-                              }
-                              Boolean(trap_res.is_truthy())
-                            }
-                            _ =>
-                              // Should really re-evaluate Delete on target
-                              Boolean(true) // Simplified
-                          }
-                        }
-                        _ =>
-                          if obj.is_sealed || obj.is_frozen {
-                            Boolean(false)
-                          } else {
-                            let is_string_obj = obj.properties.contains(
-                                "PrimitiveValue",
-                              ) &&
-                              (match obj.properties.get("PrimitiveValue") {
-                                Some(String(_)) => true
-                                _ => false
-                              })
-                            if is_string_obj {
-                              if prop_name == "length" {
-                                Boolean(false)
-                              } else {
-                                let idx = @strconv.parse_int(prop_name) catch {
-                                  _ => -1
-                                }
-                                let len = match obj.properties.get("length") {
-                                  Some(Number(n)) => n.to_int()
-                                  _ => 0
-                                }
-                                if idx >= 0 && idx < len {
-                                  Boolean(false)
-                                } else if prop_name == "prototype" {
-                                  Boolean(false)
-                                } else {
-                                  obj.properties.remove(prop_name)
-                                  Boolean(true)
-                                }
-                              }
-                            } else if prop_name == "prototype" {
-                              Boolean(false)
-                            } else {
-                              obj.properties.remove(prop_name)
-                              Boolean(true)
-                            }
-                          }
-                      }
-                    Function(func) =>
-                      match (func.base.proxy_target, func.base.proxy_handler) {
-                        (Some(target), Some(handler)) => {
-                          let trap = handler.get_property("deleteProperty")
-                          match trap {
-                            Function(f) => {
-                              let trap_res = self.invoke(f, handler, [
-                                target,
-                                JSValue::String(prop_name),
-                              ]) catch {
-                                e => raise e
-                              }
-                              Boolean(trap_res.is_truthy())
-                            }
-                            _ => Boolean(true)
-                          }
-                        }
-                        _ =>
-                          if func.base.is_sealed || func.base.is_frozen {
-                            Boolean(false)
-                          } else if prop_name == "prototype" {
-                            Boolean(false)
-                          } else {
-                            func.base.properties.remove(prop_name)
-                            Boolean(true)
-                          }
-                      }
-                    _ => Boolean(true)
-                  }
-                  if self.strict {
-                    match res {
-                      Boolean(false) => {
-                        self.throw_type_error(
-                          "Cannot delete property in strict mode",
-                        )
-                        Boolean(false)
-                      }
-                      _ => res
-                    }
-                  } else {
-                    res
-                  }
+                  let res = obj_val.delete_property(
+                    self,
+                    prop_name,
+                    strict=self.strict,
+                  )
+                  Boolean(res)
                 }
                 Identifier({ name, .. }) => {
                   self.scope.remove(name)

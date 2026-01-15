@@ -23,6 +23,43 @@ pub impl Eq for Context with equal(_, _) {
 }
 
 ///|
+pub fn Context::register_builtin(
+  self : Context,
+  name : String,
+  value : JSValue,
+  enumerable? : Bool,
+  configurable? : Bool,
+  writable? : Bool,
+) -> Unit {
+  let enumerable = enumerable.unwrap_or(false)
+  let configurable = configurable.unwrap_or(true)
+  let writable = writable.unwrap_or(true)
+  self.scope.set(name, value)
+
+  // 如果是顶级作用域，且有名为 globalThis 的对象，也要设置到它的属性描述符里
+  match self.scope.get("globalThis") {
+    Some(Object(g)) => {
+      g.properties.set(name, value)
+      let descriptors = match g.properties.get("__descriptors") {
+        Some(Object(d)) => d
+        _ => {
+          let d = JSObject::new()
+          g.properties.set("__descriptors", JSValue::Object(d))
+          d
+        }
+      }
+      let desc = JSObject::new()
+      desc["enumerable"] = JSValue::Boolean(enumerable)
+      desc["configurable"] = JSValue::Boolean(configurable)
+      desc["writable"] = JSValue::Boolean(writable)
+      desc["value"] = value
+      descriptors[name] = JSValue::Object(desc)
+    }
+    _ => ()
+  }
+}
+
+///|
 #as_free_fn(new)
 pub fn Context::new(parent? : Context, strict? : Bool) -> Context {
   let scope = @hashmap.new()
@@ -77,6 +114,11 @@ pub fn Context::create_global() -> Context {
   init_object_prototype(object_proto_val, func_proto_val)
   init_function_prototype(func_proto_val)
 
+  // Global Object (globalThis)
+  let global_obj = JSObject::new(prototype=object_proto_val)
+  let global_val = JSValue::Object(global_obj)
+  ctx.scope.set("globalThis", global_val)
+
   // Object Constructor
   let object_fn_val = create_object_constructor(
     object_proto_val, func_proto_val,
@@ -84,12 +126,12 @@ pub fn Context::create_global() -> Context {
 
   // Object.prototype.constructor = Object
   object_proto_props.set("constructor", object_fn_val)
-  ctx.scope.set("Object", object_fn_val)
+  ctx.register_builtin("Object", object_fn_val)
 
   // Function Constructor
   let func_ctor_val = create_function_constructor(func_proto_val)
   func_proto_props.set("constructor", func_ctor_val)
-  ctx.scope.set("Function", func_ctor_val)
+  ctx.register_builtin("Function", func_ctor_val)
 
   // Array.prototype
   let array_proto_props = @hashmap.new()
@@ -137,7 +179,7 @@ pub fn Context::create_global() -> Context {
 
   // Array.prototype.constructor = Array
   array_proto_props.set("constructor", array_fn_val)
-  ctx.scope.set("Array", array_fn_val)
+  ctx.register_builtin("Array", array_fn_val)
 
   // String.prototype
   let string_proto_props = @hashmap.new()
@@ -153,7 +195,7 @@ pub fn Context::create_global() -> Context {
     string_proto_val, func_proto_val,
   )
   string_proto_props.set("constructor", string_ctor_val)
-  ctx.scope.set("String", string_ctor_val)
+  ctx.register_builtin("String", string_ctor_val)
 
   // Number.prototype
   let number_proto_props = @hashmap.new()
@@ -169,7 +211,7 @@ pub fn Context::create_global() -> Context {
     number_proto_val, func_proto_val,
   )
   number_proto_props.set("constructor", number_ctor_val)
-  ctx.scope.set("Number", number_ctor_val)
+  ctx.register_builtin("Number", number_ctor_val)
 
   // BigInt.prototype
   let bigint_proto_props = @hashmap.new()
@@ -185,11 +227,11 @@ pub fn Context::create_global() -> Context {
     bigint_proto_val, func_proto_val,
   )
   bigint_proto_props.set("constructor", bigint_ctor_val)
-  ctx.scope.set("BigInt", bigint_ctor_val)
+  ctx.register_builtin("BigInt", bigint_ctor_val)
 
   // Console Object
   let console_val = create_console_object(object_proto_val)
-  ctx.scope.set("console", console_val)
+  ctx.register_builtin("console", console_val)
 
   // Boolean.prototype
   let boolean_proto_props = @hashmap.new()
@@ -206,19 +248,19 @@ pub fn Context::create_global() -> Context {
     boolean_proto_val, func_proto_val,
   )
   boolean_proto_props.set("constructor", boolean_ctor_val)
-  ctx.scope.set("Boolean", boolean_ctor_val)
+  ctx.register_builtin("Boolean", boolean_ctor_val)
 
   // Math Object
   let math_val = create_math_object(object_proto_val)
-  ctx.scope.set("Math", math_val)
+  ctx.register_builtin("Math", math_val)
 
   // Date Object
   let date_val = create_date_object(object_proto_val, func_proto_val)
-  ctx.scope.set("Date", date_val)
+  ctx.register_builtin("Date", date_val)
 
   // JSON Object
   let json_val = create_json_object(object_proto_val)
-  ctx.scope.set("JSON", json_val)
+  ctx.register_builtin("JSON", json_val)
 
   // Symbol.prototype
   let symbol_proto_props = @hashmap.new()
@@ -234,7 +276,7 @@ pub fn Context::create_global() -> Context {
     symbol_proto_val, func_proto_val,
   )
   symbol_proto_props.set("constructor", symbol_ctor_val)
-  ctx.scope.set("Symbol", symbol_ctor_val)
+  ctx.register_builtin("Symbol", symbol_ctor_val)
 
   // Error.prototype
   let error_proto_val = create_error_prototype(object_proto_val)
@@ -243,7 +285,7 @@ pub fn Context::create_global() -> Context {
   let error_ctor_val = create_error_constructor(
     "Error", error_proto_val, func_proto_val,
   )
-  ctx.scope.set("Error", error_ctor_val)
+  ctx.register_builtin("Error", error_ctor_val)
 
   // Native Errors
   let native_errors = [
@@ -253,7 +295,7 @@ pub fn Context::create_global() -> Context {
     let ctor = create_native_error_constructor(
       name, error_proto_val, func_proto_val,
     )
-    ctx.scope.set(name, ctor)
+    ctx.register_builtin(name, ctor)
   }
 
   // RegExp Object
@@ -262,15 +304,15 @@ pub fn Context::create_global() -> Context {
     None => JSValue::Undefined
   }
   let regexp_val = create_regexp_object(object_proto_val, syntax_error_val)
-  ctx.scope.set("RegExp", regexp_val)
+  ctx.register_builtin("RegExp", regexp_val)
 
   // Reflect Object
-  let reflect_val = create_reflect_object(object_proto_val)
-  ctx.scope.set("Reflect", reflect_val)
+  let reflect_val = create_reflect_object(object_proto_val, func_proto_val)
+  ctx.register_builtin("Reflect", reflect_val)
 
   // Proxy Constructor
-  let proxy_ctor_val = create_proxy_constructor(func_proto_val)
-  ctx.scope.set("Proxy", proxy_ctor_val)
+  let proxy_val = create_proxy_constructor(func_proto_val)
+  ctx.register_builtin("Proxy", proxy_val)
 
   // IteratorPrototype
   let iterator_proto_props = @hashmap.new()

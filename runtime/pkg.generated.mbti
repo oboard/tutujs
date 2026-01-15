@@ -10,6 +10,8 @@ import(
 )
 
 // Values
+pub fn create_array_from_values(Context, Array[JSValue]) -> JSValue
+
 pub fn create_bigint_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_boolean_constructor(JSValue, JSValue) -> JSValue
@@ -38,7 +40,7 @@ pub fn create_object_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_proxy_constructor(JSValue) -> JSValue
 
-pub fn create_reflect_object(JSValue) -> JSValue
+pub fn create_reflect_object(JSValue, JSValue) -> JSValue
 
 pub fn create_regexp_object(JSValue, JSValue) -> JSValue
 
@@ -78,6 +80,12 @@ pub fn js_to_number(Context, JSValue) -> Double raise EvalError
 
 pub fn js_to_string(Context, JSValue) -> String raise EvalError
 
+pub fn populate_builtin(JSObject, Array[BuiltinProperty]) -> Unit
+
+pub fn prop_data(String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
+
+pub fn prop_method(String, (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
+
 pub fn to_primitive(Context, JSValue, hint? : String) -> JSValue raise EvalError
 
 // Errors
@@ -90,6 +98,14 @@ pub suberror EvalError {
 pub impl Show for EvalError
 
 // Types and methods
+pub(all) struct BuiltinProperty {
+  name : String
+  value : JSValue
+  enumerable : Bool
+  configurable : Bool
+  writable : Bool
+}
+
 pub(all) struct Context {
   scope : @hashmap.HashMap[String, JSValue]
   parent : Context?
@@ -104,6 +120,7 @@ pub fn Context::get_property(Self, JSValue, String) -> JSValue
 pub fn Context::invoke(Self, JSFunction, JSValue, Array[JSValue]) -> JSValue raise EvalError
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
+pub fn Context::register_builtin(Self, String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> Unit
 pub fn Context::resolve(Self, String) -> JSValue
 pub fn[T] Context::throw_error(Self, String, String) -> T raise EvalError
 pub fn[T] Context::throw_range_error(Self, String) -> T raise EvalError
@@ -171,6 +188,7 @@ pub(all) struct JSObject {
   mut extensible : Bool
   mut is_sealed : Bool
   mut is_frozen : Bool
+  mut is_proxy : Bool
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
 }
@@ -202,15 +220,19 @@ pub fn JSValue::bitwise_and(Self, Self) -> Self
 pub fn JSValue::bitwise_not(Self) -> Self
 pub fn JSValue::bitwise_or(Self, Self) -> Self
 pub fn JSValue::bitwise_xor(Self, Self) -> Self
+pub fn JSValue::delete_property(Self, Context, String, strict? : Bool) -> Bool raise EvalError
 #alias("_[_]")
 pub fn JSValue::get_property(Self, String) -> Self
 pub fn JSValue::get_property_internal(Self, String, Self) -> Self
 pub fn JSValue::get_property_internal_throwing(Self, String, Self) -> Self raise EvalError
 pub fn JSValue::get_property_throwing(Self, String) -> Self raise EvalError
+pub fn JSValue::get_prototype(Self) -> Self?
 pub fn JSValue::instanceof(Self, Self) -> Bool
+pub fn JSValue::is_object(Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self
 pub fn JSValue::op_in(Self, Self) -> Bool
+pub fn JSValue::own_keys(Self, Context) -> Array[String] raise EvalError
 pub fn JSValue::pow(Self, Self) -> Self
 pub fn JSValue::right_shift(Self, Self) -> Self
 pub fn JSValue::set_property(Self, String, Self, strict? : Bool) -> Unit raise EvalError
@@ -262,6 +284,10 @@ pub fn LinkedMap::set(Self, JSValue, JSValue) -> Unit
 // Type aliases
 
 // Traits
+pub trait Builtin {
+  to_js_value(Self) -> JSValue
+}
+
 pub(open) trait ToJSValue {
   to_js_value(Self) -> JSValue
 }
