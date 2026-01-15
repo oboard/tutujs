@@ -7,8 +7,8 @@ pub fn to_primitive(
   match val {
     Object(_) | Function({ base: _, .. }) => {
       // 1. Check Symbol.toPrimitive
-      let to_prim_sym = "Symbol(Symbol.toPrimitive)"
-      match val.get_property_throwing(to_prim_sym) {
+      let to_prim_key = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
+      match val.get_property_throwing(to_prim_key) {
         Function(f) => {
           let h = match hint {
             Some("String") => JSValue::String("string")
@@ -27,8 +27,12 @@ pub fn to_primitive(
 
       // 2. Default hint for Date is String
       let is_date = match val {
-        Object(obj) => obj.properties.contains("__internal_date__")
-        Function(f) => f.base.properties.contains("__internal_date__")
+        Object({ properties, .. })
+        | Function({ base: { properties, .. }, .. }) => {
+          let toStringTag = JSValue::Symbol(1011, "Symbol.toStringTag").to_property_key()
+          properties.contains("__internal_date__") ||
+          properties.get(toStringTag) == Some(JSValue::String("Date"))
+        }
         _ => false
       }
       let effective_hint = match hint {

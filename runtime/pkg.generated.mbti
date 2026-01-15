@@ -7,7 +7,6 @@ import(
   "moonbitlang/core/json"
   "moonbitlang/regexp"
   "oboard/tutujs/parser"
-  "oboard/tutujs/time"
 )
 
 // Values
@@ -150,7 +149,7 @@ pub impl ToJson for JSFunction
 pub impl @json.FromJson for JSFunction
 
 pub(all) enum JSInternal {
-  Date(@time.ZonedDateTime)
+  Date(Double)
   RegExp(@regexp.Regexp, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String)

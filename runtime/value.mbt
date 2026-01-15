@@ -67,7 +67,7 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
 
 ///|
 pub(all) enum JSInternal {
-  Date(@time.ZonedDateTime)
+  Date(Double)
   RegExp(@regexp.Regexp, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
@@ -79,7 +79,7 @@ pub(all) enum JSInternal {
 ///|
 pub impl Eq for JSInternal with equal(self, other) {
   match (self, other) {
-    (Date(d1), Date(d2)) => d1.to_string() == d2.to_string()
+    (Date(d1), Date(d2)) => d1 == d2
     (RegExp(_, s1), RegExp(_, s2)) => s1 == s2
     (Accessor(g1, s1), Accessor(g2, s2)) => g1 == g2 && s1 == s2
     (Map(m1), Map(m2)) => physical_equal(m1, m2)
@@ -110,7 +110,7 @@ pub impl FromJson for JSInternal with from_json(_v, _path) {
 ///|
 pub impl Hash for JSInternal with hash_combine(self, hasher) {
   match self {
-    Date(d) => hasher.combine(d.to_string())
+    Date(d) => hasher.combine(d)
     RegExp(_, s) => hasher.combine(s)
     Accessor(g, s) => {
       hasher.combine(g)
