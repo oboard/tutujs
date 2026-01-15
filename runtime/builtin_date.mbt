@@ -857,12 +857,6 @@ fn ms_to_zdt(ms : Double) -> @time.ZonedDateTime? {
 }
 
 ///|
-fn zdt_to_ms(zdt : @time.ZonedDateTime) -> Double {
-  zdt.to_unix_second().to_double() * 1000.0 +
-  (zdt.nanosecond() / 1000000).to_double()
-}
-
-///|
 fn pad2(n : Int) -> String {
   if n < 10 {
     "0" + n.to_string()
