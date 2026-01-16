@@ -107,6 +107,8 @@ pub fn create_date_object(
   let date_proto = JSValue::Object(
     JSObject::new(properties=date_proto_props, prototype=object_proto),
   )
+  // Set the prototype of the Date constructor
+  date_ctor["prototype"] = date_proto
   let define_property = fn(
     obj : JSObject,
     name : String,
@@ -155,11 +157,7 @@ pub fn create_date_object(
   }
   define_static(
     "now",
-    fn(_ctx, _this, _args) {
-      JSValue::Number(
-        @env.now().reinterpret_as_int64().to_double() / 1_000_000.0,
-      )
-    },
+    fn(_ctx, _this, _args) { JSValue::Number(@env.now().to_uint().to_double()) },
     0,
   )
   define_static(
