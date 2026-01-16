@@ -145,8 +145,13 @@ fn ProxyBuiltin::revocable(
     })
     let res_obj = JSObject::new()
     res_obj["proxy"] = proxy
+    // Built-in revoke function should have Function.prototype as [[Prototype]]
+    let func_proto = match ctx.resolve("Function") {
+      Function(f) => JSValue::Function(f).get_property("prototype")
+      _ => JSValue::Undefined
+    }
     res_obj["revoke"] = JSValue::Function(
-      JSFunction::new(name="", body=revoke_fn),
+      JSFunction::new(name="", body=revoke_fn, prototype=func_proto),
     )
     JSValue::Object(res_obj)
   } else {

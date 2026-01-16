@@ -11,35 +11,33 @@ impl Builtin for ObjectPrototypeBuiltin with to_js_value(self) {
 ///|
 pub fn init_object_prototype(
   object_proto_val : JSValue,
-  _func_proto : JSValue,
+  _func_proto : JSValue
 ) -> Unit {
   match object_proto_val {
     Object(obj) => {
       let proto = ObjectPrototypeBuiltin::{ inner: obj }
-      populate_builtin(proto.inner, [
-        prop_method("toString", proto.to_string(_, _, _)),
-        prop_method("valueOf", proto.value_of(_, _, _)),
-        prop_method("toLocaleString", proto.to_locale_string(_, _, _)),
-        prop_method("hasOwnProperty", proto.has_own_property(_, _, _), length=1),
-        prop_method("isPrototypeOf", proto.is_prototype_of(_, _, _), length=1),
-        prop_method(
-          "propertyIsEnumerable",
-          proto.property_is_enumerable(_, _, _),
-          length=1,
-        ),
-      ])
+      populate_builtin(
+        proto.inner,
+        [
+          prop_method("toString", proto.to_string(_, _, _)),
+          prop_method("valueOf", proto.value_of(_, _, _)),
+          prop_method("toLocaleString", proto.to_locale_string(_, _, _)),
+          prop_method("hasOwnProperty", proto.has_own_property(_, _, _), length=1),
+          prop_method("isPrototypeOf", proto.is_prototype_of(_, _, _), length=1),
+          prop_method("propertyIsEnumerable", proto.property_is_enumerable(_, _, _), length=1),
+        ],
+      )
     }
     _ => ()
   }
 }
 
-///|
-/// Object.prototype.toString()
+///| Object.prototype.toString()
 fn ObjectPrototypeBuiltin::to_string(
   _self : ObjectPrototypeBuiltin,
   _ctx : Context,
   this_val : JSValue,
-  _args : Array[JSValue],
+  _args : Array[JSValue]
 ) -> JSValue {
   let tag = match this_val {
     Undefined => "Undefined"
@@ -73,24 +71,22 @@ fn ObjectPrototypeBuiltin::to_string(
   JSValue::String("[object " + tag + "]")
 }
 
-///|
-/// Object.prototype.valueOf()
+///| Object.prototype.valueOf()
 fn ObjectPrototypeBuiltin::value_of(
   _self : ObjectPrototypeBuiltin,
   _ctx : Context,
   this_val : JSValue,
-  _args : Array[JSValue],
+  _args : Array[JSValue]
 ) -> JSValue {
   this_val
 }
 
-///|
-/// Object.prototype.toLocaleString()
+///| Object.prototype.toLocaleString()
 fn ObjectPrototypeBuiltin::to_locale_string(
   _self : ObjectPrototypeBuiltin,
   ctx : Context,
   this_val : JSValue,
-  _args : Array[JSValue],
+  _args : Array[JSValue]
 ) -> JSValue raise EvalError {
   let to_string = this_val.get_property("toString")
   match to_string {
@@ -99,13 +95,12 @@ fn ObjectPrototypeBuiltin::to_locale_string(
   }
 }
 
-///|
-/// Object.prototype.hasOwnProperty(prop)
+///| Object.prototype.hasOwnProperty(prop)
 fn ObjectPrototypeBuiltin::has_own_property(
   _self : ObjectPrototypeBuiltin,
   _ctx : Context,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() == 0 {
     return JSValue::Boolean(false)
@@ -130,13 +125,12 @@ fn ObjectPrototypeBuiltin::has_own_property(
   }
 }
 
-///|
-/// Object.prototype.isPrototypeOf(object)
+///| Object.prototype.isPrototypeOf(object)
 fn ObjectPrototypeBuiltin::is_prototype_of(
   _self : ObjectPrototypeBuiltin,
   _ctx : Context,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() == 0 {
     return JSValue::Boolean(false)
@@ -151,8 +145,8 @@ fn ObjectPrototypeBuiltin::is_prototype_of(
               return JSValue::Boolean(true)
             }
             match p {
-              Object({ prototype, .. })
-              | Function({ base: { prototype, .. }, .. }) => proto = prototype
+              Object({ prototype, .. }) | Function({ base: { prototype, .. }, .. }) =>
+                proto = prototype
               _ => break
             }
           }
@@ -165,13 +159,12 @@ fn ObjectPrototypeBuiltin::is_prototype_of(
   }
 }
 
-///|
-/// Object.prototype.propertyIsEnumerable(prop)
+///| Object.prototype.propertyIsEnumerable(prop)
 fn ObjectPrototypeBuiltin::property_is_enumerable(
   _self : ObjectPrototypeBuiltin,
   ctx : Context,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() == 0 {
     return JSValue::Boolean(false)
@@ -237,7 +230,7 @@ impl Builtin for ObjectBuiltin with to_js_value(self) {
 ///|
 pub fn create_object_constructor(
   proto : JSValue,
-  func_proto : JSValue,
+  func_proto : JSValue
 ) -> JSValue {
   let object_builtin = ObjectBuiltin::{
     inner: JSFunction::new(
@@ -249,66 +242,38 @@ pub fn create_object_constructor(
     ),
   }
   object_builtin.inner.base.properties.set("prototype", proto)
-  populate_builtin(object_builtin.inner.base, [
-    prop_method("keys", object_builtin.keys(_, _, _), length=1),
-    prop_method("create", object_builtin.create(_, _, _), length=2),
-    prop_method("is", object_builtin.builtin_is(_, _, _), length=2),
-    prop_method("assign", object_builtin.assign(_, _, _), length=2),
-    prop_method(
-      "defineProperty",
-      object_builtin.define_property(_, _, _),
-      length=3,
-    ),
-    prop_method("freeze", object_builtin.freeze(_, _, _), length=1),
-    prop_method("isFrozen", object_builtin.is_frozen(_, _, _), length=1),
-    prop_method("seal", object_builtin.seal(_, _, _), length=1),
-    prop_method("isSealed", object_builtin.is_sealed(_, _, _), length=1),
-    prop_method(
-      "preventExtensions",
-      object_builtin.prevent_extensions(_, _, _),
-      length=1,
-    ),
-    prop_method("isExtensible", object_builtin.is_extensible(_, _, _), length=1),
-    prop_method(
-      "getOwnPropertySymbols",
-      fn(ctx, this, args) {
-        object_builtin.get_own_property_symbols(ctx, this, args)
-      },
-      length=1,
-    ),
-    prop_method(
-      "getOwnPropertyDescriptor",
-      object_builtin.get_own_property_descriptor(_, _, _),
-      length=2,
-    ),
-    prop_method(
-      "getPrototypeOf",
-      object_builtin.get_prototype_of(_, _, _),
-      length=1,
-    ),
-    prop_method(
-      "setPrototypeOf",
-      object_builtin.set_prototype_of(_, _, _),
-      length=2,
-    ),
-    prop_method(
-      "getOwnPropertyNames",
-      object_builtin.get_own_property_names(_, _, _),
-      length=1,
-    ),
-  ])
+  populate_builtin(
+    object_builtin.inner.base,
+    [
+      prop_method("keys", object_builtin.keys(_, _, _), length=1),
+      prop_method("create", object_builtin.create(_, _, _), length=2),
+      prop_method("is", object_builtin.builtin_is(_, _, _), length=2),
+      prop_method("assign", object_builtin.assign(_, _, _), length=2),
+      prop_method("defineProperty", object_builtin.define_property(_, _, _), length=3),
+      prop_method("freeze", object_builtin.freeze(_, _, _), length=1),
+      prop_method("isFrozen", object_builtin.is_frozen(_, _, _), length=1),
+      prop_method("seal", object_builtin.seal(_, _, _), length=1),
+      prop_method("isSealed", object_builtin.is_sealed(_, _, _), length=1),
+      prop_method("preventExtensions", object_builtin.prevent_extensions(_, _, _), length=1),
+      prop_method("isExtensible", object_builtin.is_extensible(_, _, _), length=1),
+      prop_method("getOwnPropertySymbols", object_builtin.get_own_property_symbols(_, _, _), length=1),
+      prop_method("getOwnPropertyDescriptor", object_builtin.get_own_property_descriptor(_, _, _), length=2),
+      prop_method("getPrototypeOf", object_builtin.get_prototype_of(_, _, _), length=1),
+      prop_method("setPrototypeOf", object_builtin.set_prototype_of(_, _, _), length=2),
+      prop_method("getOwnPropertyNames", object_builtin.get_own_property_names(_, _, _), length=1),
+    ],
+  )
   object_builtin.to_js_value()
 }
 
-///|
-/// Object(value)
+///| Object(value)
 fn ObjectBuiltin::builtin_constructor(
   ctx : Context,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
   let proto = match ctx.resolve("Object") {
-    Function(f) => f.get("prototype")
+    Function(f) => JSValue::Function(f).get_property("prototype")
     _ => JSValue::Null
   }
   if args.length() > 0 {
@@ -324,7 +289,7 @@ fn ObjectBuiltin::builtin_constructor(
       Object(_) | Function(_) => val
       Null | Undefined =>
         match this_val {
-          Object(_) | Function(_) => this_val
+          Object(_) | Function(_) => this_val;
           _ => JSValue::Object(JSObject::new(prototype=proto))
         }
       _ => {
@@ -339,7 +304,7 @@ fn ObjectBuiltin::builtin_constructor(
         if ctor_name != "" {
           match ctx.resolve(ctor_name) {
             Function(f) => {
-              let p = f.get("prototype")
+              let p = JSValue::Function(f).get_property("prototype")
               let obj = JSObject::new(prototype=p)
               obj["PrimitiveValue"] = val
               obj["constructor"] = JSValue::Function(f)
@@ -363,53 +328,49 @@ fn ObjectBuiltin::builtin_constructor(
   }
 }
 
-///|
-/// Object.keys(obj)
+///| Object.keys(obj)
 fn ObjectBuiltin::keys(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
   if args.length() == 0 {
     ctx.throw_type_error("Cannot convert undefined or null to object")
   }
   let obj_arg = args[0]
   match obj_arg {
-    Null | Undefined =>
-      ctx.throw_type_error("Cannot convert undefined or null to object")
+    Null | Undefined => ctx.throw_type_error("Cannot convert undefined or null to object")
     _ => ()
   }
+  
   let keys = obj_arg.own_keys(ctx)
   let enumerable_keys = []
   for k in keys {
     if not(k.has_prefix("Symbol(")) {
-      let desc = match ctx.resolve("Object") {
-        Function(f) =>
-          match f.get("getOwnPropertyDescriptor") {
-            Function(g) =>
-              ctx.invoke(g, Undefined, [obj_arg, JSValue::String(k)]) catch {
-                _ => Undefined
-              }
-            _ => Undefined
-          }
-        _ => Undefined
-      }
-      if desc.is_object() && desc.get_property("enumerable").is_truthy() {
-        enumerable_keys.push(JSValue::String(k))
-      }
+       let desc = match ctx.resolve("Object") {
+         Function(f) => {
+           match JSValue::Function(f).get_property("getOwnPropertyDescriptor") {
+             Function(g) => ctx.invoke(g, Undefined, [obj_arg, JSValue::String(k)]) catch { _ => Undefined }
+             _ => Undefined
+           }
+         }
+         _ => Undefined
+       }
+       if desc.is_object() && desc.get_property("enumerable").is_truthy() {
+         enumerable_keys.push(JSValue::String(k))
+       }
     }
   }
   create_array_from_values(ctx, enumerable_keys)
 }
 
-///|
-/// Object.create(proto)
+///| Object.create(proto)
 fn ObjectBuiltin::create(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
   if args.length() == 0 {
     ctx.throw_type_error("Object.create requires at least 1 argument")
@@ -417,18 +378,16 @@ fn ObjectBuiltin::create(
   let proto = args[0]
   match proto {
     Object(_) | Null => JSValue::Object(JSObject::new(prototype=proto))
-    _ =>
-      ctx.throw_type_error("Object.create: prototype must be an object or null")
+    _ => ctx.throw_type_error("Object.create: prototype must be an object or null")
   }
 }
 
-///|
-/// Object.is(v1, v2)
+///| Object.is(v1, v2)
 fn ObjectBuiltin::builtin_is(
   _self : ObjectBuiltin,
   _ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() >= 2 {
     JSValue::Boolean(args[0].strict_equal(args[1]))
@@ -437,28 +396,26 @@ fn ObjectBuiltin::builtin_is(
   }
 }
 
-///|
-/// Object.assign(target, ...sources)
+///| Object.assign(target, ...sources)
 fn ObjectBuiltin::assign(
   _self : ObjectBuiltin,
   _ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
-  if args.length() == 0 {
-    return JSValue::Undefined
-  }
+  if args.length() == 0 { return JSValue::Undefined }
   let target = args[0]
   match target {
     Object(t) | Function({ base: t, .. }) => {
       for i = 1; i < args.length(); i = i + 1 {
         match args[i] {
-          Object(s) | Function({ base: s, .. }) =>
+          Object(s) | Function({ base: s, .. }) => {
             for k, v in s.properties {
               if not(k.has_prefix("__")) && k != "PrimitiveValue" {
                 t.properties.set(k, v)
               }
             }
+          }
           _ => ()
         }
       }
@@ -468,13 +425,12 @@ fn ObjectBuiltin::assign(
   }
 }
 
-///|
-/// Object.defineProperty(obj, prop, desc)
+///| Object.defineProperty(obj, prop, desc)
 fn ObjectBuiltin::define_property(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
   if args.length() < 3 {
     ctx.throw_type_error("Object.defineProperty requires 3 arguments")
@@ -482,28 +438,11 @@ fn ObjectBuiltin::define_property(
   let obj = args[0]
   let prop = args[1].to_property_key()
   let desc = args[2]
-
+  
   // Proxy support
   match obj {
-    Object(
-      {
-        is_proxy: true,
-        proxy_target: Some(target),
-        proxy_handler: Some(handler),
-        ..,
-      }
-    )
-    | Function(
-      {
-        base: {
-          is_proxy: true,
-          proxy_target: Some(target),
-          proxy_handler: Some(handler),
-          ..,
-        },
-        ..,
-      }
-    ) => {
+    Object({ is_proxy: true, proxy_target: Some(target), proxy_handler: Some(handler), .. })
+    | Function({ base: { is_proxy: true, proxy_target: Some(target), proxy_handler: Some(handler), .. }, .. }) => {
       let trap = handler.get_property("defineProperty")
       match trap {
         Function(f) => {
@@ -518,11 +457,13 @@ fn ObjectBuiltin::define_property(
     }
     _ => ()
   }
+  
   match (obj, desc) {
     (Object(o), Object(d)) | (Function({ base: o, .. }), Object(d)) => {
       if d.properties.contains("value") {
         o.properties.set(prop, d.properties.get("value").unwrap())
       }
+      
       let descriptors = match o.properties.get("__descriptors") {
         Some(Object(dm)) => dm
         _ => {
@@ -534,97 +475,96 @@ fn ObjectBuiltin::define_property(
       descriptors[prop] = desc
       obj
     }
-    _ =>
-      ctx.throw_type_error(
-        "Object.defineProperty: target must be an object and descriptor must be an object",
-      )
+    _ => {
+      ctx.throw_type_error("Object.defineProperty: target must be an object and descriptor must be an object")
+    }
   }
 }
 
 // 其余静态方法实现
-
-///|
-fn ObjectBuiltin::freeze(
-  _self : ObjectBuiltin,
-  _ctx : Context,
-  _this : JSValue,
-  args : Array[JSValue],
-) -> JSValue {
-  if args.length() > 0 {
-    args[0]
-  } else {
-    JSValue::Undefined
-  }
-}
-
-///|
-fn ObjectBuiltin::is_frozen(
-  _self : ObjectBuiltin,
-  _ctx : Context,
-  _this : JSValue,
-  _args : Array[JSValue],
-) -> JSValue {
-  JSValue::Boolean(false)
-}
-
-///|
-fn ObjectBuiltin::seal(
-  _self : ObjectBuiltin,
-  _ctx : Context,
-  _this : JSValue,
-  args : Array[JSValue],
-) -> JSValue {
-  if args.length() > 0 {
-    args[0]
-  } else {
-    JSValue::Undefined
-  }
-}
-
-///|
-fn ObjectBuiltin::is_sealed(
-  _self : ObjectBuiltin,
-  _ctx : Context,
-  _this : JSValue,
-  _args : Array[JSValue],
-) -> JSValue {
-  JSValue::Boolean(false)
-}
-
-///|
-fn ObjectBuiltin::prevent_extensions(
-  _self : ObjectBuiltin,
-  _ctx : Context,
-  _this : JSValue,
-  args : Array[JSValue],
-) -> JSValue {
-  if args.length() > 0 {
-    args[0]
-  } else {
-    JSValue::Undefined
-  }
-}
-
-///|
+fn ObjectBuiltin::freeze(_self : ObjectBuiltin, _ctx : Context, _this : JSValue, args : Array[JSValue]) -> JSValue { if args.length() > 0 { args[0] } else { JSValue::Undefined } }
+fn ObjectBuiltin::is_frozen(_self : ObjectBuiltin, _ctx : Context, _this : JSValue, _args : Array[JSValue]) -> JSValue { JSValue::Boolean(false) }
+fn ObjectBuiltin::seal(_self : ObjectBuiltin, _ctx : Context, _this : JSValue, args : Array[JSValue]) -> JSValue { if args.length() > 0 { args[0] } else { JSValue::Undefined } }
+fn ObjectBuiltin::is_sealed(_self : ObjectBuiltin, _ctx : Context, _this : JSValue, _args : Array[JSValue]) -> JSValue { JSValue::Boolean(false) }
+fn ObjectBuiltin::prevent_extensions(_self : ObjectBuiltin, _ctx : Context, _this : JSValue, args : Array[JSValue]) -> JSValue { if args.length() > 0 { args[0] } else { JSValue::Undefined } }
 fn ObjectBuiltin::is_extensible(
   _self : ObjectBuiltin,
-  _ctx : Context,
+  ctx : Context,
   _this : JSValue,
-  _args : Array[JSValue],
-) -> JSValue {
-  JSValue::Boolean(true)
+  args : Array[JSValue]
+) -> JSValue raise EvalError {
+  if args.length() == 0 { return JSValue::Boolean(false) }
+  let obj = args[0]
+  match obj {
+    Object(o) if o.is_proxy => {
+      match (o.proxy_target, o.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("isExtensible")
+          match trap {
+            Undefined | Null => {
+              match ctx.resolve("Object") {
+                Function(of) =>
+                  match JSValue::Function(of).get_property("isExtensible") {
+                    Function(g) => return ctx.invoke(g, Undefined, [target])
+                    _ => return JSValue::Boolean(false)
+                  }
+                _ => return JSValue::Boolean(false)
+              }
+            }
+            Function(f) => {
+              let res = ctx.invoke(f, handler, [target]) catch { _ => JSValue::Boolean(false) }
+              match res {
+                Boolean(b) => JSValue::Boolean(b)
+                _ => JSValue::Boolean(res.is_truthy())
+              }
+            }
+            _ => ctx.throw_type_error("Proxy isExtensible trap is not a function")
+          }
+        }
+        _ => ctx.throw_type_error("Cannot perform 'isExtensible' on a revoked proxy")
+      }
+    }
+    Function(func) if func.base.is_proxy => {
+      match (func.base.proxy_target, func.base.proxy_handler) {
+        (Some(target), Some(handler)) => {
+          let trap = handler.get_property("isExtensible")
+          match trap {
+            Undefined | Null => {
+              match ctx.resolve("Object") {
+                Function(of) =>
+                  match JSValue::Function(of).get_property("isExtensible") {
+                    Function(g) => return ctx.invoke(g, Undefined, [target])
+                    _ => return JSValue::Boolean(false)
+                  }
+                _ => return JSValue::Boolean(false)
+              }
+            }
+            Function(f) => {
+              let res = ctx.invoke(f, handler, [target]) catch { _ => JSValue::Boolean(false) }
+              match res {
+                Boolean(b) => JSValue::Boolean(b)
+                _ => JSValue::Boolean(res.is_truthy())
+              }
+            }
+            _ => ctx.throw_type_error("Proxy isExtensible trap is not a function")
+          }
+        }
+        _ => ctx.throw_type_error("Cannot perform 'isExtensible' on a revoked proxy")
+      }
+    }
+    Object(o) => JSValue::Boolean(o.extensible)
+    Function(f) => JSValue::Boolean(f.base.extensible)
+    _ => JSValue::Boolean(false)
+  }
 }
 
-///|
 fn ObjectBuiltin::get_own_property_symbols(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
-  if args.length() == 0 {
-    return create_array_from_values(ctx, [])
-  }
+  if args.length() == 0 { return create_array_from_values(ctx, []) }
   let keys = args[0].own_keys(ctx)
   let symbols = []
   for k in keys {
@@ -636,16 +576,13 @@ fn ObjectBuiltin::get_own_property_symbols(
   create_array_from_values(ctx, symbols)
 }
 
-///|
 fn ObjectBuiltin::get_own_property_descriptor(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
-  if args.length() < 2 {
-    return JSValue::Undefined
-  }
+  if args.length() < 2 { return JSValue::Undefined }
   let obj_arg = args[0]
   let prop_arg = args[1]
   let prop = prop_arg.to_property_key()
@@ -653,8 +590,7 @@ fn ObjectBuiltin::get_own_property_descriptor(
   // Proxy trap
   let proxy_info = match obj_arg {
     Object(o) if o.is_proxy => Some((o.proxy_target, o.proxy_handler))
-    Function(f) if f.base.is_proxy =>
-      Some((f.base.proxy_target, f.base.proxy_handler))
+    Function(f) if f.base.is_proxy => Some((f.base.proxy_target, f.base.proxy_handler))
     _ => None
   }
   match proxy_info {
@@ -666,26 +602,19 @@ fn ObjectBuiltin::get_own_property_descriptor(
           if trap_res is Undefined {
             // Invariant check
             let target_desc = match ctx.resolve("Object") {
-              Function(of) =>
-                match of.get("getOwnPropertyDescriptor") {
-                  Function(g) =>
-                    ctx.invoke(g, Undefined, [target, JSValue::String(prop)]) catch {
-                      _ => Undefined
-                    }
+              Function(of) => {
+                match JSValue::Function(of).get_property("getOwnPropertyDescriptor") {
+                  Function(g) => ctx.invoke(g, Undefined, [target, JSValue::String(prop)]) catch { _ => Undefined }
                   _ => Undefined
                 }
+              }
               _ => Undefined
             }
             match target_desc {
               Object(d) => {
-                let configurable = match d.properties.get("configurable") {
-                  Some(Boolean(b)) => b
-                  _ => true
-                }
+                let configurable = match d.properties.get("configurable") { Some(Boolean(b)) => b; _ => true }
                 if not(configurable) {
-                  ctx.throw_type_error(
-                    "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for non-configurable property",
-                  )
+                  ctx.throw_type_error("Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for non-configurable property")
                 }
               }
               _ => ()
@@ -693,46 +622,29 @@ fn ObjectBuiltin::get_own_property_descriptor(
             return Undefined
           }
           if not(trap_res.is_object()) {
-            ctx.throw_type_error(
-              "Proxy getOwnPropertyDescriptor trap must return an object or undefined",
-            )
+            ctx.throw_type_error("Proxy getOwnPropertyDescriptor trap must return an object or undefined")
           }
           // Invariant check: if result is non-configurable, it must exist on target and be non-configurable
           let result_configurable = match trap_res {
-            Object(o) =>
-              match o.properties.get("configurable") {
-                Some(Boolean(b)) => b
-                _ => true
-              }
+            Object(o) => match o.properties.get("configurable") { Some(Boolean(b)) => b; _ => true }
             _ => true
           }
           if not(result_configurable) {
             let target_desc = match ctx.resolve("Object") {
-              Function(of) =>
-                match of.get("getOwnPropertyDescriptor") {
-                  Function(g) =>
-                    ctx.invoke(g, Undefined, [target, JSValue::String(prop)]) catch {
-                      _ => Undefined
-                    }
+              Function(of) => {
+                match JSValue::Function(of).get_property("getOwnPropertyDescriptor") {
+                  Function(g) => ctx.invoke(g, Undefined, [target, JSValue::String(prop)]) catch { _ => Undefined }
                   _ => Undefined
                 }
+              }
               _ => Undefined
             }
             match target_desc {
-              Undefined =>
-                ctx.throw_type_error(
-                  "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for non-existent property",
-                )
+              Undefined => ctx.throw_type_error("Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for non-existent property")
               Object(d) => {
-                let target_configurable = match
-                  d.properties.get("configurable") {
-                  Some(Boolean(b)) => b
-                  _ => true
-                }
+                let target_configurable = match d.properties.get("configurable") { Some(Boolean(b)) => b; _ => true }
                 if target_configurable {
-                  ctx.throw_type_error(
-                    "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for configurable property",
-                  )
+                  ctx.throw_type_error("Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for configurable property")
                 }
               }
               _ => ()
@@ -742,36 +654,31 @@ fn ObjectBuiltin::get_own_property_descriptor(
         }
         Undefined | Null => {
           // Fallback to target
-          let get_desc_fn = match ctx.resolve("Object") {
-            Function(of) => of.get("getOwnPropertyDescriptor")
-            _ => Undefined
-          }
-          match get_desc_fn {
-            Function(f) =>
-              return ctx.invoke(f, Undefined, [target, JSValue::String(prop)])
+          match ctx.resolve("Object") {
+            Function(of) =>
+              match JSValue::Function(of).get_property("getOwnPropertyDescriptor") {
+                Function(g) => return ctx.invoke(g, Undefined, [target, JSValue::String(prop)])
+                _ => ()
+              }
             _ => ()
           }
         }
-        _ =>
-          ctx.throw_type_error(
-            "Proxy getOwnPropertyDescriptor trap is not a function",
-          )
+        _ => ctx.throw_type_error("Proxy getOwnPropertyDescriptor trap is not a function")
       }
     }
-    Some((None, _)) =>
-      ctx.throw_type_error(
-        "Cannot perform 'getOwnPropertyDescriptor' on a revoked proxy",
-      )
+    Some((None, _)) => ctx.throw_type_error("Cannot perform 'getOwnPropertyDescriptor' on a revoked proxy")
     _ => ()
   }
+
   let (properties, is_frozen, is_sealed) = match obj_arg {
     Object(o) => (o.properties, o.is_frozen, o.is_sealed)
     Function(f) => (f.base.properties, f.base.is_frozen, f.base.is_sealed)
     _ => return JSValue::Undefined
   }
+  
   match properties.get("__descriptors") {
     Some(Object(d)) => d.properties.get(prop).unwrap_or(JSValue::Undefined)
-    _ =>
+    _ => {
       if properties.contains(prop) {
         let val = properties.get(prop).unwrap()
         let d = JSObject::new()
@@ -783,15 +690,15 @@ fn ObjectBuiltin::get_own_property_descriptor(
       } else {
         JSValue::Undefined
       }
+    }
   }
 }
 
-///|
 fn ObjectBuiltin::get_prototype_of(
   _self : ObjectBuiltin,
   _ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() > 0 {
     args[0].get_prototype().unwrap_or(JSValue::Null)
@@ -800,12 +707,11 @@ fn ObjectBuiltin::get_prototype_of(
   }
 }
 
-///|
 fn ObjectBuiltin::set_prototype_of(
   _self : ObjectBuiltin,
   _ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue {
   if args.length() >= 2 {
     let obj = args[0]
@@ -823,16 +729,13 @@ fn ObjectBuiltin::set_prototype_of(
   }
 }
 
-///|
 fn ObjectBuiltin::get_own_property_names(
   _self : ObjectBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : Array[JSValue]
 ) -> JSValue raise EvalError {
-  if args.length() == 0 {
-    return create_array_from_values(ctx, [])
-  }
+  if args.length() == 0 { return create_array_from_values(ctx, []) }
   let keys = args[0].own_keys(ctx)
   let names = []
   for k in keys {
@@ -844,30 +747,12 @@ fn ObjectBuiltin::get_own_property_names(
 }
 
 // 辅助函数：判断是否为内置全局属性（不可枚举）
-
-///|
 fn is_builtin_global_property(key : String) -> Bool {
-  key == "Map" ||
-  key == "Set" ||
-  key == "WeakMap" ||
-  key == "WeakSet" ||
-  key == "Promise" ||
-  key == "Symbol" ||
-  key == "Reflect" ||
-  key == "JSON" ||
-  key == "Math" ||
-  key == "Date" ||
-  key == "RegExp" ||
-  key == "Error" ||
-  key == "eval" ||
-  key == "parseInt" ||
-  key == "parseFloat" ||
-  key == "isNaN" ||
-  key == "isFinite" ||
-  key == "Object" ||
-  key == "Function" ||
-  key == "Array" ||
-  key == "String" ||
-  key == "Number" ||
-  key == "Boolean"
+  key == "Map" || key == "Set" || key == "WeakMap" || key == "WeakSet" ||
+  key == "Promise" || key == "Symbol" || key == "Reflect" || key == "JSON" ||
+  key == "Math" || key == "Date" || key == "RegExp" || key == "Error" ||
+  key == "eval" || key == "parseInt" || key == "parseFloat" || 
+  key == "isNaN" || key == "isFinite" || key == "Object" || 
+  key == "Function" || key == "Array" || key == "String" || 
+  key == "Number" || key == "Boolean"
 }
