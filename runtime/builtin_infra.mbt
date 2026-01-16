@@ -13,15 +13,11 @@ pub(all) struct BuiltinProperty {
 pub fn prop_method(
   name : String,
   f : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
-  length? : Int,
-  enumerable? : Bool,
-  configurable? : Bool,
-  writable? : Bool,
+  length? : Int = 0,
+  enumerable? : Bool = false,
+  configurable? : Bool = true,
+  writable? : Bool = true,
 ) -> BuiltinProperty {
-  let length = length.unwrap_or(0)
-  let enumerable = enumerable.unwrap_or(false)
-  let configurable = configurable.unwrap_or(true)
-  let writable = writable.unwrap_or(true)
   let func_props = {
     "length": JSValue::Number(length.to_double()),
     "name": JSValue::String(name),
@@ -35,13 +31,10 @@ pub fn prop_method(
 pub fn prop_data(
   name : String,
   value : JSValue,
-  enumerable? : Bool,
-  configurable? : Bool,
-  writable? : Bool,
+  enumerable? : Bool = false,
+  configurable? : Bool = true,
+  writable? : Bool = true,
 ) -> BuiltinProperty {
-  let enumerable = enumerable.unwrap_or(false)
-  let configurable = configurable.unwrap_or(true)
-  let writable = writable.unwrap_or(true)
   { name, value, enumerable, configurable, writable }
 }
 
@@ -69,11 +62,12 @@ pub fn populate_builtin(
         d
       }
     }
-    let desc = JSObject::new()
-    desc["enumerable"] = JSValue::Boolean(prop.enumerable)
-    desc["configurable"] = JSValue::Boolean(prop.configurable)
-    desc["writable"] = JSValue::Boolean(prop.writable)
-    desc["value"] = prop.value
+    let desc = JSObject::new(properties={
+      "enumerable": JSValue::Boolean(prop.enumerable),
+      "configurable": JSValue::Boolean(prop.configurable),
+      "writable": JSValue::Boolean(prop.writable),
+      "value": prop.value,
+    })
     descriptors[prop.name] = JSValue::Object(desc)
   }
 }
