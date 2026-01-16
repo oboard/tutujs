@@ -280,7 +280,7 @@ pub fn create_object_constructor(
       Some(Object(m)) => m
       _ => {
         let m = JSObject::new(properties={}, prototype=Null)
-        o.properties.set(desc_key, JSValue::Object(m))
+        o[desc_key] = JSValue::Object(m)
         m
       }
     }
@@ -301,7 +301,7 @@ pub fn create_object_constructor(
     desc : JSObject,
   ) -> Unit {
     let m = ensure_desc_map(o)
-    m.properties.set(prop, JSValue::Object(desc))
+    m[prop] = JSValue::Object(desc)
   }
   let infer_desc_entry = fn(o : JSObject, prop : String) -> JSObject {
     match o.properties.get(prop) {

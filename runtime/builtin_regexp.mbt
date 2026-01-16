@@ -54,15 +54,11 @@ pub fn create_regexp_object(
     let init_regexp_props = fn(obj : JSObject) {
       obj["lastIndex"] = JSValue::Number(0.0)
       obj["source"] = JSValue::String(pattern_view)
-      obj.properties.set("global", JSValue::Boolean(flags_str.contains("g")))
-      obj.properties.set(
-        "ignoreCase",
-        JSValue::Boolean(flags_str.contains("i")),
-      )
-      obj.properties.set("multiline", JSValue::Boolean(flags_str.contains("m")))
-      obj.properties.set(
-        "__internal_regexp__",
-        JSValue::Internal(JSInternal::RegExp(re, pattern_str)),
+      obj["global"] = JSValue::Boolean(flags_str.contains("g"))
+      obj["ignoreCase"] = JSValue::Boolean(flags_str.contains("i"))
+      obj["multiline"] = JSValue::Boolean(flags_str.contains("m"))
+      obj["__internal_regexp__"] = JSValue::Internal(
+        JSInternal::RegExp(re, pattern_str),
       )
     }
     let is_constructor_call = match this_val {

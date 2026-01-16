@@ -202,9 +202,8 @@ pub fn init_map_prototype(
         }),
         prototype=func_proto,
       )
-      proto.properties.set(
-        "getOrInsertComputed",
-        JSValue::Function(get_or_insert_computed_fn),
+      proto["getOrInsertComputed"] = JSValue::Function(
+        get_or_insert_computed_fn,
       )
 
       // Iterator Setup
@@ -216,10 +215,7 @@ pub fn init_map_prototype(
         properties={},
         prototype=iterator_proto,
       )
-      map_iter_proto.properties.set(
-        "Symbol.toStringTag",
-        JSValue::String("Map Iterator"),
-      )
+      map_iter_proto["Symbol.toStringTag"] = JSValue::String("Map Iterator")
       let map_iter_proto_val = JSValue::Object(map_iter_proto)
       let map_iter_next_fn = Native(fn(ctx, this_val, _args) {
         match this_val {
@@ -313,21 +309,18 @@ pub fn init_map_prototype(
         body=map_iter_sym_iter_fn,
         prototype=func_proto,
       )
-      map_iter_proto.properties.set(
-        "Symbol(Symbol.iterator)",
-        JSValue::Function(map_iter_sym_iter),
+      map_iter_proto["Symbol(Symbol.iterator)"] = JSValue::Function(
+        map_iter_sym_iter,
       )
 
       // Symbol.toStringTag
-      map_iter_proto.properties.set(
-        "Symbol(Symbol.toStringTag)",
-        JSValue::String("Map Iterator"),
+      map_iter_proto["Symbol(Symbol.toStringTag)"] = JSValue::String(
+        "Map Iterator",
       )
       let create_map_iter = fn(_ctx : Context, m : LinkedMap, kind : String) {
         let iter = JSObject::new(properties={}, prototype=map_iter_proto_val)
-        iter.properties.set(
-          "MapData",
-          JSValue::Internal(MapIterator(m, Ref::new(m.head), kind)),
+        iter["MapData"] = JSValue::Internal(
+          MapIterator(m, Ref::new(m.head), kind),
         )
         JSValue::Object(iter)
       }
@@ -471,13 +464,10 @@ pub fn init_map_prototype(
       proto["forEach"] = JSValue::Function(for_each_fn)
 
       // Symbol.iterator -> entries
-      proto.properties.set(
-        "Symbol(Symbol.iterator)",
-        JSValue::Function(entries_fn),
-      )
+      proto["Symbol(Symbol.iterator)"] = JSValue::Function(entries_fn)
 
       // Symbol.toStringTag
-      proto.properties.set("Symbol(Symbol.toStringTag)", JSValue::String("Map"))
+      proto["Symbol(Symbol.toStringTag)"] = JSValue::String("Map")
     }
     _ => ()
   }

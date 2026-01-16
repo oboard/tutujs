@@ -117,14 +117,14 @@ pub fn create_date_object(
     value : JSValue,
     enumerable : Bool,
   ) {
-    obj.properties.set(name, value)
+    obj[name] = value
     if not(enumerable) {
       let desc_key = "__descriptors"
       let desc_map = match obj.properties.get(desc_key) {
         Some(Object(m)) => m
         _ => {
           let m = JSObject::new(properties={})
-          obj.properties.set(desc_key, JSValue::Object(m))
+          obj[desc_key] = JSValue::Object(m)
           m
         }
       }
@@ -134,7 +134,7 @@ pub fn create_date_object(
       d_props.set("enumerable", JSValue::Boolean(false))
       d_props.set("configurable", JSValue::Boolean(true))
       let d = JSObject::new(properties=d_props)
-      desc_map.properties.set(name, JSValue::Object(d))
+      desc_map[name] = JSValue::Object(d)
     }
   }
   let define_method = fn(
@@ -153,7 +153,7 @@ pub fn create_date_object(
     len : Int,
   ) {
     let f = JSFunction::new(name~, body=Native(body))
-    f.inner.properties.set("length", JSValue::Number(len.to_double()))
+    f["length"] = JSValue::Number(len.to_double())
     define_property(date_ctor.inner, name, JSValue::Function(f), false)
   }
   define_static(

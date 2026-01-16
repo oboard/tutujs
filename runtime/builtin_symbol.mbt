@@ -8,12 +8,12 @@ pub fn init_symbol_prototype(
       // toString
       let to_string_obj = JSFunction::new(
         name="toString",
-        body= Native(fn(_ctx, this_val, _args) {
-        match this_val {
-          Symbol(_, s) => JSValue::String("Symbol(" + s + ")")
-          _ => JSValue::String("Symbol()")
-        }
-      }),
+        body=Native(fn(_ctx, this_val, _args) {
+          match this_val {
+            Symbol(_, s) => JSValue::String("Symbol(" + s + ")")
+            _ => JSValue::String("Symbol()")
+          }
+        }),
         prototype=func_proto,
       )
       obj["toString"] = JSValue::Function(to_string_obj)

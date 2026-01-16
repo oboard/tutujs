@@ -148,10 +148,7 @@ pub fn init_set_prototype(
         properties={},
         prototype=iterator_proto,
       )
-      set_iter_proto.properties.set(
-        "Symbol.toStringTag",
-        JSValue::String("Set Iterator"),
-      )
+      set_iter_proto["Symbol.toStringTag"] = JSValue::String("Set Iterator")
       let set_iter_proto_val = JSValue::Object(set_iter_proto)
       let set_iter_next_fn = Native(fn(ctx, this_val, _args) {
         match this_val {
@@ -244,21 +241,18 @@ pub fn init_set_prototype(
         body=set_iter_sym_iter_fn,
         prototype=func_proto,
       )
-      set_iter_proto.properties.set(
-        "Symbol(Symbol.iterator)",
-        JSValue::Function(set_iter_sym_iter),
+      set_iter_proto["Symbol(Symbol.iterator)"] = JSValue::Function(
+        set_iter_sym_iter,
       )
 
       // Symbol.toStringTag
-      set_iter_proto.properties.set(
-        "Symbol(Symbol.toStringTag)",
-        JSValue::String("Set Iterator"),
+      set_iter_proto["Symbol(Symbol.toStringTag)"] = JSValue::String(
+        "Set Iterator",
       )
       let create_set_iter = fn(_ctx : Context, m : LinkedMap, kind : String) {
         let iter = JSObject::new(properties={}, prototype=set_iter_proto_val)
-        iter.properties.set(
-          "SetData",
-          JSValue::Internal(SetIterator(m, Ref::new(m.head), kind)),
+        iter["SetData"] = JSValue::Internal(
+          SetIterator(m, Ref::new(m.head), kind),
         )
         JSValue::Object(iter)
       }
@@ -343,7 +337,7 @@ pub fn init_set_prototype(
 
       // Symbol.iterator -> values
       proto["Symbol(Symbol.iterator)"] = JSValue::Function(values_fn)
-      
+
       // Symbol.toStringTag
       proto["Symbol(Symbol.toStringTag)"] = JSValue::String("Set")
     }

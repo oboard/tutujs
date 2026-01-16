@@ -150,7 +150,7 @@ pub(all) struct JSFunction {
   strict : Bool
   is_constructor : Bool
   is_arrow : Bool
-  base : JSObject
+  inner : JSObject
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue

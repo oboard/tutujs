@@ -57,14 +57,14 @@ pub fn populate_builtin(
   properties : Array[BuiltinProperty],
 ) -> Unit {
   for prop in properties {
-    obj.properties.set(prop.name, prop.value)
+    obj[prop.name] = prop.value
 
     // 如果有描述符存储，也记录下来
     let descriptors = match obj.properties.get("__descriptors") {
       Some(Object(d)) => d
       _ => {
         let d = JSObject::new()
-        obj.properties.set("__descriptors", JSValue::Object(d))
+        obj["__descriptors"] = JSValue::Object(d)
         d
       }
     }

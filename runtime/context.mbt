@@ -39,12 +39,12 @@ pub fn Context::register_builtin(
   // 如果是顶级作用域，且有名为 globalThis 的对象，也要设置到它的属性描述符里
   match self.scope.get("globalThis") {
     Some(Object(g)) => {
-      g.properties.set(name, value)
+      g[name] = value
       let descriptors = match g.properties.get("__descriptors") {
         Some(Object(d)) => d
         _ => {
           let d = JSObject::new()
-          g.properties.set("__descriptors", JSValue::Object(d))
+          g["__descriptors"] = JSValue::Object(d)
           d
         }
       }
