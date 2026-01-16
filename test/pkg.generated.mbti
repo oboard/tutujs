@@ -2,6 +2,7 @@
 package "oboard/tutujs/test"
 
 // Values
+pub fn test_from(String) -> Unit raise
 
 // Errors
 

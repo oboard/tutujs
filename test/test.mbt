@@ -1,5 +1,5 @@
 ///|
-fn test_from(path : String) -> Unit raise Error {
+pub fn test_from(path : String) -> Unit raise Error {
   let harness_dir = "test/test262/harness/"
   let assert_js = @fs.read_file_to_string(harness_dir + "assert.js") catch {
     _ => ""
