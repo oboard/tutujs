@@ -3,10 +3,6 @@ pub fn create_date_object(
   object_proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let date_proto_props = {}
-  let date_proto = JSValue::Object(
-    JSObject::new(properties=date_proto_props, prototype=object_proto),
-  )
   let date_ctor_fn = Native(fn(ctx, this_val, args) raise EvalError {
     let now_nanos = @env.now()
     let now_seconds = (now_nanos / 1_000_000_000).reinterpret_as_int64()
@@ -99,18 +95,18 @@ pub fn create_date_object(
       JSValue::String(format_to_string(zdt))
     }
   })
-  let date_ctor_props = {}
   let date_ctor = JSFunction::new(
     name="Date",
     params=["year", "month", "date", "hours", "minutes", "seconds", "ms"],
     body=date_ctor_fn,
-    properties=date_ctor_props,
     prototype=func_proto,
     is_constructor=true,
   )
   let date_ctor_val = JSValue::Function(date_ctor)
-  date_ctor_props.set("prototype", date_proto)
-  date_proto_props.set("constructor", date_ctor_val)
+  let date_proto_props = { "constructor": date_ctor_val }
+  let date_proto = JSValue::Object(
+    JSObject::new(properties=date_proto_props, prototype=object_proto),
+  )
   let define_property = fn(
     obj : JSObject,
     name : String,
@@ -128,11 +124,12 @@ pub fn create_date_object(
           m
         }
       }
-      let d_props = {}
-      d_props.set("value", value)
-      d_props.set("writable", JSValue::Boolean(true))
-      d_props.set("enumerable", JSValue::Boolean(false))
-      d_props.set("configurable", JSValue::Boolean(true))
+      let d_props = {
+        "value": value,
+        "writable": JSValue::Boolean(true),
+        "enumerable": JSValue::Boolean(false),
+        "configurable": JSValue::Boolean(true),
+      }
       let d = JSObject::new(properties=d_props)
       desc_map[name] = JSValue::Object(d)
     }

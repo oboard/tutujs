@@ -22,9 +22,10 @@ pub fn prop_method(
   let enumerable = enumerable.unwrap_or(false)
   let configurable = configurable.unwrap_or(true)
   let writable = writable.unwrap_or(true)
-  let func_props = {}
-  func_props.set("length", JSValue::Number(length.to_double()))
-  func_props.set("name", JSValue::String(name))
+  let func_props = {
+    "length": JSValue::Number(length.to_double()),
+    "name": JSValue::String(name),
+  }
   let func = JSFunction::new(name~, body=Native(f), properties=func_props)
   { name, value: JSValue::Function(func), enumerable, configurable, writable }
 }

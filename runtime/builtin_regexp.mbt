@@ -39,12 +39,12 @@ pub fn create_regexp_object(
         Object(o) => o.properties.get("prototype")
         _ => None
       }
-      let err_props = {}
-      err_props.set("name", JSValue::String("SyntaxError"))
-      err_props.set(
-        "message",
-        JSValue::String("Invalid regular expression: " + effective_pattern),
-      )
+      let err_props = {
+        "name": JSValue::String("SyntaxError"),
+        "message": JSValue::String(
+          "Invalid regular expression: " + effective_pattern,
+        ),
+      }
       let err = match syntax_error_proto {
         Some(p) => JSObject::new(properties=err_props, prototype=p)
         None => JSObject::new(properties=err_props)
@@ -87,8 +87,7 @@ pub fn create_regexp_object(
       new_obj
     }
   })
-  let regexp_ctor_props = {}
-  regexp_ctor_props.set("prototype", regexp_proto)
+  let regexp_ctor_props = { "prototype": regexp_proto }
   let regexp_ctor = JSFunction::new(
     name="RegExp",
     body=regexp_ctor_fn,
@@ -150,14 +149,12 @@ pub fn create_regexp_object(
               JSValue::Number((match_index + match_str.length()).to_double()),
             )
           }
-          let result_array_props = {}
-          result_array_props.set("0", JSValue::String(match_str))
-          result_array_props.set(
-            "index",
-            JSValue::Number(match_index.to_double()),
-          )
-          result_array_props.set("input", JSValue::String(str))
-          result_array_props.set("length", JSValue::Number(1.0))
+          let result_array_props = {
+            "0": JSValue::String(match_str),
+            "index": JSValue::Number(match_index.to_double()),
+            "input": JSValue::String(str),
+            "length": JSValue::Number(1.0),
+          }
           JSValue::Object(
             JSObject::new(properties=result_array_props, prototype=object_proto),
           )

@@ -306,33 +306,30 @@ pub fn create_object_constructor(
   let infer_desc_entry = fn(o : JSObject, prop : String) -> JSObject {
     match o.properties.get(prop) {
       Some(Internal(Accessor(getter, setter))) => {
-        let d_props = {}
-        d_props.set(
-          "get",
-          getter.map(JSValue::Function(_)).unwrap_or(Undefined),
-        )
-        d_props.set(
-          "set",
-          setter.map(JSValue::Function(_)).unwrap_or(Undefined),
-        )
-        d_props.set("enumerable", JSValue::Boolean(true))
-        d_props.set("configurable", JSValue::Boolean(true))
+        let d_props = {
+          "get": getter.map(JSValue::Function(_)).unwrap_or(Undefined),
+          "set": setter.map(JSValue::Function(_)).unwrap_or(Undefined),
+          "enumerable": JSValue::Boolean(true),
+          "configurable": JSValue::Boolean(true),
+        }
         JSObject::new(properties=d_props, prototype=proto)
       }
       Some(v) => {
-        let d_props = {}
-        d_props.set("value", v)
-        d_props.set("writable", JSValue::Boolean(true))
-        d_props.set("enumerable", JSValue::Boolean(true))
-        d_props.set("configurable", JSValue::Boolean(true))
+        let d_props = {
+          "value": v,
+          "writable": JSValue::Boolean(true),
+          "enumerable": JSValue::Boolean(true),
+          "configurable": JSValue::Boolean(true),
+        }
         JSObject::new(properties=d_props, prototype=proto)
       }
       None => {
-        let d_props = {}
-        d_props.set("value", Undefined)
-        d_props.set("writable", JSValue::Boolean(false))
-        d_props.set("enumerable", JSValue::Boolean(false))
-        d_props.set("configurable", JSValue::Boolean(false))
+        let d_props = {
+          "value": Undefined,
+          "writable": JSValue::Boolean(false),
+          "enumerable": JSValue::Boolean(false),
+          "configurable": JSValue::Boolean(false),
+        }
         JSObject::new(properties=d_props, prototype=proto)
       }
     }
@@ -730,20 +727,23 @@ pub fn create_object_constructor(
           if properties.contains(prop) {
             infer_desc_entry(o, prop)
           } else {
-            let d_props = {}
             let is_accessor = desc_props.contains("get") ||
               desc_props.contains("set")
             if is_accessor {
-              d_props.set("get", Undefined)
-              d_props.set("set", Undefined)
-              d_props.set("enumerable", JSValue::Boolean(false))
-              d_props.set("configurable", JSValue::Boolean(false))
+              let d_props = {
+                "get": Undefined,
+                "set": Undefined,
+                "enumerable": JSValue::Boolean(false),
+                "configurable": JSValue::Boolean(false),
+              }
               JSObject::new(properties=d_props, prototype=proto)
             } else {
-              d_props.set("value", Undefined)
-              d_props.set("writable", JSValue::Boolean(false))
-              d_props.set("enumerable", JSValue::Boolean(false))
-              d_props.set("configurable", JSValue::Boolean(false))
+              let d_props = {
+                "value": Undefined,
+                "writable": JSValue::Boolean(false),
+                "enumerable": JSValue::Boolean(false),
+                "configurable": JSValue::Boolean(false),
+              }
               JSObject::new(properties=d_props, prototype=proto)
             }
           }
@@ -766,9 +766,7 @@ pub fn create_object_constructor(
           _ => None
         }
         properties[prop] = Internal(Accessor(getter, setter))
-        let d_props = {}
-        d_props.set("get", get_val)
-        d_props.set("set", set_val)
+        let d_props = { "get": get_val, "set": set_val }
         let enumerable = match desc_props.get("enumerable") {
           Some(Boolean(b)) => b
           _ =>
@@ -802,7 +800,6 @@ pub fn create_object_constructor(
             }
         }
         properties[prop] = value
-        let d_props = {}
         let writable = match desc_props.get("writable") {
           Some(Boolean(b)) => b
           _ =>
@@ -827,10 +824,12 @@ pub fn create_object_constructor(
               _ => false
             }
         }
-        d_props.set("value", value)
-        d_props.set("writable", JSValue::Boolean(writable))
-        d_props.set("enumerable", JSValue::Boolean(enumerable))
-        d_props.set("configurable", JSValue::Boolean(configurable))
+        let d_props = {
+          "value": value,
+          "writable": JSValue::Boolean(writable),
+          "enumerable": JSValue::Boolean(enumerable),
+          "configurable": JSValue::Boolean(configurable),
+        }
         current_desc = JSObject::new(properties=d_props, prototype=proto)
       }
       set_desc_entry(o, prop, current_desc)
@@ -1455,22 +1454,24 @@ pub fn create_object_constructor(
             _ => {
               let is_symbol_to_string_tag = prop.contains("toStringTag")
               if is_symbol_to_string_tag {
-                let d_props = {}
-                d_props.set("writable", JSValue::Boolean(false))
-                d_props.set("enumerable", JSValue::Boolean(false))
-                d_props.set("configurable", JSValue::Boolean(true))
-                d_props.set("value", val)
+                let d_props = {
+                  "writable": JSValue::Boolean(false),
+                  "enumerable": JSValue::Boolean(false),
+                  "configurable": JSValue::Boolean(true),
+                  "value": val,
+                }
                 return JSValue::Object(
                   JSObject::new(properties=d_props, prototype=proto),
                 )
               }
               let is_symbol_iterator = prop.contains("iterator")
               if is_symbol_iterator {
-                let d_props = {}
-                d_props.set("writable", JSValue::Boolean(true))
-                d_props.set("enumerable", JSValue::Boolean(false))
-                d_props.set("configurable", JSValue::Boolean(true))
-                d_props.set("value", val)
+                let d_props = {
+                  "writable": JSValue::Boolean(true),
+                  "enumerable": JSValue::Boolean(false),
+                  "configurable": JSValue::Boolean(true),
+                  "value": val,
+                }
                 return JSValue::Object(
                   JSObject::new(properties=d_props, prototype=proto),
                 )

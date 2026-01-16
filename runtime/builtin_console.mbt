@@ -1,28 +1,16 @@
+//|
+
 ///|
 pub fn create_console_object(object_proto : JSValue) -> JSValue {
-  let props = {}
-  props.set(
-    "log",
-    Function(
+  let props = {
+    "log": JSValue::Function(
       JSFunction::new(
-        name="log",
-        body=Native(fn(_ctx, _this_val, args) {
-          let strs = []
-          for arg in args {
-            strs.push(arg.to_string())
-          }
-          let mut res = ""
-          for i = 0; i < strs.length(); i = i + 1 {
-            if i > 0 {
-              res = res + " "
-            }
-            res = res + strs[i]
-          }
-          println(res)
-          Undefined
+        body=Native(fn(_, _, args) {
+          println(args.map(i => i.to_string()).join(" "))
+          JSValue::Undefined
         }),
       ),
     ),
-  )
-  Object(JSObject::new(properties=props, prototype=object_proto))
+  }
+  JSValue::Object(JSObject::new(properties=props, prototype=object_proto))
 }

@@ -62,12 +62,12 @@ pub fn Context::register_builtin(
 ///|
 #as_free_fn(new)
 pub fn Context::new(parent? : Context, strict? : Bool) -> Context {
-  let scope = {}
+  let scope = {
+    "NaN": Number(@double.not_a_number),
+    "Infinity": Number(@double.infinity),
+  }
   match parent {
-    None => {
-      scope.set("NaN", Number(@double.not_a_number))
-      scope.set("Infinity", Number(@double.infinity))
-    }
+    None => ()
     Some(_) => ()
   }
   let is_strict = match strict {
@@ -134,11 +134,7 @@ pub fn Context::create_global() -> Context {
   ctx.register_builtin("Function", func_ctor_val)
 
   // Array.prototype
-  let array_proto_props = {}
-  let array_proto = JSObject::new(
-    properties=array_proto_props,
-    prototype=object_proto_val,
-  )
+  let array_proto = JSObject::new(properties={}, prototype=object_proto_val)
   let array_proto_val = JSValue::Object(array_proto)
   init_array_prototype(array_proto_val, func_proto_val)
 
@@ -164,8 +160,7 @@ pub fn Context::create_global() -> Context {
     arr_props.set("length", Number(len))
     Object(JSObject::new(properties=arr_props, prototype=array_proto_val))
   })
-  let array_fn_props = {}
-  array_fn_props.set("prototype", array_proto_val)
+  let array_fn_props = { "prototype": array_proto_val }
   let array_fn = JSFunction::new(
     name="Array",
     body=array_fn_body,
@@ -178,15 +173,11 @@ pub fn Context::create_global() -> Context {
   init_array_constructor(array_fn_val)
 
   // Array.prototype.constructor = Array
-  array_proto_props.set("constructor", array_fn_val)
+  // array_proto_props.set("constructor", array_fn_val) - 已合并到 JSObject::new 的 properties 参数中
   ctx.register_builtin("Array", array_fn_val)
 
   // String.prototype
-  let string_proto_props = {}
-  let string_proto = JSObject::new(
-    properties=string_proto_props,
-    prototype=object_proto_val,
-  )
+  let string_proto = JSObject::new(properties={}, prototype=object_proto_val)
   let string_proto_val = JSValue::Object(string_proto)
   init_string_prototype(string_proto_val, func_proto_val)
 
@@ -194,7 +185,7 @@ pub fn Context::create_global() -> Context {
   let string_ctor_val = create_string_constructor(
     string_proto_val, func_proto_val,
   )
-  string_proto_props.set("constructor", string_ctor_val)
+  // string_proto_props.set("constructor", string_ctor_val) - 已合并到 JSObject::new 的 properties 参数中
   ctx.register_builtin("String", string_ctor_val)
 
   // Number.prototype
@@ -234,8 +225,7 @@ pub fn Context::create_global() -> Context {
   ctx.register_builtin("console", console_val)
 
   // Boolean.prototype
-  let boolean_proto_props = {}
-  boolean_proto_props.set("PrimitiveValue", JSValue::Boolean(false))
+  let boolean_proto_props = { "PrimitiveValue": JSValue::Boolean(false) }
   let boolean_proto = JSObject::new(
     properties=boolean_proto_props,
     prototype=object_proto_val,

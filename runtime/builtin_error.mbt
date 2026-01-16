@@ -1,8 +1,9 @@
 ///|
 pub fn create_error_prototype(object_proto : JSValue) -> JSValue {
-  let proto_props = {}
-  proto_props.set("name", JSValue::String("Error"))
-  proto_props.set("message", JSValue::String(""))
+  let proto_props = {
+    "name": JSValue::String("Error"),
+    "message": JSValue::String(""),
+  }
   let proto = JSValue::Object(
     JSObject::new(properties=proto_props, prototype=object_proto),
   )
@@ -43,9 +44,10 @@ pub fn create_error_constructor(
 ) -> JSValue {
   let ctor_fn = Native(fn(_ctx, _this_val, args) {
     let message = if args is [JSValue::String(msg), ..] { msg } else { "" }
-    let obj_props = {}
-    obj_props.set("message", JSValue::String(message))
-    obj_props.set("name", JSValue::String(name))
+    let obj_props = {
+      "message": JSValue::String(message),
+      "name": JSValue::String(name),
+    }
     let obj = JSObject::new(properties=obj_props, prototype=error_proto)
     JSValue::Object(obj)
   })
@@ -72,9 +74,10 @@ pub fn create_native_error_constructor(
   error_proto : JSValue, // Error.prototype
   func_proto : JSValue,
 ) -> JSValue {
-  let proto_props = {}
-  proto_props.set("name", JSValue::String(name))
-  proto_props.set("message", JSValue::String(""))
+  let proto_props = {
+    "name": JSValue::String(name),
+    "message": JSValue::String(""),
+  }
   let proto = JSValue::Object(
     JSObject::new(properties=proto_props, prototype=error_proto),
   )

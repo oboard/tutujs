@@ -1,14 +1,15 @@
 ///|
 pub fn create_math_object(object_proto : JSValue) -> JSValue {
-  let math_props = {}
-  math_props.set("E", JSValue::Number(2.718281828459045))
-  math_props.set("LN10", JSValue::Number(2.302585092994046))
-  math_props.set("LN2", JSValue::Number(0.6931471805599453))
-  math_props.set("LOG10E", JSValue::Number(0.4342944819032518))
-  math_props.set("LOG2E", JSValue::Number(1.4426950408889634))
-  math_props.set("PI", JSValue::Number(3.141592653589793))
-  math_props.set("SQRT1_2", JSValue::Number(0.7071067811865476))
-  math_props.set("SQRT2", JSValue::Number(1.4142135623730951))
+  let math_props = {
+    "E": JSValue::Number(2.718281828459045),
+    "LN10": JSValue::Number(2.302585092994046),
+    "LN2": JSValue::Number(0.6931471805599453),
+    "LOG10E": JSValue::Number(0.4342944819032518),
+    "LOG2E": JSValue::Number(1.4426950408889634),
+    "PI": JSValue::Number(3.141592653589793),
+    "SQRT1_2": JSValue::Number(0.7071067811865476),
+    "SQRT2": JSValue::Number(1.4142135623730951),
+  }
 
   // Methods
   let wrap_unary = fn(op : (Double) -> Double) {
