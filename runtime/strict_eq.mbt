@@ -14,7 +14,7 @@ pub fn JSValue::strict_equal(self : JSValue, other : JSValue) -> Bool {
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
     (Object(a), Object(b))
-    | (Function({ base: a, .. }), Function({ base: b, .. })) =>
+    | (Function({ inner: a, .. }), Function({ inner: b, .. })) =>
       physical_equal(a.properties, b.properties)
     _ => false
   }

@@ -184,7 +184,7 @@ pub fn init_set_prototype(
                   "key" | "value" => entry.key
                   "key+value" => {
                     let array_proto = match ctx.scope.get("Array") {
-                      Some(Function({ base: { properties, .. }, .. })) =>
+                      Some(Function({ inner: { properties, .. }, .. })) =>
                         properties.get("prototype").unwrap_or(JSValue::Null)
                       _ => JSValue::Null
                     }
@@ -200,7 +200,7 @@ pub fn init_set_prototype(
                   _ => Undefined
                 }
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ base: { properties, .. }, .. })) =>
+                  Some(Function({ inner: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -211,7 +211,7 @@ pub fn init_set_prototype(
               }
               None => {
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ base: { properties, .. }, .. })) =>
+                  Some(Function({ inner: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -342,13 +342,10 @@ pub fn init_set_prototype(
       proto["forEach"] = JSValue::Function(for_each_fn)
 
       // Symbol.iterator -> values
-      proto.properties.set(
-        "Symbol(Symbol.iterator)",
-        JSValue::Function(values_fn),
-      )
-
+      proto["Symbol(Symbol.iterator)"] = JSValue::Function(values_fn)
+      
       // Symbol.toStringTag
-      proto.properties.set("Symbol(Symbol.toStringTag)", JSValue::String("Set"))
+      proto["Symbol(Symbol.toStringTag)"] = JSValue::String("Set")
     }
     _ => ()
   }

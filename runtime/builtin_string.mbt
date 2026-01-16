@@ -98,7 +98,7 @@ pub fn init_string_prototype(
           JSValue::Undefined
         }
         let array_proto = match ctx.resolve("Array") {
-          Function(f) => f.base.properties.get("prototype")
+          Function(f) => f.inner.properties.get("prototype")
           _ => None
         }
         let arr_obj = match array_proto {
@@ -169,13 +169,14 @@ pub fn create_string_constructor(
       JSValue::String(val_str)
     }
   })
-  let ctor_obj = JSFunction::new(
-    name="String",
-    params=["value"],
-    body=ctor_fn,
-    prototype=func_proto,
-    is_constructor=true,
+  JSValue::Function(
+    JSFunction::new(
+      name="String",
+      params=["value"],
+      body=ctor_fn,
+      prototype=func_proto,
+      is_constructor=true,
+      properties={ "prototype": proto },
+    ),
   )
-  ctor_obj["prototype"] = proto
-  JSValue::Function(ctor_obj)
 }

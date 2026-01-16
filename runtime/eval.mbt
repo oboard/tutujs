@@ -158,7 +158,7 @@ pub fn Context::invoke(
       }
       arg_obj_props.set("length", JSValue::Number(args.length().to_double()))
       let object_proto = match self.resolve("Object") {
-        Function(f) => f.base.properties.get("prototype")
+        Function(f) => f.inner.properties.get("prototype")
         _ => None
       }
       let arg_obj = JSObject::new(
@@ -217,7 +217,7 @@ fn Context::evaluate(
             }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.base.properties.get("prototype")
+            Function(f) => f.inner.properties.get("prototype")
             _ => None
           }
           let func_props = {}
@@ -246,13 +246,13 @@ fn Context::evaluate(
 
           // Setup prototype property
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.base.properties.get("prototype")
-            _ => None
+            Function(f) => f.get("prototype")
+            _ => Undefined
           }
           let proto_props = {}
           let proto_obj = match obj_proto {
-            Some(p) => JSObject::new(properties=proto_props, prototype=p)
-            None => JSObject::new(properties=proto_props)
+            Undefined => JSObject::new(properties=proto_props)
+            p => JSObject::new(properties=proto_props, prototype=p)
           }
           let proto_val = JSValue::Object(proto_obj)
           proto_props.set("constructor", func_val)
@@ -790,7 +790,7 @@ fn Context::evaluate(
                 )
                 return Undefined
               }
-              let proto = match func.base.properties.get("prototype") {
+              let proto = match func.inner.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -974,7 +974,7 @@ fn Context::evaluate(
           let flags_val = JSValue::String(flags_str[:])
           match self.resolve("RegExp") {
             Function(f) => {
-              let proto = match f.base.properties.get("prototype") {
+              let proto = match f.inner.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -1138,7 +1138,7 @@ fn Context::evaluate(
           }
           let object_proto = match self.resolve("Object") {
             Function(f) =>
-              match f.base.properties.get("prototype") {
+              match f.inner.properties.get("prototype") {
                 Some(p) => p
                 None => Null
               }
@@ -1163,7 +1163,7 @@ fn Context::evaluate(
           arr_props.set("length", Number(len.to_double()))
           let proto = match self.resolve("Array") {
             Function(f) =>
-              match f.base.properties.get("prototype") {
+              match f.inner.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -1189,7 +1189,7 @@ fn Context::evaluate(
             None => None
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.base.properties.get("prototype")
+            Function(f) => f.inner.properties.get("prototype")
             _ => None
           }
           let func_props = {}
@@ -1204,7 +1204,7 @@ fn Context::evaluate(
           )
           let func_val = JSValue::Function(func)
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.base.properties.get("prototype")
+            Function(f) => f.inner.properties.get("prototype")
             _ => None
           }
           let proto_props = {}
@@ -1238,7 +1238,7 @@ fn Context::evaluate(
               }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.base.properties.get("prototype")
+            Function(f) => f.inner.properties.get("prototype")
             _ => None
           }
           let func = JSFunction::new(

@@ -87,10 +87,11 @@ pub fn create_array_from_values(
     Function(f) => f.get("prototype")
     _ => JSValue::Null
   }
-  let arr = JSObject::new(prototype=array_proto)
+  let arr = JSObject::new(prototype=array_proto, properties={
+    "length": JSValue::Number(values.length().to_double()),
+  })
   for i, v in values {
     arr[i.to_string()] = v
   }
-  arr["length"] = JSValue::Number(values.length().to_double())
   JSValue::Object(arr)
 }

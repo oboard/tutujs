@@ -37,7 +37,7 @@ pub impl Eq for JSValue with equal(self, other) {
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
     (Object(a), Object(b))
-    | (Function({ base: a, .. }), Function({ base: b, .. })) => a._id == b._id
+    | (Function({ inner: a, .. }), Function({ inner: b, .. })) => a._id == b._id
     (Internal(a), Internal(b)) => a == b
     _ => false
   }
@@ -60,7 +60,7 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
     String(s) => hasher.combine(s)
     BigInt(i) => hasher.combine(i)
     Symbol(id, _) => hasher.combine(id)
-    Object(o) | Function({ base: o, .. }) => hasher.combine(o._id)
+    Object(o) | Function({ inner: o, .. }) => hasher.combine(o._id)
     Internal(i) => hasher.combine(i)
   }
 }
@@ -163,7 +163,7 @@ pub impl Show for JSValue with output(self, logger) {
 pub fn JSValue::get_prototype(self : JSValue) -> JSValue? {
   match self {
     Object(o) => o.prototype
-    Function(f) => f.base.prototype
+    Function(f) => f.inner.prototype
     _ => None
   }
 }
@@ -215,7 +215,7 @@ pub fn JSValue::own_keys(
       if f.is_constructor {
         keys.push("prototype")
       }
-      for k, _ in f.base.properties {
+      for k, _ in f.inner.properties {
         if not(k.has_prefix("__")) &&
           k != "PrimitiveValue" &&
           k != "length" &&
@@ -294,7 +294,7 @@ pub(all) struct JSFunction {
   strict : Bool
   is_constructor : Bool
   is_arrow : Bool
-  base : JSObject
+  inner : JSObject
   // _id : Int
   // properties : Map[String, JSValue]
   // mut prototype : JSValue? // [[Prototype]]
@@ -388,7 +388,7 @@ pub fn JSFunction::new(
     strict: is_strict,
     is_constructor: is_ctor,
     is_arrow: is_arrow.unwrap_or(false),
-    base: {
+    inner: {
       _id: next_object_id(),
       properties,
       prototype,
@@ -419,7 +419,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     strict: false,
     is_constructor: true,
     is_arrow: false,
-    base: {
+    inner: {
       _id: next_object_id(),
       properties: {},
       prototype: None,
@@ -500,7 +500,7 @@ pub impl Compare for JSFunction with compare(_, _) -> Int {
 
 ///|
 pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
-  hasher.combine(self.base._id)
+  hasher.combine(self.inner._id)
 }
 
 ///|
@@ -510,16 +510,13 @@ pub fn JSFunction::set(
   key : String,
   value : JSValue,
 ) -> Unit {
-  self.base[key] = value
+  self.inner[key] = value
 }
 
 ///|
 #alias("_[_]")
 pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
-  match self.base.properties.get(key) {
-    Some(v) => v
-    None => Undefined
-  }
+  JSValue::Function(self).get_property(key)
 }
 
 ///|
@@ -606,7 +603,7 @@ pub fn JSValue::get_property_internal_throwing(
       }
     }
     Function(func) => {
-      match (func.base.proxy_target, func.base.proxy_handler) {
+      match (func.inner.proxy_target, func.inner.proxy_handler) {
         (Some(target), Some(handler)) => {
           let trap = handler.get_property_throwing("get") catch {
             _ => Undefined
@@ -623,10 +620,10 @@ pub fn JSValue::get_property_internal_throwing(
         }
         _ => ()
       }
-      match func.base.properties.get(name) {
+      match func.inner.properties.get(name) {
         Some(v) => v
         None =>
-          match func.base.prototype {
+          match func.inner.prototype {
             Some(proto) => proto.get_property_internal_throwing(name, receiver)
             None => Undefined
           }
@@ -762,7 +759,7 @@ pub fn JSValue::set_property(
       }
     }
     Function(func) => {
-      match (func.base.proxy_target, func.base.proxy_handler) {
+      match (func.inner.proxy_target, func.inner.proxy_handler) {
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("set")
           match trap {
@@ -786,7 +783,7 @@ pub fn JSValue::set_property(
         _ => ()
       }
       // Check for accessor
-      match func.base.properties.get(name) {
+      match func.inner.properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let _ = setter.context.invoke(setter, self, [value]) catch {
             e => raise e
@@ -803,7 +800,7 @@ pub fn JSValue::set_property(
         }
         _ => ()
       }
-      if func.base.is_frozen {
+      if func.inner.is_frozen {
         if strict {
           raise EvalError::Throw(
             JSValue::String("TypeError: Cannot assign to read only property"),
@@ -811,8 +808,8 @@ pub fn JSValue::set_property(
         }
         return
       }
-      if not(func.base.properties.contains(name)) {
-        if not(func.base.extensible) || func.base.is_sealed {
+      if not(func.inner.properties.contains(name)) {
+        if not(func.inner.extensible) || func.inner.is_sealed {
           if strict {
             raise EvalError::Throw(
               JSValue::String(
@@ -857,7 +854,7 @@ pub fn JSValue::set_property(
           return
         }
       }
-      func.base[name] = value
+      func.inner[name] = value
     }
     _ =>
       if strict {
@@ -1010,7 +1007,7 @@ pub fn JSValue::delete_property(
         }
         return false
       }
-      JSValue::Object(func.base).delete_property(ctx, name, strict~)
+      JSValue::Object(func.inner).delete_property(ctx, name, strict~)
     }
     _ => true
   }

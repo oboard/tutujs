@@ -21,7 +21,7 @@ pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
       is_constructor=true,
     ),
   }
-  populate_builtin(proxy_builtin.inner.base, [
+  populate_builtin(proxy_builtin.inner.inner, [
     prop_method(
       "revocable",
       fn(ctx, this, args) { proxy_builtin.revocable(ctx, this, args) },
@@ -65,7 +65,7 @@ fn ProxyBuiltin::builtin_constructor(
         let proxy_func_ref : Ref[JSFunction?] = { val: None }
         let proxy_func_body = Native(fn(ctx, this_val, args) {
           let proxy_func = proxy_func_ref.val.unwrap()
-          let base = proxy_func.base
+          let base = proxy_func.inner
           match (base.proxy_target, base.proxy_handler) {
             (Some(target), Some(handler)) => {
               let trap = handler.get_property("apply")
@@ -92,10 +92,10 @@ fn ProxyBuiltin::builtin_constructor(
           is_constructor=t_func.is_constructor,
         )
         proxy_func.name = t_func.name
-        proxy_func.base.prototype = t_func.base.prototype
-        proxy_func.base.is_proxy = true
-        proxy_func.base.proxy_target = Some(target)
-        proxy_func.base.proxy_handler = Some(handler)
+        proxy_func.inner.prototype = t_func.inner.prototype
+        proxy_func.inner.is_proxy = true
+        proxy_func.inner.proxy_target = Some(target)
+        proxy_func.inner.proxy_handler = Some(handler)
         proxy_func_ref.val = Some(proxy_func)
         JSValue::Function(proxy_func)
       }
@@ -136,8 +136,8 @@ fn ProxyBuiltin::revocable(
           o.proxy_handler = None
         }
         Function(f) => {
-          f.base.proxy_target = None
-          f.base.proxy_handler = None
+          f.inner.proxy_target = None
+          f.inner.proxy_handler = None
         }
         _ => ()
       }

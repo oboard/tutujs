@@ -5,7 +5,7 @@ pub fn to_primitive(
   hint? : String,
 ) -> JSValue raise EvalError {
   match val {
-    Object(_) | Function({ base: _, .. }) => {
+    Object(_) | Function({ inner: _, .. }) => {
       // 1. Check Symbol.toPrimitive
       let to_prim_key = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
       match val.get_property_throwing(to_prim_key) {
@@ -28,7 +28,7 @@ pub fn to_primitive(
       // 2. Default hint for Date is String
       let is_date = match val {
         Object({ properties, .. })
-        | Function({ base: { properties, .. }, .. }) => {
+        | Function({ inner: { properties, .. }, .. }) => {
           let toStringTag = JSValue::Symbol(1011, "Symbol.toStringTag").to_property_key()
           properties.contains("__internal_date__") ||
           properties.get(toStringTag) == Some(JSValue::String("Date"))
@@ -108,9 +108,8 @@ pub fn js_to_number(ctx : Context, val : JSValue) -> Double raise EvalError {
   match val {
     Number(n) => n
     Undefined => @double.not_a_number
-    Null => 0.0
+    Null | Boolean(false) => 0.0
     Boolean(true) => 1.0
-    Boolean(false) => 0.0
     String(s) =>
       @strconv.parse_double(s.to_string()) catch {
         _ => @double.not_a_number

@@ -253,7 +253,7 @@ pub fn init_map_prototype(
                   "value" => entry.value
                   "key+value" => {
                     let array_proto = match ctx.scope.get("Array") {
-                      Some(Function({ base: { properties, .. }, .. })) =>
+                      Some(Function({ inner: { properties, .. }, .. })) =>
                         properties.get("prototype").unwrap_or(JSValue::Null)
                       _ => JSValue::Null
                     }
@@ -269,7 +269,7 @@ pub fn init_map_prototype(
                   _ => Undefined
                 }
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ base: { properties, .. }, .. })) =>
+                  Some(Function({ inner: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -280,7 +280,7 @@ pub fn init_map_prototype(
               }
               None => {
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ base: { properties, .. }, .. })) =>
+                  Some(Function({ inner: { properties, .. }, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }

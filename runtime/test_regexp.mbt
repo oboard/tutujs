@@ -9,7 +9,7 @@ test "RegExp Constructor and Test" {
   let ctx = Context::new()
 
   // Test new RegExp("abc")
-  let regexp_prototype = regexp_ctor.base.properties.get("prototype").unwrap()
+  let regexp_prototype = regexp_ctor.inner.properties.get("prototype").unwrap()
   let new_re_obj_props = {}
   let new_re_obj = JSValue::Object(
     JSObject::new(properties=new_re_obj_props, prototype=regexp_prototype),
@@ -33,7 +33,7 @@ test "RegExp Constructor and Test" {
       // Test .test() method
       // We need to find 'test' method on prototype
       // regexp_ctor["prototype"] is the prototype object
-      let proto_val = regexp_ctor.base["prototype"]
+      let proto_val = regexp_ctor.inner["prototype"]
       let test_method = match proto_val {
         Object(p) => p["test"]
         _ => fail("RegExp.prototype is not object")

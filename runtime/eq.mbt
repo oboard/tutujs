@@ -16,9 +16,9 @@ pub fn JSValue::unstrict_equal(
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
     (
       Object(a)
-      | Function({ base: a, .. }),
+      | Function({ inner: a, .. }),
       Object(b)
-      | Function({ base: b, .. }),
+      | Function({ inner: b, .. }),
     ) => physical_equal(a, b)
     (Number(a), String(b)) =>
       a ==

@@ -24,7 +24,7 @@ pub fn create_map_constructor(
           // General Iterator Protocol
           let iterator_sym = match ctx.resolve("Symbol") {
             Function(f) =>
-              f.base.properties.get("iterator").unwrap_or(JSValue::Undefined)
+              f.inner.properties.get("iterator").unwrap_or(JSValue::Undefined)
             _ => JSValue::Undefined
           }
           let iterator_key = match iterator_sym {

@@ -1,7 +1,7 @@
 ///|
 pub fn JSValue::instanceof(self : JSValue, other : JSValue) -> Bool {
   let prototype = match other {
-    Function(f) => f.base.properties.get("prototype")
+    Function(f) => f.inner.properties.get("prototype")
     _ => return false // Right-hand side of 'instanceof' is not callable or doesn't have prototype
   }
   match prototype {
@@ -9,7 +9,7 @@ pub fn JSValue::instanceof(self : JSValue, other : JSValue) -> Bool {
       let mut current = self
       loop current {
         Object({ prototype: Some(p), .. })
-        | Function({ base: { prototype: Some(p), .. }, .. }) => {
+        | Function({ inner: { prototype: Some(p), .. }, .. }) => {
           if p.strict_equal(proto) {
             return true
           }

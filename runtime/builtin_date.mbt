@@ -153,8 +153,8 @@ pub fn create_date_object(
     len : Int,
   ) {
     let f = JSFunction::new(name~, body=Native(body))
-    f.base.properties.set("length", JSValue::Number(len.to_double()))
-    define_property(date_ctor.base, name, JSValue::Function(f), false)
+    f.inner.properties.set("length", JSValue::Number(len.to_double()))
+    define_property(date_ctor.inner, name, JSValue::Function(f), false)
   }
   define_static(
     "now",

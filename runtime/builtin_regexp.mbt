@@ -35,7 +35,7 @@ pub fn create_regexp_object(
     }
     if not(valid) {
       let syntax_error_proto = match syntax_error_ctor {
-        Function(f) => f.base.properties.get("prototype")
+        Function(f) => f.inner.properties.get("prototype")
         Object(o) => o.properties.get("prototype")
         _ => None
       }

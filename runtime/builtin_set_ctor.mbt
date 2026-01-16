@@ -22,7 +22,7 @@ pub fn create_set_constructor(
           // General Iterator Protocol
           let iterator_sym = match ctx.resolve("Symbol") {
             Function(f) =>
-              f.base.properties.get("iterator").unwrap_or(JSValue::Undefined)
+              f.inner.properties.get("iterator").unwrap_or(JSValue::Undefined)
             _ => JSValue::Undefined
           }
           let iterator_key = match iterator_sym {
@@ -89,13 +89,14 @@ pub fn create_set_constructor(
       }
     }
   })
-  let ctor_obj = JSFunction::new(
-    name="Set",
-    params=[], // length 0
-    body=ctor_fn,
-    prototype=func_proto,
-    is_constructor=true,
+  JSValue::Function(
+    JSFunction::new(
+      name="Set",
+      params=[], // length 0
+      body=ctor_fn,
+      prototype=func_proto,
+      is_constructor=true,
+      properties={ "prototype": set_proto },
+    ),
   )
-  ctor_obj.base["prototype"] = set_proto
-  JSValue::Function(ctor_obj)
 }

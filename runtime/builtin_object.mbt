@@ -17,7 +17,7 @@ pub fn init_object_prototype(
               _ => {
                 let properties = match this_val {
                   Object({ properties, .. })
-                  | Function({ base: { properties, .. }, .. }) => properties
+                  | Function({ inner: { properties, .. }, .. }) => properties
                   _ => {}
                 }
                 match properties.get("PrimitiveValue") {
@@ -99,7 +99,7 @@ pub fn init_object_prototype(
               Boolean(properties.contains(key))
             }
             Object({ properties, .. })
-            | Function({ base: { properties, .. }, .. }) =>
+            | Function({ inner: { properties, .. }, .. }) =>
               Boolean(properties.contains(key))
             _ => Boolean(false)
           }
@@ -119,7 +119,7 @@ pub fn init_object_prototype(
       let is_prototype_of_fn = Native(fn(_ctx, this_val, args) {
         if args is [arg, ..] {
           match arg {
-            Object(o) | Function({ base: o, .. }) => {
+            Object(o) | Function({ inner: o, .. }) => {
               let mut proto = o.prototype
               while true {
                 match proto {
@@ -129,7 +129,7 @@ pub fn init_object_prototype(
                     }
                     match p {
                       Object({ prototype, .. })
-                      | Function({ base: { prototype, .. }, .. }) =>
+                      | Function({ inner: { prototype, .. }, .. }) =>
                         proto = prototype
                       _ => break
                     }
@@ -159,7 +159,7 @@ pub fn init_object_prototype(
           let key = prop.to_property_key()
           match this_val {
             Object({ properties, .. })
-            | Function({ base: { properties, .. }, .. }) => {
+            | Function({ inner: { properties, .. }, .. }) => {
               // Global check
               let mut root_ctx = ctx
               while true {
@@ -341,7 +341,7 @@ pub fn create_object_constructor(
     if args is [val, ..] {
       let is_subclass_this = match this_val {
         Object({ prototype: Some(p), .. })
-        | Function({ base: { prototype: Some(p), .. }, .. }) =>
+        | Function({ inner: { prototype: Some(p), .. }, .. }) =>
           not(p.strict_equal(proto))
         _ => false
       }
@@ -462,7 +462,7 @@ pub fn create_object_constructor(
     is_constructor=true,
   )
   object_fn["prototype"] = proto
-  object_fn.base["length"] = JSValue::Number(1.0)
+  object_fn.inner["length"] = JSValue::Number(1.0)
 
   // Object.keys
   let keys_fn = Native(fn(ctx, _this_val, args) {
@@ -472,7 +472,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -549,7 +549,7 @@ pub fn create_object_constructor(
       }
       let obj_props = match obj_arg {
         Object({ properties, .. })
-        | Function({ base: { properties, .. }, .. }) => properties
+        | Function({ inner: { properties, .. }, .. }) => properties
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
             ctx.throw_type_error("Cannot convert undefined or null to object")
@@ -665,13 +665,13 @@ pub fn create_object_constructor(
     if args is [target_arg, ..] {
       let properties = match target_arg {
         Object({ properties, .. })
-        | Function({ base: { properties, .. }, .. }) => properties
+        | Function({ inner: { properties, .. }, .. }) => properties
         _ => return target_arg
       }
       for i = 1; i < args.length(); i = i + 1 {
         let src_props = match args[i] {
           Object({ properties, .. })
-          | Function({ base: { properties, .. }, .. }) => properties
+          | Function({ inner: { properties, .. }, .. }) => properties
           _ => continue
         }
         for k, v in src_props {
@@ -872,7 +872,7 @@ pub fn create_object_constructor(
                 }
                 _ =>
                   match target {
-                    Object(o) | Function({ base: o, .. }) =>
+                    Object(o) | Function({ inner: o, .. }) =>
                       o.extensible = false
                     _ => ()
                   }
@@ -939,7 +939,7 @@ pub fn create_object_constructor(
               }
               let target_props = match target {
                 Object(o) => o.properties
-                Function(f) => f.base.properties
+                Function(f) => f.inner.properties
                 _ => {}
               }
               for k in keys {
@@ -979,9 +979,9 @@ pub fn create_object_constructor(
           o.extensible = false
         }
         Function(f) => {
-          f.base.is_frozen = true
-          f.base.is_sealed = true
-          f.base.extensible = false
+          f.inner.is_frozen = true
+          f.inner.is_sealed = true
+          f.inner.extensible = false
         }
         _ => ()
       }
@@ -1002,7 +1002,7 @@ pub fn create_object_constructor(
   let is_frozen_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, ..] {
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => JSValue::Boolean(o.is_frozen)
+        Object(o) | Function({ inner: o, .. }) => JSValue::Boolean(o.is_frozen)
         _ => JSValue::Boolean(true) // Primitives are always frozen in ES6+
       }
     } else {
@@ -1021,7 +1021,7 @@ pub fn create_object_constructor(
   let seal_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, ..] {
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => {
+        Object(o) | Function({ inner: o, .. }) => {
           o.extensible = false
           o.is_sealed = true
           obj_arg
@@ -1044,7 +1044,7 @@ pub fn create_object_constructor(
   let is_sealed_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, ..] {
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => JSValue::Boolean(o.is_sealed)
+        Object(o) | Function({ inner: o, .. }) => JSValue::Boolean(o.is_sealed)
         _ => JSValue::Boolean(true)
       }
     } else {
@@ -1080,7 +1080,7 @@ pub fn create_object_constructor(
     }
     if args is [obj_arg, ..] {
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => {
+        Object(o) | Function({ inner: o, .. }) => {
           o.extensible = false
           obj_arg
         }
@@ -1101,7 +1101,7 @@ pub fn create_object_constructor(
   let is_extensible_fn = Native(fn(_ctx, _this_val, args) {
     if args is [obj_arg, ..] {
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => JSValue::Boolean(o.extensible)
+        Object(o) | Function({ inner: o, .. }) => JSValue::Boolean(o.extensible)
         _ => JSValue::Boolean(false)
       }
     } else {
@@ -1123,7 +1123,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -1175,16 +1175,16 @@ pub fn create_object_constructor(
                   }
                   // Invariants check
                   let is_target_extensible = match target {
-                    Object(o) | Function({ base: o, .. }) => o.extensible
+                    Object(o) | Function({ inner: o, .. }) => o.extensible
                     _ => true
                   }
                   let target_props = match target {
                     Object(o) => o.properties
-                    Function(f) => f.base.properties
+                    Function(f) => f.inner.properties
                     _ => {}
                   }
                   let is_sealed = match target {
-                    Object(o) | Function({ base: o, .. }) => o.is_sealed
+                    Object(o) | Function({ inner: o, .. }) => o.is_sealed
                     _ => false
                   }
 
@@ -1246,7 +1246,7 @@ pub fn create_object_constructor(
       }
       let obj_props = match obj_arg {
         Object({ properties, .. })
-        | Function({ base: { properties, .. }, .. }) => properties
+        | Function({ inner: { properties, .. }, .. }) => properties
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
             ctx.throw_type_error("Cannot convert undefined or null to object")
@@ -1311,7 +1311,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -1365,9 +1365,9 @@ pub fn create_object_constructor(
           (properties, false, false, is_str, is_global, is_frozen, is_sealed)
         }
         Function(f) => {
-          let properties = f.base.properties
-          let is_frozen = f.base.is_frozen
-          let is_sealed = f.base.is_sealed
+          let properties = f.inner.properties
+          let is_frozen = f.inner.is_frozen
+          let is_sealed = f.inner.is_sealed
           let is_native = match f.body {
             Native(_) => true
             _ => false
@@ -1586,7 +1586,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -1606,7 +1606,8 @@ pub fn create_object_constructor(
         _ => ()
       }
       match obj_arg {
-        Object({ prototype, .. }) | Function({ base: { prototype, .. }, .. }) =>
+        Object({ prototype, .. })
+        | Function({ inner: { prototype, .. }, .. }) =>
           match prototype {
             Some(p) => p
             None => Null
@@ -1667,7 +1668,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -1692,7 +1693,7 @@ pub fn create_object_constructor(
         _ => ()
       }
       match obj_arg {
-        Object(o) | Function({ base: o, .. }) => o.prototype = Some(proto_arg)
+        Object(o) | Function({ inner: o, .. }) => o.prototype = Some(proto_arg)
         _ =>
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
             ctx.throw_type_error("Cannot convert undefined or null to object")
@@ -1720,7 +1721,7 @@ pub fn create_object_constructor(
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. })
         | Function(
           {
-            base: {
+            inner: {
               proxy_target: Some(target),
               proxy_handler: Some(handler),
               ..,
@@ -1773,7 +1774,7 @@ pub fn create_object_constructor(
       }
       let (obj_props, is_func) = match obj_arg {
         Object({ properties, .. }) => (properties, false)
-        Function({ base: { properties, .. }, .. }) => (properties, true)
+        Function({ inner: { properties, .. }, .. }) => (properties, true)
         _ => {
           if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
             ctx.throw_type_error("Cannot convert undefined or null to object")

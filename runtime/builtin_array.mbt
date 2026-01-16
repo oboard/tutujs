@@ -984,7 +984,7 @@ pub fn init_array_prototype(
 pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
   // println("DEBUG: init_array_constructor called")
   match array_ctor {
-    Function({ base: obj, .. }) => {
+    Function({ inner: obj, .. }) => {
       let func_proto = obj.prototype
       let func_proto_val = func_proto.unwrap_or(JSValue::Undefined)
       // isArray
@@ -1044,7 +1044,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         // Check for iterator
         let iterator_method = match ctx.resolve("Symbol") {
           Function(f) =>
-            match f.base.properties.get("iterator") {
+            match f.inner.properties.get("iterator") {
               Some(sym) => items.get_property(sym.to_property_key())
               None => JSValue::Undefined
             }
@@ -1054,11 +1054,11 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           let iterator = ctx.invoke(iter_fn, items, []) catch { e => raise e }
           let new_array_val = match this_val {
             Function(ctor) => {
-              let proto = match ctor.base.properties.get("prototype") {
+              let proto = match ctor.inner.properties.get("prototype") {
                 Some(p) => p
                 None =>
                   match ctx.resolve("Object") {
-                    Function(f) => f.base.properties.get("prototype").unwrap()
+                    Function(f) => f.inner.properties.get("prototype").unwrap()
                     _ => JSValue::Undefined
                   }
               }
@@ -1072,7 +1072,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
             }
             _ => {
               let proto = match ctx.resolve("Array") {
-                Function(f) => f.base.properties.get("prototype")
+                Function(f) => f.inner.properties.get("prototype")
                 _ => None
               }
               JSValue::Object(
@@ -1155,11 +1155,11 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         let new_array_val = match this_val {
           Function(ctor) => {
             // Construct(C, [len])
-            let proto = match ctor.base.properties.get("prototype") {
+            let proto = match ctor.inner.properties.get("prototype") {
               Some(p) => p
               None =>
                 match ctx.resolve("Object") {
-                  Function(f) => f.base.properties.get("prototype").unwrap()
+                  Function(f) => f.inner.properties.get("prototype").unwrap()
                   _ => JSValue::Undefined
                 }
             }
@@ -1179,7 +1179,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
           _ => {
             // ArrayCreate(len)
             let proto = match ctx.resolve("Array") {
-              Function(f) => f.base.properties.get("prototype")
+              Function(f) => f.inner.properties.get("prototype")
               _ => None
             }
             let obj = match proto {
