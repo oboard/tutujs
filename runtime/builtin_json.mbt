@@ -2,10 +2,7 @@
 
 ///|
 pub fn create_json_object(object_proto : JSValue) -> JSValue {
-  let json_obj = JSObject::new(
-    properties=@hashmap.new(),
-    prototype=object_proto,
-  )
+  let json_obj = JSObject::new(properties={}, prototype=object_proto)
 
   // JSON.parse
   let parse_fn = Native(fn(ctx, _this_val, args) {

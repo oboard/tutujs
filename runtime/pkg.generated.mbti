@@ -3,7 +3,6 @@ package "oboard/tutujs/runtime"
 
 import(
   "moonbitlang/core/bigint"
-  "moonbitlang/core/hashmap"
   "moonbitlang/core/json"
   "moonbitlang/regexp"
   "oboard/tutujs/parser"
@@ -107,7 +106,7 @@ pub(all) struct BuiltinProperty {
 }
 
 pub(all) struct Context {
-  scope : @hashmap.HashMap[String, JSValue]
+  scope : Map[String, JSValue]
   parent : Context?
   mut pending_labels : Array[String]
   mut strict : Bool
@@ -155,7 +154,7 @@ pub(all) struct JSFunction {
 }
 #alias("_[_]")
 pub fn JSFunction::get(Self, String) -> JSValue
-pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
+pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
 #alias("_[_]=_")
 pub fn JSFunction::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSFunction
@@ -183,7 +182,7 @@ pub impl @json.FromJson for JSInternal
 
 pub(all) struct JSObject {
   _id : Int
-  properties : @hashmap.HashMap[String, JSValue]
+  properties : Map[String, JSValue]
   mut prototype : JSValue?
   mut extensible : Bool
   mut is_sealed : Bool
@@ -194,7 +193,7 @@ pub(all) struct JSObject {
 }
 #alias("_[_]")
 pub fn JSObject::get(Self, String) -> JSValue
-pub fn JSObject::new(properties? : @hashmap.HashMap[String, JSValue], prototype? : JSValue) -> Self
+pub fn JSObject::new(properties? : Map[String, JSValue], prototype? : JSValue) -> Self
 #alias("_[_]=_")
 pub fn JSObject::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSObject
@@ -268,7 +267,7 @@ pub impl Show for LinkedEntry
 pub impl ToJson for LinkedEntry
 
 pub(all) struct LinkedMap {
-  entries : @hashmap.HashMap[JSValue, LinkedEntry]
+  entries : Map[JSValue, LinkedEntry]
   mut head : LinkedEntry?
   mut tail : LinkedEntry?
 }

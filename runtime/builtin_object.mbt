@@ -18,7 +18,7 @@ pub fn init_object_prototype(
                 let properties = match this_val {
                   Object({ properties, .. })
                   | Function({ base: { properties, .. }, .. }) => properties
-                  _ => @hashmap.new()
+                  _ => {}
                 }
                 match properties.get("PrimitiveValue") {
                   Some(String(_)) => "String"
@@ -279,7 +279,7 @@ pub fn create_object_constructor(
     match o.properties.get(desc_key) {
       Some(Object(m)) => m
       _ => {
-        let m = JSObject::new(properties=@hashmap.new(), prototype=Null)
+        let m = JSObject::new(properties={}, prototype=Null)
         o.properties.set(desc_key, JSValue::Object(m))
         m
       }
@@ -306,7 +306,7 @@ pub fn create_object_constructor(
   let infer_desc_entry = fn(o : JSObject, prop : String) -> JSObject {
     match o.properties.get(prop) {
       Some(Internal(Accessor(getter, setter))) => {
-        let d_props = @hashmap.new()
+        let d_props = {}
         d_props.set(
           "get",
           getter.map(JSValue::Function(_)).unwrap_or(Undefined),
@@ -320,7 +320,7 @@ pub fn create_object_constructor(
         JSObject::new(properties=d_props, prototype=proto)
       }
       Some(v) => {
-        let d_props = @hashmap.new()
+        let d_props = {}
         d_props.set("value", v)
         d_props.set("writable", JSValue::Boolean(true))
         d_props.set("enumerable", JSValue::Boolean(true))
@@ -328,7 +328,7 @@ pub fn create_object_constructor(
         JSObject::new(properties=d_props, prototype=proto)
       }
       None => {
-        let d_props = @hashmap.new()
+        let d_props = {}
         d_props.set("value", Undefined)
         d_props.set("writable", JSValue::Boolean(false))
         d_props.set("enumerable", JSValue::Boolean(false))
@@ -354,8 +354,7 @@ pub fn create_object_constructor(
           // If called as constructor via Reflect.construct or new, this_val might be an object with subclass prototype
           match this_val {
             Object(_) | Function(_) => this_val
-            _ =>
-              Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
+            _ => Object(JSObject::new(properties={}, prototype=proto))
           }
         String(s) => {
           let string_proto = match ctx.resolve("String") {
@@ -451,7 +450,7 @@ pub fn create_object_constructor(
     } else {
       match this_val {
         Object(_) | Function(_) => this_val
-        _ => Object(JSObject::new(properties=@hashmap.new(), prototype=proto))
+        _ => Object(JSObject::new(properties={}, prototype=proto))
       }
     }
   })
@@ -492,7 +491,7 @@ pub fn create_object_constructor(
                 _ => proto
               }
               let keys_array = JSObject::new(
-                properties=@hashmap.new(),
+                properties={},
                 prototype=array_proto,
               )
               let mut i = 0.0
@@ -562,10 +561,7 @@ pub fn create_object_constructor(
         Function(f) => f.get("prototype")
         _ => proto
       }
-      let keys_array = JSObject::new(
-        properties=@hashmap.new(),
-        prototype=array_proto,
-      )
+      let keys_array = JSObject::new(properties={}, prototype=array_proto)
       let mut i = 0.0
       // Handle String indices
       let is_string_obj = obj_props.contains("PrimitiveValue") &&
@@ -627,9 +623,7 @@ pub fn create_object_constructor(
     if args is [proto_arg, ..] {
       match proto_arg {
         Object(_) | Null =>
-          JSValue::Object(
-            JSObject::new(properties=@hashmap.new(), prototype=proto_arg),
-          )
+          JSValue::Object(JSObject::new(properties={}, prototype=proto_arg))
         _ => {
           ctx.throw_type_error(
             "Object.create: prototype must be an object or null",
@@ -736,7 +730,7 @@ pub fn create_object_constructor(
           if properties.contains(prop) {
             infer_desc_entry(o, prop)
           } else {
-            let d_props = @hashmap.new()
+            let d_props = {}
             let is_accessor = desc_props.contains("get") ||
               desc_props.contains("set")
             if is_accessor {
@@ -772,7 +766,7 @@ pub fn create_object_constructor(
           _ => None
         }
         properties[prop] = Internal(Accessor(getter, setter))
-        let d_props = @hashmap.new()
+        let d_props = {}
         d_props.set("get", get_val)
         d_props.set("set", set_val)
         let enumerable = match desc_props.get("enumerable") {
@@ -808,7 +802,7 @@ pub fn create_object_constructor(
             }
         }
         properties[prop] = value
-        let d_props = @hashmap.new()
+        let d_props = {}
         let writable = match desc_props.get("writable") {
           Some(Boolean(b)) => b
           _ =>
@@ -946,7 +940,7 @@ pub fn create_object_constructor(
               let target_props = match target {
                 Object(o) => o.properties
                 Function(f) => f.base.properties
-                _ => @hashmap.new()
+                _ => {}
               }
               for k in keys {
                 let key_str = match k {
@@ -1148,7 +1142,7 @@ pub fn create_object_constructor(
                 _ => proto
               }
               let symbols_array = JSObject::new(
-                properties=@hashmap.new(),
+                properties={},
                 prototype=array_proto,
               )
               let mut i = 0.0
@@ -1158,7 +1152,7 @@ pub fn create_object_constructor(
                     Some(Number(n)) => n.to_int()
                     _ => 0
                   }
-                  let seen_keys = @hashmap.new()
+                  let seen_keys = {}
                   for j = 0; j < len; j = j + 1 {
                     let k = match keys_props.get(j.to_string()) {
                       Some(v) => v
@@ -1187,7 +1181,7 @@ pub fn create_object_constructor(
                   let target_props = match target {
                     Object(o) => o.properties
                     Function(f) => f.base.properties
-                    _ => @hashmap.new()
+                    _ => {}
                   }
                   let is_sealed = match target {
                     Object(o) | Function({ base: o, .. }) => o.is_sealed
@@ -1262,10 +1256,7 @@ pub fn create_object_constructor(
             Function(f) => f.get("prototype")
             _ => proto
           }
-          let empty_array = JSObject::new(
-            properties=@hashmap.new(),
-            prototype=array_proto,
-          )
+          let empty_array = JSObject::new(properties={}, prototype=array_proto)
           empty_array["length"] = JSValue::Number(0.0)
           return JSValue::Object(empty_array)
         }
@@ -1274,10 +1265,7 @@ pub fn create_object_constructor(
         Function(f) => f.get("prototype")
         _ => proto
       }
-      let symbols_array = JSObject::new(
-        properties=@hashmap.new(),
-        prototype=array_proto,
-      )
+      let symbols_array = JSObject::new(properties={}, prototype=array_proto)
       let mut i = 0.0
       for k, _ in obj_props {
         try {
@@ -1425,7 +1413,7 @@ pub fn create_object_constructor(
             None => ' '
           }
           let char_str = String::make(1, c)
-          let desc = JSObject::new(properties=@hashmap.new(), prototype=proto)
+          let desc = JSObject::new(properties={}, prototype=proto)
           desc["value"] = JSValue::String(char_str)
           desc["writable"] = JSValue::Boolean(false)
           desc["enumerable"] = JSValue::Boolean(true)
@@ -1435,7 +1423,7 @@ pub fn create_object_constructor(
       }
       match obj_props.get(prop) {
         Some(val) => {
-          let desc = JSObject::new(properties=@hashmap.new(), prototype=proto)
+          let desc = JSObject::new(properties={}, prototype=proto)
           // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
 
           // Check for custom descriptors
@@ -1467,7 +1455,7 @@ pub fn create_object_constructor(
             _ => {
               let is_symbol_to_string_tag = prop.contains("toStringTag")
               if is_symbol_to_string_tag {
-                let d_props = @hashmap.new()
+                let d_props = {}
                 d_props.set("writable", JSValue::Boolean(false))
                 d_props.set("enumerable", JSValue::Boolean(false))
                 d_props.set("configurable", JSValue::Boolean(true))
@@ -1478,7 +1466,7 @@ pub fn create_object_constructor(
               }
               let is_symbol_iterator = prop.contains("iterator")
               if is_symbol_iterator {
-                let d_props = @hashmap.new()
+                let d_props = {}
                 d_props.set("writable", JSValue::Boolean(true))
                 d_props.set("enumerable", JSValue::Boolean(false))
                 d_props.set("configurable", JSValue::Boolean(true))
@@ -1752,7 +1740,7 @@ pub fn create_object_constructor(
                 _ => proto
               }
               let names_array = JSObject::new(
-                properties=@hashmap.new(),
+                properties={},
                 prototype=array_proto,
               )
               let mut i = 0.0
@@ -1795,10 +1783,7 @@ pub fn create_object_constructor(
             Function(f) => f.get("prototype")
             _ => proto
           }
-          let names_array = JSObject::new(
-            properties=@hashmap.new(),
-            prototype=array_proto,
-          )
+          let names_array = JSObject::new(properties={}, prototype=array_proto)
           let mut i = 0.0
           match obj_arg {
             String(s) => {
@@ -1818,10 +1803,7 @@ pub fn create_object_constructor(
         Function(f) => f.get("prototype")
         _ => proto
       }
-      let names_array = JSObject::new(
-        properties=@hashmap.new(),
-        prototype=array_proto,
-      )
+      let names_array = JSObject::new(properties={}, prototype=array_proto)
       let mut i = 0.0
 
       // For functions, prioritize length and name

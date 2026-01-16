@@ -102,8 +102,8 @@ pub fn init_string_prototype(
           _ => None
         }
         let arr_obj = match array_proto {
-          Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
-          None => JSObject::new(properties=@hashmap.new())
+          Some(p) => JSObject::new(properties={}, prototype=p)
+          None => JSObject::new(properties={})
         }
         arr_obj["length"] = JSValue::Number(1.0)
         arr_obj["0"] = JSValue::String(s)

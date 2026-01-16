@@ -14,14 +14,14 @@ pub impl Eq for LinkedEntry with equal(self, other) {
 
 ///|
 pub(all) struct LinkedMap {
-  entries : @hashmap.HashMap[JSValue, LinkedEntry]
+  entries : Map[JSValue, LinkedEntry]
   mut head : LinkedEntry?
   mut tail : LinkedEntry?
 }
 
 ///|
 pub fn LinkedMap::new() -> LinkedMap {
-  { entries: @hashmap.new(), head: None, tail: None }
+  { entries: {}, head: None, tail: None }
 }
 
 ///|

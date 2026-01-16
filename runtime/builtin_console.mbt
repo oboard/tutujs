@@ -1,6 +1,6 @@
 ///|
 pub fn create_console_object(object_proto : JSValue) -> JSValue {
-  let props = @hashmap.new()
+  let props = {}
   props.set(
     "log",
     Function(

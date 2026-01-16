@@ -124,7 +124,7 @@ pub fn init_array_prototype(
                 JSValue::Undefined
               }
               let new_array = JSObject::new(
-                properties=@hashmap.new(),
+                properties={},
                 prototype=array_proto_val,
               )
               new_array["length"] = JSValue::Number(len)
@@ -170,7 +170,7 @@ pub fn init_array_prototype(
                 JSValue::Undefined
               }
               let new_array = JSObject::new(
-                properties=@hashmap.new(),
+                properties={},
                 prototype=array_proto_val,
               )
               let mut new_len = 0.0
@@ -574,7 +574,7 @@ pub fn init_array_prototype(
               end_k = len_int
             }
             let new_array = JSObject::new(
-              properties=@hashmap.new(),
+              properties={},
               prototype=array_proto_val,
             )
             let mut n = 0
@@ -756,7 +756,7 @@ pub fn init_array_prototype(
               []
             }
             let deleted_elements = JSObject::new(
-              properties=@hashmap.new(),
+              properties={},
               prototype=array_proto_val,
             )
             for k = 0; k < delete_count; k = k + 1 {
@@ -831,26 +831,26 @@ pub fn init_array_prototype(
                   None => JSValue::Undefined
                 }
                 index_box[0] = idx + 1
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = val
                 res["done"] = JSValue::Boolean(false)
                 JSValue::Object(res)
               } else {
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = JSValue::Undefined
                 res["done"] = JSValue::Boolean(true)
                 JSValue::Object(res)
               }
             }
             _ => {
-              let res = JSObject::new(properties=@hashmap.new())
+              let res = JSObject::new(properties={})
               res["value"] = JSValue::Undefined
               res["done"] = JSValue::Boolean(true)
               JSValue::Object(res)
             }
           }
         })
-        let iter_obj = JSObject::new(properties=@hashmap.new())
+        let iter_obj = JSObject::new(properties={})
         let next_func_obj = JSFunction::new(
           name="next",
           body=next_fn,
@@ -880,26 +880,26 @@ pub fn init_array_prototype(
               }
               if idx < len {
                 index_box[0] = idx + 1
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = JSValue::Number(idx.to_double())
                 res["done"] = JSValue::Boolean(false)
                 JSValue::Object(res)
               } else {
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = JSValue::Undefined
                 res["done"] = JSValue::Boolean(true)
                 JSValue::Object(res)
               }
             }
             _ => {
-              let res = JSObject::new(properties=@hashmap.new())
+              let res = JSObject::new(properties={})
               res["value"] = JSValue::Undefined
               res["done"] = JSValue::Boolean(true)
               JSValue::Object(res)
             }
           }
         })
-        let iter_obj = JSObject::new(properties=@hashmap.new())
+        let iter_obj = JSObject::new(properties={})
         let next_func_obj = JSFunction::new(
           name="next",
           body=next_fn,
@@ -935,32 +935,32 @@ pub fn init_array_prototype(
 
                 // Create [index, value] array
                 let entry_arr = JSObject::new(
-                  properties=@hashmap.new(),
+                  properties={},
                   prototype=array_proto_val,
                 )
                 entry_arr["0"] = JSValue::Number(idx.to_double())
                 entry_arr["1"] = val
                 entry_arr["length"] = JSValue::Number(2.0)
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = JSValue::Object(entry_arr)
                 res["done"] = JSValue::Boolean(false)
                 JSValue::Object(res)
               } else {
-                let res = JSObject::new(properties=@hashmap.new())
+                let res = JSObject::new(properties={})
                 res["value"] = JSValue::Undefined
                 res["done"] = JSValue::Boolean(true)
                 JSValue::Object(res)
               }
             }
             _ => {
-              let res = JSObject::new(properties=@hashmap.new())
+              let res = JSObject::new(properties={})
               res["value"] = JSValue::Undefined
               res["done"] = JSValue::Boolean(true)
               JSValue::Object(res)
             }
           }
         })
-        let iter_obj = JSObject::new(properties=@hashmap.new())
+        let iter_obj = JSObject::new(properties={})
         let next_func_obj = JSFunction::new(
           name="next",
           body=next_fn,
@@ -1062,10 +1062,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                     _ => JSValue::Undefined
                   }
               }
-              let obj = JSObject::new(
-                properties=@hashmap.new(),
-                prototype=proto,
-              )
+              let obj = JSObject::new(properties={}, prototype=proto)
               let this_obj = JSValue::Object(obj)
               let res = ctx.invoke(ctor, this_obj, []) catch { _ => this_obj }
               match res {
@@ -1080,9 +1077,8 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
               }
               JSValue::Object(
                 match proto {
-                  Some(p) =>
-                    JSObject::new(properties=@hashmap.new(), prototype=p)
-                  None => JSObject::new(properties=@hashmap.new())
+                  Some(p) => JSObject::new(properties={}, prototype=p)
+                  None => JSObject::new(properties={})
                 },
               )
             }
@@ -1167,7 +1163,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
                   _ => JSValue::Undefined
                 }
             }
-            let obj = JSObject::new(properties=@hashmap.new(), prototype=proto)
+            let obj = JSObject::new(properties={}, prototype=proto)
             let this_obj = JSValue::Object(obj)
             let res = ctx.invoke(ctor, this_obj, [
               JSValue::Number(len.to_double()),
@@ -1187,8 +1183,8 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
               _ => None
             }
             let obj = match proto {
-              Some(p) => JSObject::new(properties=@hashmap.new(), prototype=p)
-              None => JSObject::new(properties=@hashmap.new())
+              Some(p) => JSObject::new(properties={}, prototype=p)
+              None => JSObject::new(properties={})
             }
             obj["length"] = JSValue::Number(len.to_double())
             JSValue::Object(obj)

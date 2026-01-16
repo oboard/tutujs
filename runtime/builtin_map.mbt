@@ -213,7 +213,7 @@ pub fn init_map_prototype(
         None => func_proto
       }
       let map_iter_proto = JSObject::new(
-        properties=@hashmap.new(),
+        properties={},
         prototype=iterator_proto,
       )
       map_iter_proto.properties.set(
@@ -258,7 +258,7 @@ pub fn init_map_prototype(
                       _ => JSValue::Null
                     }
                     let arr = JSObject::new(
-                      properties=@hashmap.new(),
+                      properties={},
                       prototype=array_proto,
                     )
                     arr["0"] = entry.key
@@ -273,10 +273,7 @@ pub fn init_map_prototype(
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
-                let res = JSObject::new(
-                  properties=@hashmap.new(),
-                  prototype=object_proto,
-                )
+                let res = JSObject::new(properties={}, prototype=object_proto)
                 res["value"] = value
                 res["done"] = Boolean(false)
                 JSValue::Object(res)
@@ -287,10 +284,7 @@ pub fn init_map_prototype(
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
-                let res = JSObject::new(
-                  properties=@hashmap.new(),
-                  prototype=object_proto,
-                )
+                let res = JSObject::new(properties={}, prototype=object_proto)
                 res["value"] = Undefined
                 res["done"] = Boolean(true)
                 JSValue::Object(res)
@@ -330,10 +324,7 @@ pub fn init_map_prototype(
         JSValue::String("Map Iterator"),
       )
       let create_map_iter = fn(_ctx : Context, m : LinkedMap, kind : String) {
-        let iter = JSObject::new(
-          properties=@hashmap.new(),
-          prototype=map_iter_proto_val,
-        )
+        let iter = JSObject::new(properties={}, prototype=map_iter_proto_val)
         iter.properties.set(
           "MapData",
           JSValue::Internal(MapIterator(m, Ref::new(m.head), kind)),

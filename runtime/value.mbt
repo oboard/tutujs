@@ -274,7 +274,7 @@ pub impl FromJson for FunctionBody with from_json(_, _) {
 ///|
 pub(all) struct JSObject {
   _id : Int
-  properties : @hashmap.HashMap[String, JSValue]
+  properties : Map[String, JSValue]
   /// prototype 需要是 Optional（JSValue?），原因：JavaScript 中确实存在“没有原型”的对象。
   mut prototype : JSValue?
   mut extensible : Bool
@@ -296,7 +296,7 @@ pub(all) struct JSFunction {
   is_arrow : Bool
   base : JSObject
   // _id : Int
-  // properties : @hashmap.HashMap[String, JSValue]
+  // properties : Map[String, JSValue]
   // mut prototype : JSValue? // [[Prototype]]
   // mut extensible : Bool
   // mut is_sealed : Bool
@@ -305,31 +305,20 @@ pub(all) struct JSFunction {
   // mut proxy_handler : JSValue?
 } derive(Show, Eq, ToJson)
 
-// ///|
-// pub(open) trait JSObjectLike {
-//   set_extensible(self : Self, val : Bool) -> Unit
-//   get_extensible(self : Self) -> Bool
-//   set_prototype_of(self : Self, proto : JSValue) -> Bool
-//   get_prototype_of(self : Self) -> JSValue
-//   get_is_sealed(self : Self) -> Bool
-//   set_is_sealed(self : Self, val : Bool) -> Bool
-
-// }
-
 ///|
 pub fn JSFunction::new(
   name? : String,
   params? : Array[String],
   body~ : FunctionBody,
   context? : Context,
-  properties? : @hashmap.HashMap[String, JSValue],
+  properties? : Map[String, JSValue],
   prototype? : JSValue,
   strict? : Bool,
   is_constructor? : Bool,
   is_arrow? : Bool,
 ) -> JSFunction {
   let params = params.unwrap_or([])
-  let properties = properties.unwrap_or(@hashmap.new())
+  let properties = properties.unwrap_or({})
   if not(properties.contains("length")) {
     let len = JSValue::Number(params.length().to_double())
     properties.set("length", len)
@@ -342,18 +331,19 @@ pub fn JSFunction::new(
         d
       }
     }
-    let desc = JSObject::new()
-    desc["enumerable"] = JSValue::Boolean(false)
-    desc["configurable"] = JSValue::Boolean(true)
-    desc["writable"] = JSValue::Boolean(false)
-    desc["value"] = len
+    let desc = JSObject::new(properties={
+      "enumerable": JSValue::Boolean(false),
+      "configurable": JSValue::Boolean(true),
+      "writable": JSValue::Boolean(false),
+      "value": len,
+    })
     descriptors["length"] = JSValue::Object(desc)
   }
   match name {
     Some(n) =>
       if not(properties.contains("name")) {
         let name_val = JSValue::String(n)
-        properties.set("name", name_val)
+        properties["name"] = name_val
         // 设置描述符
         let descriptors = match properties.get("__descriptors") {
           Some(Object(d)) => d
@@ -363,11 +353,12 @@ pub fn JSFunction::new(
             d
           }
         }
-        let desc = JSObject::new()
-        desc["enumerable"] = JSValue::Boolean(false)
-        desc["configurable"] = JSValue::Boolean(true)
-        desc["writable"] = JSValue::Boolean(false)
-        desc["value"] = name_val
+        let desc = JSObject::new(properties={
+          "enumerable": JSValue::Boolean(false),
+          "configurable": JSValue::Boolean(true),
+          "writable": JSValue::Boolean(false),
+          "value": name_val,
+        })
         descriptors["name"] = JSValue::Object(desc)
       }
     None => ()
@@ -415,7 +406,7 @@ pub fn JSFunction::new(
 pub impl FromJson for JSFunction with from_json(_, _) {
   // Dummy implementation
   let ctx = Context::{
-    scope: @hashmap.new(),
+    scope: {},
     parent: None,
     pending_labels: [],
     strict: false,
@@ -430,7 +421,7 @@ pub impl FromJson for JSFunction with from_json(_, _) {
     is_arrow: false,
     base: {
       _id: next_object_id(),
-      properties: @hashmap.new(),
+      properties: {},
       prototype: None,
       extensible: true,
       is_sealed: false,
@@ -444,12 +435,12 @@ pub impl FromJson for JSFunction with from_json(_, _) {
 
 ///|
 pub fn JSObject::new(
-  properties? : @hashmap.HashMap[String, JSValue],
+  properties? : Map[String, JSValue],
   prototype? : JSValue,
 ) -> JSObject {
   {
     _id: next_object_id(),
-    properties: properties.unwrap_or(@hashmap.new()),
+    properties: properties.unwrap_or({}),
     prototype,
     extensible: true,
     is_sealed: false,
@@ -481,7 +472,7 @@ pub impl ToJson for JSObject with to_json(_) {
 pub impl FromJson for JSObject with from_json(_, _) {
   {
     _id: next_object_id(),
-    properties: @hashmap.new(),
+    properties: {},
     prototype: None,
     extensible: true,
     is_sealed: false,

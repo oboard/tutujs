@@ -145,7 +145,7 @@ pub fn init_set_prototype(
         None => func_proto
       }
       let set_iter_proto = JSObject::new(
-        properties=@hashmap.new(),
+        properties={},
         prototype=iterator_proto,
       )
       set_iter_proto.properties.set(
@@ -189,7 +189,7 @@ pub fn init_set_prototype(
                       _ => JSValue::Null
                     }
                     let arr = JSObject::new(
-                      properties=@hashmap.new(),
+                      properties={},
                       prototype=array_proto,
                     )
                     arr["0"] = entry.key
@@ -204,10 +204,7 @@ pub fn init_set_prototype(
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
-                let res = JSObject::new(
-                  properties=@hashmap.new(),
-                  prototype=object_proto,
-                )
+                let res = JSObject::new(properties={}, prototype=object_proto)
                 res["value"] = value
                 res["done"] = Boolean(false)
                 JSValue::Object(res)
@@ -218,10 +215,7 @@ pub fn init_set_prototype(
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
-                let res = JSObject::new(
-                  properties=@hashmap.new(),
-                  prototype=object_proto,
-                )
+                let res = JSObject::new(properties={}, prototype=object_proto)
                 res["value"] = Undefined
                 res["done"] = Boolean(true)
                 JSValue::Object(res)
@@ -261,10 +255,7 @@ pub fn init_set_prototype(
         JSValue::String("Set Iterator"),
       )
       let create_set_iter = fn(_ctx : Context, m : LinkedMap, kind : String) {
-        let iter = JSObject::new(
-          properties=@hashmap.new(),
-          prototype=set_iter_proto_val,
-        )
+        let iter = JSObject::new(properties={}, prototype=set_iter_proto_val)
         iter.properties.set(
           "SetData",
           JSValue::Internal(SetIterator(m, Ref::new(m.head), kind)),

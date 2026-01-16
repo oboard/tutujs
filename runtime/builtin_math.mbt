@@ -1,6 +1,6 @@
 ///|
 pub fn create_math_object(object_proto : JSValue) -> JSValue {
-  let math_props = @hashmap.new()
+  let math_props = {}
   math_props.set("E", JSValue::Number(2.718281828459045))
   math_props.set("LN10", JSValue::Number(2.302585092994046))
   math_props.set("LN2", JSValue::Number(0.6931471805599453))

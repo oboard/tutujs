@@ -3,7 +3,7 @@ pub fn create_date_object(
   object_proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let date_proto_props = @hashmap.new()
+  let date_proto_props = {}
   let date_proto = JSValue::Object(
     JSObject::new(properties=date_proto_props, prototype=object_proto),
   )
@@ -99,7 +99,7 @@ pub fn create_date_object(
       JSValue::String(format_to_string(zdt))
     }
   })
-  let date_ctor_props = @hashmap.new()
+  let date_ctor_props = {}
   let date_ctor = JSFunction::new(
     name="Date",
     params=["year", "month", "date", "hours", "minutes", "seconds", "ms"],
@@ -123,12 +123,12 @@ pub fn create_date_object(
       let desc_map = match obj.properties.get(desc_key) {
         Some(Object(m)) => m
         _ => {
-          let m = JSObject::new(properties=@hashmap.new())
+          let m = JSObject::new(properties={})
           obj.properties.set(desc_key, JSValue::Object(m))
           m
         }
       }
-      let d_props = @hashmap.new()
+      let d_props = {}
       d_props.set("value", value)
       d_props.set("writable", JSValue::Boolean(true))
       d_props.set("enumerable", JSValue::Boolean(false))

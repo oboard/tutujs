@@ -5,7 +5,7 @@ pub fn create_regexp_object(
   object_proto : JSValue,
   syntax_error_ctor : JSValue,
 ) -> JSValue {
-  let regexp_proto_props = @hashmap.new()
+  let regexp_proto_props = {}
   let regexp_proto = JSValue::Object(
     JSObject::new(properties=regexp_proto_props, prototype=object_proto),
   )
@@ -39,7 +39,7 @@ pub fn create_regexp_object(
         Object(o) => o.properties.get("prototype")
         _ => None
       }
-      let err_props = @hashmap.new()
+      let err_props = {}
       err_props.set("name", JSValue::String("SyntaxError"))
       err_props.set(
         "message",
@@ -79,7 +79,7 @@ pub fn create_regexp_object(
       }
     } else {
       // Function call - create new object
-      let new_obj_props = @hashmap.new()
+      let new_obj_props = {}
       let new_obj = JSValue::Object(
         JSObject::new(properties=new_obj_props, prototype=regexp_proto),
       )
@@ -91,7 +91,7 @@ pub fn create_regexp_object(
       new_obj
     }
   })
-  let regexp_ctor_props = @hashmap.new()
+  let regexp_ctor_props = {}
   regexp_ctor_props.set("prototype", regexp_proto)
   let regexp_ctor = JSFunction::new(
     name="RegExp",
@@ -154,7 +154,7 @@ pub fn create_regexp_object(
               JSValue::Number((match_index + match_str.length()).to_double()),
             )
           }
-          let result_array_props = @hashmap.new()
+          let result_array_props = {}
           result_array_props.set("0", JSValue::String(match_str))
           result_array_props.set(
             "index",
