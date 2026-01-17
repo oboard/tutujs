@@ -20,12 +20,12 @@ pub fn init_string_prototype(
           _ => JSValue::String("")
         }
       })
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=to_string_fn,
         prototype=func_proto,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
 
       // valueOf
       let value_of_fn = Native(fn(_ctx, this_val, _args) {
@@ -39,12 +39,12 @@ pub fn init_string_prototype(
           _ => JSValue::String("")
         }
       })
-      let value_of_obj = JSFunction::new(
+      let value_of_obj = JSObject::new_function(
         name="valueOf",
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj["valueOf"] = JSValue::Function(value_of_obj)
+      obj["valueOf"] = JSValue::Object(value_of_obj)
 
       // charAt
       let char_at_fn = Native(fn(_ctx, this_val, args) {
@@ -69,12 +69,12 @@ pub fn init_string_prototype(
           JSValue::String("")
         }
       })
-      let char_at_obj = JSFunction::new(
+      let char_at_obj = JSObject::new_function(
         name="charAt",
         body=char_at_fn,
         prototype=func_proto,
       )
-      obj["charAt"] = JSValue::Function(char_at_obj)
+      obj["charAt"] = JSValue::Object(char_at_obj)
 
       // split
       let split_fn = Native(fn(ctx, this_val, args) {
@@ -98,7 +98,7 @@ pub fn init_string_prototype(
           JSValue::Undefined
         }
         let array_proto = match ctx.resolve("Array") {
-          Function(f) => f.inner.properties.get("prototype")
+          Object(f) => f.properties.get("prototype")
           _ => None
         }
         let arr_obj = match array_proto {
@@ -109,13 +109,13 @@ pub fn init_string_prototype(
         arr_obj["0"] = JSValue::String(s)
         JSValue::Object(arr_obj)
       })
-      let split_obj = JSFunction::new(
+      let split_obj = JSObject::new_function(
         name="split",
         params=["separator", "limit"],
         body=split_fn,
         prototype=func_proto,
       )
-      obj["split"] = JSValue::Function(split_obj)
+      obj["split"] = JSValue::Object(split_obj)
     }
     _ => ()
   }
@@ -169,8 +169,8 @@ pub fn create_string_constructor(
       JSValue::String(val_str)
     }
   })
-  JSValue::Function(
-    JSFunction::new(
+  JSValue::Object(
+    JSObject::new_function(
       name="String",
       params=["value"],
       body=ctor_fn,

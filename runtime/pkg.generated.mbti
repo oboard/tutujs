@@ -105,6 +105,19 @@ pub(all) struct BuiltinProperty {
   writable : Bool
 }
 
+pub(all) struct CallInfo {
+  mut name : String?
+  params : Array[String]
+  body : FunctionBody
+  context : Context
+  strict : Bool
+  is_constructor : Bool
+  is_arrow : Bool
+}
+pub impl Eq for CallInfo
+pub impl Show for CallInfo
+pub impl ToJson for CallInfo
+
 pub(all) struct Context {
   scope : Map[String, JSValue]
   parent : Context?
@@ -116,7 +129,7 @@ pub fn Context::create_global() -> Self
 pub fn Context::eval(Self, &Show) -> JSValue
 pub fn Context::eval_safe(Self, &Show) -> Result[JSValue, JSValue]
 pub fn Context::get_property(Self, JSValue, String) -> JSValue
-pub fn Context::invoke(Self, JSFunction, JSValue, Array[JSValue]) -> JSValue raise EvalError
+pub fn Context::invoke(Self, JSObject, JSValue, Array[JSValue]) -> JSValue raise EvalError
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
 pub fn Context::register_builtin(Self, String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> Unit
@@ -142,28 +155,6 @@ pub impl Show for FunctionBody
 pub impl ToJson for FunctionBody
 pub impl @json.FromJson for FunctionBody
 
-pub(all) struct JSFunction {
-  mut name : String?
-  params : Array[String]
-  body : FunctionBody
-  context : Context
-  strict : Bool
-  is_constructor : Bool
-  is_arrow : Bool
-  inner : JSObject
-}
-#alias("_[_]")
-pub fn JSFunction::get(Self, String) -> JSValue
-pub fn JSFunction::new(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
-#alias("_[_]=_")
-pub fn JSFunction::set(Self, String, JSValue) -> Unit
-pub impl Compare for JSFunction
-pub impl Eq for JSFunction
-pub impl Hash for JSFunction
-pub impl Show for JSFunction
-pub impl ToJson for JSFunction
-pub impl @json.FromJson for JSFunction
-
 pub(all) enum JSInternal {
   Date(Double)
   RegExp(@regexp.Regexp, String)
@@ -171,7 +162,7 @@ pub(all) enum JSInternal {
   MapIterator(LinkedMap, Ref[LinkedEntry?], String)
   Set(LinkedMap)
   SetIterator(LinkedMap, Ref[LinkedEntry?], String)
-  Accessor(JSFunction?, JSFunction?)
+  Accessor(JSObject?, JSObject?)
 }
 pub impl Compare for JSInternal
 pub impl Eq for JSInternal
@@ -190,10 +181,13 @@ pub(all) struct JSObject {
   mut is_proxy : Bool
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
+  is_callable : Bool
+  mut call_info : CallInfo?
 }
 #alias("_[_]")
 pub fn JSObject::get(Self, String) -> JSValue
 pub fn JSObject::new(properties? : Map[String, JSValue], prototype? : JSValue) -> Self
+pub fn JSObject::new_function(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
 #alias("_[_]=_")
 pub fn JSObject::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSObject
@@ -209,7 +203,6 @@ pub(all) enum JSValue {
   Boolean(Bool)
   BigInt(@bigint.BigInt)
   Symbol(Int, String)
-  Function(JSFunction)
   Object(JSObject)
   Null
   Undefined

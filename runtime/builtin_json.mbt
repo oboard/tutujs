@@ -38,25 +38,28 @@ pub fn create_json_object(object_proto : JSValue) -> JSValue {
     match args {
       [_, reviver_arg, ..] =>
         match reviver_arg {
-          Function(reviver) => {
-            let obj_ctor = ctx.resolve("Object")
-            let obj_proto = match obj_ctor {
-              Function(f) => f.get("prototype")
-              _ => JSValue::Null
+          Object(reviver) =>
+            if reviver.is_callable {
+              let obj_ctor = ctx.resolve("Object")
+              let obj_proto = match obj_ctor {
+                Object(f) => f.get("prototype")
+                _ => JSValue::Null
+              }
+              let root = JSObject::new(properties={}, prototype=obj_proto)
+              root.set("", val)
+              internalize_json_property(root, "", reviver, ctx)
+            } else {
+              val
             }
-            let root = JSObject::new(properties={}, prototype=obj_proto)
-            root.set("", val)
-            internalize_json_property(root, "", reviver, ctx)
-          }
           _ => val
         }
       _ => val
     }
   })
-  let parse_obj = JSFunction::new(name="parse", body=parse_fn, params=[
+  let parse_obj = JSObject::new_function(name="parse", body=parse_fn, params=[
     "text", "reviver",
   ])
-  json_obj["parse"] = JSValue::Function(parse_obj)
+  json_obj["parse"] = JSValue::Object(parse_obj)
 
   // JSON.stringify
   let stringify_fn = Native(fn(ctx, _this_val, args) {
@@ -67,10 +70,12 @@ pub fn create_json_object(object_proto : JSValue) -> JSValue {
       JSValue::Undefined
     }
   })
-  let stringify_obj = JSFunction::new(name="stringify", body=stringify_fn, params=[
-    "value", "replacer", "space",
-  ])
-  json_obj["stringify"] = JSValue::Function(stringify_obj)
+  let stringify_obj = JSObject::new_function(
+    name="stringify",
+    body=stringify_fn,
+    params=["value", "replacer", "space"],
+  )
+  json_obj["stringify"] = JSValue::Object(stringify_obj)
   JSValue::Object(json_obj)
 }
 
@@ -88,6 +93,9 @@ fn stringify(ctx : Context, value : JSValue) -> JSValue raise EvalError {
     Null => JSValue::String("null")
     Undefined => JSValue::Undefined // Should return Undefined for direct call, but omitted in object
     Object(o) => {
+      if o.is_callable {
+        return JSValue::Undefined
+      }
       // Check for toJSON?
       // TODO: toJSON support
 
@@ -143,7 +151,6 @@ fn stringify(ctx : Context, value : JSValue) -> JSValue raise EvalError {
         JSValue::String(res)
       }
     }
-    Function(_) => JSValue::Undefined // Functions are ignored
     Symbol(_) => JSValue::Undefined
     BigInt(_) => JSValue::Undefined // TypeError in spec, but undefined here for safety
     Internal(_) => JSValue::String("{}")
@@ -160,7 +167,7 @@ fn escape_string(s : String) -> String {
 fn internalize_json_property(
   holder : JSObject,
   name : String,
-  reviver : JSFunction,
+  reviver : JSObject,
   ctx : Context,
 ) -> JSValue raise EvalError {
   let val = JSValue::Object(holder).get_property_throwing(name)
@@ -229,11 +236,11 @@ fn create_data_property(
   val : JSValue,
 ) -> Unit raise EvalError {
   let define_prop = match ctx.resolve("Object") {
-    Function(f) => f.get("defineProperty")
+    Object(f) => f.get("defineProperty")
     _ => Undefined
   }
   match define_prop {
-    Function(f) => {
+    Object(f) => {
       let desc = JSObject::new(prototype=JSValue::Null, properties={
         "value": val,
         "writable": JSValue::Boolean(true),

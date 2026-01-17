@@ -5,141 +5,153 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
-          Function(f) => {
-            // Basic implementation: return "function() { [native code] }" or source if available
-            // For now, simple stub
-            let name = f.name.unwrap_or("anonymous")
-            JSValue::String("function \{name}() { [native code] }")
-          }
+          Object(f) =>
+            if f.is_callable {
+              // Basic implementation: return "function() { [native code] }" or source if available
+              // For now, simple stub
+              let name = f.call_info.unwrap().name.unwrap_or("anonymous")
+              JSValue::String("function \{name}() { [native code] }")
+            } else {
+              JSValue::String("function() { [native code] }")
+            }
           _ =>
             // In ES3/5, Function.prototype.toString.call(non-function) throws TypeError
             // For now return generic string
             JSValue::String("function() { [native code] }")
         }
       })
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=to_string_fn,
         prototype=func_proto_val,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
 
       // call (ES3)
       let call_fn = Native(fn(ctx, this_val, args) {
         match this_val {
-          Function(f) => {
-            let this_arg = if args is [arg0, ..] {
-              arg0
+          Object(f) =>
+            if f.is_callable {
+              let this_arg = if args is [arg0, ..] {
+                arg0
+              } else {
+                JSValue::Undefined
+              }
+              let call_args = []
+              match args {
+                [_, .. rest] =>
+                  for arg in rest {
+                    call_args.push(arg)
+                  }
+                _ => ()
+              }
+
+              // println("call_fn invoke: this_arg=\{this_arg}, args=\{call_args}")
+              ctx.invoke(f, this_arg, call_args) catch {
+                EvalError::Return(v) => v
+                e => raise e
+              }
             } else {
               JSValue::Undefined
             }
-            let call_args = []
-            match args {
-              [_, .. rest] =>
-                for arg in rest {
-                  call_args.push(arg)
-                }
-              _ => ()
-            }
-
-            // println("call_fn invoke: this_arg=\{this_arg}, args=\{call_args}")
-            ctx.invoke(f, this_arg, call_args) catch {
-              EvalError::Return(v) => v
-              e => raise e
-            }
-          }
           _ => JSValue::Undefined // TypeError
         }
       })
-      let call_obj = JSFunction::new(
+      let call_obj = JSObject::new_function(
         name="call",
         body=call_fn,
         prototype=func_proto_val,
       )
-      obj["call"] = JSValue::Function(call_obj)
+      obj["call"] = JSValue::Object(call_obj)
 
       // apply (ES3)
       let apply_fn = Native(fn(ctx, this_val, args) {
         match this_val {
-          Function(f) => {
-            let this_arg = if args is [arg0, ..] {
-              arg0
+          Object(f) =>
+            if f.is_callable {
+              let this_arg = if args is [arg0, ..] {
+                arg0
+              } else {
+                JSValue::Undefined
+              }
+              let call_args = []
+              if args is [_, arg1, ..] {
+                match arg1 {
+                  Object({ properties, .. }) => {
+                    let len = match properties.get("length") {
+                      Some(Number(n)) => n.to_int()
+                      _ => 0
+                    }
+                    for i = 0; i < len; i = i + 1 {
+                      match properties.get(i.to_string()) {
+                        Some(val) => call_args.push(val)
+                        None => call_args.push(JSValue::Undefined)
+                      }
+                    }
+                  }
+                  _ => ()
+                }
+              }
+              ctx.invoke(f, this_arg, call_args) catch {
+                _ => JSValue::Undefined
+              }
             } else {
               JSValue::Undefined
             }
-            let call_args = []
-            if args is [_, arg1, ..] {
-              match arg1 {
-                Object({ properties, .. }) => {
-                  let len = match properties.get("length") {
-                    Some(Number(n)) => n.to_int()
-                    _ => 0
-                  }
-                  for i = 0; i < len; i = i + 1 {
-                    match properties.get(i.to_string()) {
-                      Some(val) => call_args.push(val)
-                      None => call_args.push(JSValue::Undefined)
-                    }
-                  }
-                }
-                _ => ()
-              }
-            }
-            ctx.invoke(f, this_arg, call_args) catch {
-              _ => JSValue::Undefined
-            }
-          }
           _ => JSValue::Undefined
         }
       })
-      let apply_obj = JSFunction::new(
+      let apply_obj = JSObject::new_function(
         name="apply",
         body=apply_fn,
         prototype=func_proto_val,
       )
-      obj["apply"] = JSValue::Function(apply_obj)
+      obj["apply"] = JSValue::Object(apply_obj)
 
       // bind (ES5)
       let bind_fn = Native(fn(_ctx, this_val, args) {
         match this_val {
-          Function(f) => {
-            let this_arg = if args is [arg0, ..] {
-              arg0
+          Object(f) =>
+            if f.is_callable {
+              let this_arg = if args is [arg0, ..] {
+                arg0
+              } else {
+                JSValue::Undefined
+              }
+              let bound_args = []
+              if args is [_, .. rest] {
+                for arg in rest {
+                  bound_args.push(arg)
+                }
+              }
+              let bound_fn_body = Native(fn(ctx, _this, call_args) {
+                let final_args = []
+                for arg in bound_args {
+                  final_args.push(arg)
+                }
+                for arg in call_args {
+                  final_args.push(arg)
+                }
+                ctx.invoke(f, this_arg, final_args)
+              })
+              let bound_obj = JSObject::new_function(
+                name="bound " + f.call_info.unwrap().name.unwrap_or(""),
+                body=bound_fn_body,
+                prototype=func_proto_val,
+              )
+              JSValue::Object(bound_obj)
             } else {
               JSValue::Undefined
             }
-            let bound_args = []
-            if args is [_, .. rest] {
-              for arg in rest {
-                bound_args.push(arg)
-              }
-            }
-            let bound_fn_body = Native(fn(ctx, _this, call_args) {
-              let final_args = []
-              for arg in bound_args {
-                final_args.push(arg)
-              }
-              for arg in call_args {
-                final_args.push(arg)
-              }
-              ctx.invoke(f, this_arg, final_args)
-            })
-            let bound_obj = JSFunction::new(
-              name="bound " + f.name.unwrap_or(""),
-              body=bound_fn_body,
-              prototype=func_proto_val,
-            )
-            JSValue::Function(bound_obj)
-          }
           _ => JSValue::Undefined // TypeError
         }
       })
-      let bind_obj = JSFunction::new(
+      let bind_obj = JSObject::new_function(
         name="bind",
         body=bind_fn,
         prototype=func_proto_val,
       )
-      obj["bind"] = JSValue::Function(bind_obj)
+      obj["bind"] = JSValue::Object(bind_obj)
     }
     _ => ()
   }
@@ -208,12 +220,12 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
       JSValue::Undefined
     }
   })
-  let ctor_obj = JSFunction::new(
+  let ctor_obj = JSObject::new_function(
     name="Function",
     body=ctor_fn,
     prototype=proto,
     is_constructor=true,
   )
   ctor_obj["prototype"] = proto
-  JSValue::Function(ctor_obj)
+  JSValue::Object(ctor_obj)
 }

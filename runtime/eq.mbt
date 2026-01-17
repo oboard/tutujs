@@ -14,12 +14,7 @@ pub fn JSValue::unstrict_equal(
     (Boolean(a), Boolean(b)) => a == b
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
-    (
-      Object(a)
-      | Function({ inner: a, .. }),
-      Object(b)
-      | Function({ inner: b, .. }),
-    ) => physical_equal(a, b)
+    (Object(a), Object(b)) => physical_equal(a, b)
     (Number(a), String(b)) =>
       a ==
       (@strconv.parse_double(b.to_string()) catch { _ => @double.not_a_number })
@@ -32,9 +27,9 @@ pub fn JSValue::unstrict_equal(
       JSValue::Number(self.to_number()).unstrict_equal(other, ctx)
     (_, Boolean(_)) =>
       self.unstrict_equal(JSValue::Number(other.to_number()), ctx)
-    (String(_) | Number(_) | Symbol(_, _) | BigInt(_), Object(_) | Function(_)) =>
+    (String(_) | Number(_) | Symbol(_, _) | BigInt(_), Object(_)) =>
       self.unstrict_equal(to_primitive(ctx, other), ctx)
-    (Object(_) | Function(_), String(_) | Number(_) | Symbol(_, _) | BigInt(_)) =>
+    (Object(_), String(_) | Number(_) | Symbol(_, _) | BigInt(_)) =>
       to_primitive(ctx, self).unstrict_equal(other, ctx)
     _ => false
   }

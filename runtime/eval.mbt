@@ -80,23 +80,39 @@ pub fn format_js_error(val : JSValue) -> String {
       // Try calling toString()
       let to_string = obj.properties.get("toString")
       match to_string {
-        Some(Function(_f)) => {
-          // We can't easily invoke here because it might throw and we don't have a Context.
-          // But we can try to get properties directly.
-          let name = match obj.properties.get("name") {
-            Some(String(s)) => s.to_string()
-            _ => "Error"
-          }
-          let message = match obj.properties.get("message") {
-            Some(String(s)) => s.to_string()
-            _ => ""
-          }
-          if message == "" {
-            name
+        Some(Object(f)) =>
+          if f.is_callable {
+            // We can't easily invoke here because it might throw and we don't have a Context.
+            // But we can try to get properties directly.
+            let name = match obj.properties.get("name") {
+              Some(String(s)) => s.to_string()
+              _ => "Error"
+            }
+            let message = match obj.properties.get("message") {
+              Some(String(s)) => s.to_string()
+              _ => ""
+            }
+            if message == "" {
+              name
+            } else {
+              name + ": " + message
+            }
           } else {
-            name + ": " + message
+            // ...
+            let name = match obj.properties.get("name") {
+              Some(String(s)) => s.to_string()
+              _ => "Error"
+            }
+            let message = match obj.properties.get("message") {
+              Some(String(s)) => s.to_string()
+              _ => ""
+            }
+            if message == "" {
+              name
+            } else {
+              name + ": " + message
+            }
           }
-        }
         _ => {
           let name = match obj.properties.get("name") {
             Some(String(s)) => s.to_string()
@@ -122,79 +138,84 @@ pub fn format_js_error(val : JSValue) -> String {
 ///|
 pub fn Context::invoke(
   self : Context,
-  func : JSFunction,
+  f : JSObject,
   this_val : JSValue,
   args : Array[JSValue],
 ) -> JSValue raise EvalError {
-  match func.body {
-    User(block) => {
-      // Check for "use strict" in function body
-      let mut strict_directive = false
-      for d in block.directives {
-        if d.value.value == "use strict" {
-          strict_directive = true
-          break
-        }
-      }
-      let strict = func.strict || strict_directive
-      let this_binding = if not(strict) &&
-        (this_val == Null || this_val == Undefined) {
-        match func.context.resolve("globalThis") {
-          Undefined => this_val
-          v => v
-        }
-      } else {
-        this_val
-      }
-      let new_ctx = new(parent=func.context, strict~)
-      if not(func.is_arrow) {
-        new_ctx.scope.set("this", this_binding)
-      }
-
-      // Create arguments object
-      let arg_obj_props = {}
-      for i, val in args {
-        arg_obj_props.set(i.to_string(), val)
-      }
-      arg_obj_props.set("length", JSValue::Number(args.length().to_double()))
-      let object_proto = match self.resolve("Object") {
-        Function(f) => f.inner.properties.get("prototype")
-        _ => None
-      }
-      let arg_obj = JSObject::new(
-        properties=arg_obj_props,
-        prototype=object_proto.unwrap_or(Undefined),
-      )
-      new_ctx.scope.set("arguments", JSValue::Object(arg_obj))
-      let param_len = func.params.length()
-      for i, val in args {
-        if i < param_len {
-          new_ctx.scope.set(func.params[i], val)
-        } else {
-          break
-        }
-      }
-      try {
-        // Hoist FunctionDeclarations
-        for stmt in block.body {
-          match stmt {
-            FunctionDeclaration(_) =>
-              new_ctx.evaluate(Statement(stmt)) |> ignore
-            _ => ()
+  if f.is_callable {
+    let call_info = f.call_info.unwrap()
+    match call_info.body {
+      User(block) => {
+        // Check for "use strict" in function body
+        let mut strict_directive = false
+        for d in block.directives {
+          if d.value.value == "use strict" {
+            strict_directive = true
+            break
           }
         }
-        for stmt in block.body {
-          new_ctx.evaluate(Statement(stmt)) |> ignore
+        let strict = call_info.strict || strict_directive
+        let this_binding = if not(strict) &&
+          (this_val == Null || this_val == Undefined) {
+          match call_info.context.resolve("globalThis") {
+            Undefined => this_val
+            v => v
+          }
+        } else {
+          this_val
         }
-        JSValue::Undefined
-      } catch {
-        EvalError::Return(v) => v
-        EvalError::Break(l) => raise EvalError::Break(l)
-        EvalError::Continue(l) => raise EvalError::Continue(l)
-        EvalError::Throw(v) => raise EvalError::Throw(v)
+        let new_ctx = Context::new(parent=call_info.context, strict~)
+        if not(call_info.is_arrow) {
+          new_ctx.scope.set("this", this_binding)
+        }
+
+        // Create arguments object
+        let arg_obj_props = {}
+        for i, val in args {
+          arg_obj_props.set(i.to_string(), val)
+        }
+        arg_obj_props.set("length", JSValue::Number(args.length().to_double()))
+        let object_proto = match self.resolve("Object") {
+          Object(f) => f.properties.get("prototype")
+          _ => None
+        }
+        let arg_obj = JSObject::new(
+          properties=arg_obj_props,
+          prototype=object_proto.unwrap_or(Undefined),
+        )
+        new_ctx.scope.set("arguments", JSValue::Object(arg_obj))
+        let param_len = call_info.params.length()
+        for i, val in args {
+          if i < param_len {
+            new_ctx.scope.set(call_info.params[i], val)
+          } else {
+            break
+          }
+        }
+        try {
+          // Hoist FunctionDeclarations
+          for stmt in block.body {
+            match stmt {
+              FunctionDeclaration(_) =>
+                new_ctx.evaluate(Statement(stmt)) |> ignore
+              _ => ()
+            }
+          }
+          for stmt in block.body {
+            new_ctx.evaluate(Statement(stmt)) |> ignore
+          }
+          JSValue::Undefined
+        } catch {
+          EvalError::Return(v) => v
+          EvalError::Break(l) => raise EvalError::Break(l)
+          EvalError::Continue(l) => raise EvalError::Continue(l)
+          EvalError::Throw(v) => raise EvalError::Throw(v)
+        }
       }
+      Native(f) => f(self, this_val, args)
     }
-    Native(f) => f(self, this_val, args)
+  } else {
+    raise EvalError::Throw(JSValue::String("TypeError: Not a function"))
   }
 }
 
@@ -217,13 +238,13 @@ fn Context::evaluate(
             }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.inner.properties.get("prototype")
+            Object(f) => f.properties.get("prototype")
             _ => None
           }
           let func_props = {}
           let func = match func_proto {
             Some(proto) =>
-              JSFunction::new(
+              JSObject::new_function(
                 name=id.name,
                 params=param_names,
                 body=User(body),
@@ -233,7 +254,7 @@ fn Context::evaluate(
                 strict=self.strict,
               )
             None =>
-              JSFunction::new(
+              JSObject::new_function(
                 name=id.name,
                 params=param_names,
                 body=User(body),
@@ -242,11 +263,11 @@ fn Context::evaluate(
                 strict=self.strict,
               )
           }
-          let func_val = JSValue::Function(func)
+          let func_val = JSValue::Object(func)
 
           // Setup prototype property
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.get("prototype")
+            Object(f) => f.get("prototype")
             _ => Undefined
           }
           let proto_props = {}
@@ -282,21 +303,22 @@ fn Context::evaluate(
             None => self.resolve("Object")
           }
           let func_props = {}
-          let func = JSFunction::new(
+          let func = JSObject::new_function(
             name~,
             params=[],
             body=Native(fn(ctx, this_val, args) {
               match super_val {
-                Function(f) => {
-                  let res = ctx.invoke(f, this_val, args) catch {
-                    EvalError::Return(v) => return v
-                    e => raise e
+                Object(f) =>
+                  if f.is_callable {
+                    let res = ctx.invoke(f, this_val, args) catch {
+                      EvalError::Return(v) => return v
+                      e => raise e
+                    }
+                    match res {
+                      Object(_) => return res
+                      _ => ()
+                    }
                   }
-                  match res {
-                    Object(_) | Function(_) => return res
-                    _ => ()
-                  }
-                }
                 _ => ()
               }
               this_val
@@ -305,9 +327,9 @@ fn Context::evaluate(
             properties=func_props,
             is_constructor=true,
           )
-          let func_val = JSValue::Function(func)
+          let func_val = JSValue::Object(func)
           let super_proto = match super_val {
-            Function(f) => f.get("prototype")
+            Object(f) => f.get("prototype")
             _ => self.resolve("Object").get_property("prototype")
           }
           let proto_props = {}
@@ -560,9 +582,11 @@ fn Context::evaluate(
                       }
                       // Function properties
                       match curr {
-                        Function(_) =>
-                          if k == "name" || k == "arguments" || k == "caller" {
-                            enumerable = false
+                        Object(f) =>
+                          if f.is_callable {
+                            if k == "name" || k == "arguments" || k == "caller" {
+                              enumerable = false
+                            }
                           }
                         _ => ()
                       }
@@ -782,15 +806,16 @@ fn Context::evaluate(
             args_values.push(self.evaluate(Expression(arg)))
           }
           match ctor_val {
-            Function(func) => {
-              if not(func.is_constructor) {
+            Object(func) => {
+              let call_info = func.call_info.unwrap()
+              if not(call_info.is_constructor) {
                 self.throw_type_error(
                   self.evaluate(Expression(callee)).to_string() +
                   " is not a constructor",
                 )
                 return Undefined
               }
-              let proto = match func.inner.properties.get("prototype") {
+              let proto = match func.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -799,14 +824,17 @@ fn Context::evaluate(
                   JSValue::Object(JSObject::new(properties={}, prototype=p))
                 None => JSValue::Object(JSObject::new(properties={}))
               }
-              let res = match func.body {
+              let res = match call_info.body {
                 User(block) => {
-                  let new_ctx = new(parent=func.context, strict=func.strict)
+                  let new_ctx = Context::new(
+                    parent=call_info.context,
+                    strict=call_info.strict,
+                  )
                   new_ctx.scope.set("this", new_obj)
                   new_ctx.scope.set("new.target", ctor_val)
                   for i, val in args_values {
-                    if i < func.params.length() {
-                      new_ctx.scope.set(func.params[i], val)
+                    if i < call_info.params.length() {
+                      new_ctx.scope.set(call_info.params[i], val)
                     }
                   }
                   try {
@@ -832,7 +860,7 @@ fn Context::evaluate(
                 Native(f) => f(self, new_obj, args_values)
               }
               match res {
-                Object(_) | Function(_) => res
+                Object(_) => res
                 _ => new_obj
               }
             }
@@ -862,13 +890,20 @@ fn Context::evaluate(
             _ => (self.evaluate(Expression(callee)), JSValue::Undefined)
           }
           match callee_val {
-            Function(func) => {
-              let args_values = []
-              for arg in arguments {
-                args_values.push(self.evaluate(Expression(arg)))
+            Object(func) =>
+              if func.is_callable {
+                let args_values = []
+                for arg in arguments {
+                  args_values.push(self.evaluate(Expression(arg)))
+                }
+                self.invoke(func, this_val, args_values)
+              } else {
+                self.throw_type_error(
+                  self.evaluate(Expression(callee)).to_string() +
+                  " is not a function",
+                )
+                Undefined
               }
-              self.invoke(func, this_val, args_values)
-            }
             _ => {
               self.throw_type_error(
                 self.evaluate(Expression(callee)).to_string() +
@@ -973,8 +1008,8 @@ fn Context::evaluate(
           }
           let flags_val = JSValue::String(flags_str[:])
           match self.resolve("RegExp") {
-            Function(f) => {
-              let proto = match f.inner.properties.get("prototype") {
+            Object(f) => {
+              let proto = match f.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -986,7 +1021,7 @@ fn Context::evaluate(
               let args = [pattern_val, flags_val]
               let res = self.invoke(f, new_obj, args)
               match res {
-                Object(_) | Function(_) => res
+                Object(_) => res
                 _ => new_obj
               }
             }
@@ -1037,10 +1072,15 @@ fn Context::evaluate(
                     Boolean(_) => "boolean"
                     Number(_) => "number"
                     String(_) => "string"
-                    Function(_) => "function"
                     BigInt(_) => "bigint"
                     Symbol(_) => "symbol"
-                    Object(_) | Internal(_) => "object"
+                    Object(o) =>
+                      if o.is_callable {
+                        "function"
+                      } else {
+                        "object"
+                      }
+                    Internal(_) => "object"
                   }
                   String(type_str)
                 }
@@ -1091,7 +1131,7 @@ fn Context::evaluate(
                     _ => ()
                   }
                 }
-                let func_val = JSFunction::new(
+                let func_val = JSObject::new_function(
                   name=key_str,
                   params=param_names,
                   body=User(body),
@@ -1129,7 +1169,7 @@ fn Context::evaluate(
                         )
                     }
                   }
-                  Method => obj_props.set(key_str, JSValue::Function(func_val))
+                  Method => obj_props.set(key_str, JSValue::Object(func_val))
                   _ => ()
                 }
               }
@@ -1137,8 +1177,8 @@ fn Context::evaluate(
             }
           }
           let object_proto = match self.resolve("Object") {
-            Function(f) =>
-              match f.inner.properties.get("prototype") {
+            Object(f) =>
+              match f.properties.get("prototype") {
                 Some(p) => p
                 None => Null
               }
@@ -1162,8 +1202,8 @@ fn Context::evaluate(
           }
           arr_props.set("length", Number(len.to_double()))
           let proto = match self.resolve("Array") {
-            Function(f) =>
-              match f.inner.properties.get("prototype") {
+            Object(f) =>
+              match f.properties.get("prototype") {
                 Some(p) => Some(p)
                 None => Some(Null)
               }
@@ -1189,11 +1229,11 @@ fn Context::evaluate(
             None => None
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.inner.properties.get("prototype")
+            Object(f) => f.properties.get("prototype")
             _ => None
           }
           let func_props = {}
-          let func = JSFunction::new(
+          let func = JSObject::new_function(
             name?,
             params=param_names,
             body=User(body),
@@ -1202,9 +1242,9 @@ fn Context::evaluate(
             prototype?=func_proto,
             strict=self.strict,
           )
-          let func_val = JSValue::Function(func)
+          let func_val = JSValue::Object(func)
           let obj_proto = match self.resolve("Object") {
-            Function(f) => f.inner.properties.get("prototype")
+            Object(f) => f.properties.get("prototype")
             _ => None
           }
           let proto_props = {}
@@ -1238,10 +1278,10 @@ fn Context::evaluate(
               }
           }
           let func_proto = match self.resolve("Function") {
-            Function(f) => f.inner.properties.get("prototype")
+            Object(f) => f.properties.get("prototype")
             _ => None
           }
-          let func = JSFunction::new(
+          let func = JSObject::new_function(
             params=param_names,
             body=User(block_body),
             context=self,
@@ -1250,7 +1290,7 @@ fn Context::evaluate(
             is_constructor=false,
             is_arrow=true,
           )
-          Function(func)
+          Object(func)
         }
         AssignmentExpression({ operator, left, right }) => {
           let right_val = self.evaluate(Expression(right))

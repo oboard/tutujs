@@ -35,7 +35,6 @@ pub fn create_regexp_object(
     }
     if not(valid) {
       let syntax_error_proto = match syntax_error_ctor {
-        Function(f) => f.inner.properties.get("prototype")
         Object(o) => o.properties.get("prototype")
         _ => None
       }
@@ -88,14 +87,14 @@ pub fn create_regexp_object(
     }
   })
   let regexp_ctor_props = { "prototype": regexp_proto }
-  let regexp_ctor = JSFunction::new(
+  let regexp_ctor = JSObject::new_function(
     name="RegExp",
     body=regexp_ctor_fn,
     properties=regexp_ctor_props,
     prototype=object_proto,
     is_constructor=true,
   )
-  let regexp_ctor_val = JSValue::Function(regexp_ctor)
+  let regexp_ctor_val = JSValue::Object(regexp_ctor)
   regexp_proto_props.set("constructor", regexp_ctor_val)
 
   // RegExp.prototype.exec(string)
@@ -170,7 +169,7 @@ pub fn create_regexp_object(
   })
   regexp_proto_props.set(
     "exec",
-    JSValue::Function(JSFunction::new(name="exec", body=exec_fn)),
+    JSValue::Object(JSObject::new_function(name="exec", body=exec_fn)),
   )
 
   // RegExp.prototype.test(string)
@@ -186,7 +185,7 @@ pub fn create_regexp_object(
   })
   regexp_proto_props.set(
     "test",
-    JSValue::Function(JSFunction::new(name="test", body=test_fn)),
+    JSValue::Object(JSObject::new_function(name="test", body=test_fn)),
   )
 
   // RegExp.prototype.toString()
@@ -206,7 +205,7 @@ pub fn create_regexp_object(
   })
   regexp_proto_props.set(
     "toString",
-    JSValue::Function(JSFunction::new(name="toString", body=to_string_fn)),
+    JSValue::Object(JSObject::new_function(name="toString", body=to_string_fn)),
   )
   regexp_ctor_val
 }

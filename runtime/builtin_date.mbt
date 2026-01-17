@@ -25,7 +25,7 @@ pub fn create_date_object(
               ms_opt = Some(n)
             }
           String(s) => ms_opt = parse_date_string(ctx, s.to_string())
-          Object(_) | Function(_) =>
+          Object(_) =>
             ms_opt = match args[0].get_property("__internal_date__") {
               Internal(Date(ms)) => Some(ms)
               _ => {
@@ -95,14 +95,14 @@ pub fn create_date_object(
       JSValue::String(format_to_string(zdt))
     }
   })
-  let date_ctor = JSFunction::new(
+  let date_ctor = JSObject::new_function(
     name="Date",
     params=["year", "month", "date", "hours", "minutes", "seconds", "ms"],
     body=date_ctor_fn,
     prototype=func_proto,
     is_constructor=true,
   )
-  let date_ctor_val = JSValue::Function(date_ctor)
+  let date_ctor_val = JSValue::Object(date_ctor)
   let date_proto_props = { "constructor": date_ctor_val }
   let date_proto = JSValue::Object(
     JSObject::new(properties=date_proto_props, prototype=object_proto),
@@ -140,9 +140,9 @@ pub fn create_date_object(
     name : String,
     body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
   ) {
-    let f = JSFunction::new(name~, body=Native(body))
+    let f = JSObject::new_function(name~, body=Native(body))
     match date_proto {
-      Object(obj) => define_property(obj, name, JSValue::Function(f), false)
+      Object(obj) => define_property(obj, name, JSValue::Object(f), false)
       _ => ()
     }
   }
@@ -151,9 +151,9 @@ pub fn create_date_object(
     body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
     len : Int,
   ) {
-    let f = JSFunction::new(name~, body=Native(body))
+    let f = JSObject::new_function(name~, body=Native(body))
     f["length"] = JSValue::Number(len.to_double())
-    define_property(date_ctor.inner, name, JSValue::Function(f), false)
+    define_property(date_ctor, name, JSValue::Object(f), false)
   }
   define_static(
     "now",
@@ -771,25 +771,45 @@ pub fn create_date_object(
   })
   define_method("toJSON", fn(ctx, this_val, args) raise EvalError {
     match this_val.get_property("toISOString") {
-      Function(f) => ctx.invoke(f, this_val, args)
+      Object(f) =>
+        if f.is_callable {
+          ctx.invoke(f, this_val, args)
+        } else {
+          JSValue::String("Invalid Date")
+        }
       _ => JSValue::String("Invalid Date")
     }
   })
   define_method("toLocaleString", fn(ctx, this_val, args) raise EvalError {
     match this_val.get_property("toString") {
-      Function(f) => ctx.invoke(f, this_val, args)
+      Object(f) =>
+        if f.is_callable {
+          ctx.invoke(f, this_val, args)
+        } else {
+          JSValue::String("Invalid Date")
+        }
       _ => JSValue::String("Invalid Date")
     }
   })
   define_method("toLocaleDateString", fn(ctx, this_val, args) raise EvalError {
     match this_val.get_property("toDateString") {
-      Function(f) => ctx.invoke(f, this_val, args)
+      Object(f) =>
+        if f.is_callable {
+          ctx.invoke(f, this_val, args)
+        } else {
+          JSValue::String("Invalid Date")
+        }
       _ => JSValue::String("Invalid Date")
     }
   })
   define_method("toLocaleTimeString", fn(ctx, this_val, args) raise EvalError {
     match this_val.get_property("toTimeString") {
-      Function(f) => ctx.invoke(f, this_val, args)
+      Object(f) =>
+        if f.is_callable {
+          ctx.invoke(f, this_val, args)
+        } else {
+          JSValue::String("Invalid Date")
+        }
       _ => JSValue::String("Invalid Date")
     }
   })
@@ -815,13 +835,14 @@ pub fn create_date_object(
     }
     for name in method_names {
       match this_val.get_property(name) {
-        Function(f) => {
-          let res = ctx.invoke(f, this_val, [])
-          match res {
-            Object(_) | Function(_) => ()
-            _ => return res
+        Object(f) =>
+          if f.is_callable {
+            let res = ctx.invoke(f, this_val, [])
+            match res {
+              Object(_) => ()
+              _ => return res
+            }
           }
-        }
         _ => ()
       }
     }
@@ -829,7 +850,7 @@ pub fn create_date_object(
   })
   let toStringTag = JSValue::Symbol(1011, "Symbol.toStringTag").to_property_key()
   date_proto_props.set(toStringTag, JSValue::String("Date"))
-  JSValue::Function(date_ctor)
+  JSValue::Object(date_ctor)
 }
 
 ///|

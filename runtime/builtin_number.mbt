@@ -14,12 +14,12 @@ pub fn init_number_prototype(
           _ => JSValue::Number(0.0) // Should throw TypeError
         }
       })
-      let value_of_obj = JSFunction::new(
+      let value_of_obj = JSObject::new_function(
         name="valueOf",
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj["valueOf"] = JSValue::Function(value_of_obj)
+      obj["valueOf"] = JSValue::Object(value_of_obj)
 
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
@@ -33,12 +33,12 @@ pub fn init_number_prototype(
         // For now we just return standard string representation
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=to_string_fn,
         prototype=func_proto,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
 
       // toFixed
       let to_fixed_fn = Native(fn(_ctx, this_val, args) {
@@ -125,12 +125,12 @@ pub fn init_number_prototype(
           _ => JSValue::String("RangeError: Internal error in toFixed")
         }
       })
-      let to_fixed_obj = JSFunction::new(
+      let to_fixed_obj = JSObject::new_function(
         name="toFixed",
         body=to_fixed_fn,
         prototype=func_proto,
       )
-      obj["toFixed"] = JSValue::Function(to_fixed_obj)
+      obj["toFixed"] = JSValue::Object(to_fixed_obj)
     }
     _ => ()
   }
@@ -165,7 +165,7 @@ pub fn create_number_constructor(
     }
     JSValue::Number(val)
   })
-  let ctor_obj = JSFunction::new(
+  let ctor_obj = JSObject::new_function(
     name="Number",
     params=["value"],
     body=ctor_fn,
@@ -178,5 +178,5 @@ pub fn create_number_constructor(
   ctor_obj["NaN"] = JSValue::Number(@double.not_a_number)
   ctor_obj["NEGATIVE_INFINITY"] = JSValue::Number(-@double.infinity)
   ctor_obj["POSITIVE_INFINITY"] = JSValue::Number(@double.infinity)
-  JSValue::Function(ctor_obj)
+  JSValue::Object(ctor_obj)
 }

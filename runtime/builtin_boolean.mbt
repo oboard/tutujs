@@ -21,12 +21,12 @@ pub fn init_boolean_prototype(
           },
         )
       })
-      let value_of_obj = JSFunction::new(
+      let value_of_obj = JSObject::new_function(
         name="valueOf",
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj["valueOf"] = JSValue::Function(value_of_obj)
+      obj["valueOf"] = JSValue::Object(value_of_obj)
 
       // toString
       let to_string_fn = Native(fn(ctx, this_val, _args) {
@@ -42,12 +42,12 @@ pub fn init_boolean_prototype(
         }
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=to_string_fn,
         prototype=func_proto,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
     }
     _ => ()
   }
@@ -78,7 +78,7 @@ pub fn create_boolean_constructor(
       JSValue::Boolean(val)
     }
   })
-  let ctor_obj = JSFunction::new(
+  let ctor_obj = JSObject::new_function(
     name="Boolean",
     params=["value"],
     body=ctor_fn,
@@ -86,5 +86,5 @@ pub fn create_boolean_constructor(
     is_constructor=true,
   )
   ctor_obj["prototype"] = proto
-  JSValue::Function(ctor_obj)
+  JSValue::Object(ctor_obj)
 }

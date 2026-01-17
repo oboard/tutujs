@@ -76,7 +76,12 @@ fn ReflectBuiltin::apply(
     []
   }
   match target {
-    Function(f) => ctx.invoke(f, this_arg, args_array)
+    Object(f) =>
+      if f.is_callable {
+        ctx.invoke(f, this_arg, args_array)
+      } else {
+        ctx.throw_type_error("Reflect.apply: target must be a function")
+      }
     _ => ctx.throw_type_error("Reflect.apply: target must be a function")
   }
 }
@@ -96,11 +101,23 @@ fn ReflectBuiltin::construct(
   let args_list = args[1]
   let new_target = if args.length() > 2 { args[2] } else { target }
   let func = match target {
-    Function(f) if f.is_constructor => f
+    Object(f) =>
+      if f.is_callable && f.call_info.unwrap().is_constructor {
+        f
+      } else {
+        ctx.throw_type_error("Reflect.construct: target must be a constructor")
+      }
     _ => ctx.throw_type_error("Reflect.construct: target must be a constructor")
   }
   let nt = match new_target {
-    Function(f) if f.is_constructor => f
+    Object(f) =>
+      if f.is_callable && f.call_info.unwrap().is_constructor {
+        f
+      } else {
+        ctx.throw_type_error(
+          "Reflect.construct: newTarget must be a constructor",
+        )
+      }
     _ =>
       ctx.throw_type_error("Reflect.construct: newTarget must be a constructor")
   }
@@ -116,15 +133,16 @@ fn ReflectBuiltin::construct(
     ctx.throw_type_error("Reflect.construct: argumentsList must be an object")
     []
   }
-  let proto_val = JSValue::Function(nt).get_property("prototype")
+  let proto_val = JSValue::Object(nt).get_property("prototype")
   let proto = match proto_val {
     Object(_) as p => p
     _ =>
-      match JSValue::Function(func).get_property("prototype") {
+      match JSValue::Object(func).get_property("prototype") {
         Object(_) as p => p
         _ =>
           match ctx.resolve("Object") {
-            Function(obj_ctor) => obj_ctor.get("prototype")
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("prototype")
             _ => Null
           }
       }
@@ -135,7 +153,7 @@ fn ReflectBuiltin::construct(
     e => raise e
   }
   match res {
-    Object(_) | Function(_) => res
+    Object(_) => res
     _ => new_obj
   }
 }
@@ -149,14 +167,17 @@ fn ReflectBuiltin::define_property(
   args : Array[JSValue],
 ) -> JSValue {
   match (args, ctx.resolve("Object")) {
-    ([_, _, _, ..], Function(obj_ctor)) =>
-      match obj_ctor.get("defineProperty") {
-        Function(f) => {
-          let _ = ctx.invoke(f, Undefined, args) catch {
-            _ => return JSValue::Boolean(false)
+    ([_, _, _, ..], Object(obj_ctor)) =>
+      match JSValue::Object(obj_ctor).get_property("defineProperty") {
+        Object(f) =>
+          if f.is_callable {
+            let _ = ctx.invoke(f, Undefined, args) catch {
+              _ => return JSValue::Boolean(false)
+            }
+            JSValue::Boolean(true)
+          } else {
+            JSValue::Boolean(false)
           }
-          JSValue::Boolean(true)
-        }
         _ => JSValue::Boolean(false)
       }
     _ => JSValue::Boolean(false)
@@ -190,11 +211,15 @@ fn ReflectBuiltin::is_extensible(
 ) -> JSValue {
   if args is [target, ..] {
     match ctx.resolve("Object") {
-      Function(obj_ctor) =>
-        match obj_ctor.get("isExtensible") {
-          Function(f) =>
-            ctx.invoke(f, Undefined, [target]) catch {
-              _ => JSValue::Boolean(false)
+      Object(obj_ctor) =>
+        match JSValue::Object(obj_ctor).get_property("isExtensible") {
+          Object(f) =>
+            if f.is_callable {
+              ctx.invoke(f, Undefined, [target]) catch {
+                _ => JSValue::Boolean(false)
+              }
+            } else {
+              JSValue::Boolean(false)
             }
           _ => JSValue::Boolean(false)
         }
@@ -215,14 +240,17 @@ fn ReflectBuiltin::prevent_extensions(
 ) -> JSValue {
   if args is [target, ..] {
     match ctx.resolve("Object") {
-      Function(obj_ctor) =>
-        match obj_ctor.get("preventExtensions") {
-          Function(f) => {
-            let _ = ctx.invoke(f, Undefined, [target]) catch {
-              _ => return JSValue::Boolean(false)
+      Object(obj_ctor) =>
+        match JSValue::Object(obj_ctor).get_property("preventExtensions") {
+          Object(f) =>
+            if f.is_callable {
+              let _ = ctx.invoke(f, Undefined, [target]) catch {
+                _ => return JSValue::Boolean(false)
+              }
+              JSValue::Boolean(true)
+            } else {
+              JSValue::Boolean(false)
             }
-            JSValue::Boolean(true)
-          }
           _ => JSValue::Boolean(false)
         }
       _ => JSValue::Boolean(false)

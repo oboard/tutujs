@@ -1,17 +1,17 @@
 ///|
 priv struct ProxyBuiltin {
-  inner : JSFunction
+  inner : JSObject
 }
 
 ///|
 impl Builtin for ProxyBuiltin with to_js_value(self) {
-  JSValue::Function(self.inner)
+  JSValue::Object(self.inner)
 }
 
 ///|
 pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
   let proxy_builtin = ProxyBuiltin::{
-    inner: JSFunction::new(
+    inner: JSObject::new_function(
       name="Proxy",
       params=["target", "handler"],
       body=Native(fn(ctx, this, args) {
@@ -21,7 +21,7 @@ pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
       is_constructor=true,
     ),
   }
-  populate_builtin(proxy_builtin.inner.inner, [
+  populate_builtin(proxy_builtin.inner, [
     prop_method(
       "revocable",
       fn(ctx, this, args) { proxy_builtin.revocable(ctx, this, args) },
@@ -52,53 +52,64 @@ fn ProxyBuiltin::builtin_constructor(
       )
     }
     match target {
-      Object(t_obj) => {
-        let proxy_obj = JSObject::new(
-          prototype=t_obj.prototype.unwrap_or(JSValue::Undefined),
-        )
-        proxy_obj.is_proxy = true
-        proxy_obj.proxy_target = Some(target)
-        proxy_obj.proxy_handler = Some(handler)
-        JSValue::Object(proxy_obj)
-      }
-      Function(t_func) => {
-        let proxy_func_ref : Ref[JSFunction?] = { val: None }
-        let proxy_func_body = Native(fn(ctx, this_val, args) {
-          let proxy_func = proxy_func_ref.val.unwrap()
-          let base = proxy_func.inner
-          match (base.proxy_target, base.proxy_handler) {
-            (Some(target), Some(handler)) => {
-              let trap = handler.get_property("apply")
-              match trap {
-                Function(f) => {
-                  let arg_array = create_array_from_values(ctx, args)
-                  ctx.invoke(f, handler, [target, this_val, arg_array])
+      Object(t_obj) =>
+        if t_obj.is_callable {
+          let call_info = t_obj.call_info.unwrap()
+          let proxy_func_ref : Ref[JSObject?] = { val: None }
+          let proxy_func_body = Native(fn(ctx, this_val, args) {
+            let proxy_func = proxy_func_ref.val.unwrap()
+            let base = proxy_func
+            match (base.proxy_target, base.proxy_handler) {
+              (Some(target), Some(handler)) => {
+                let trap = handler.get_property("apply")
+                match trap {
+                  Object(f) =>
+                    if f.is_callable {
+                      let arg_array = create_array_from_values(ctx, args)
+                      ctx.invoke(f, handler, [target, this_val, arg_array])
+                    } else {
+                      ctx.throw_type_error("Proxy apply trap is not a function")
+                    }
+                  Undefined | Null =>
+                    match target {
+                      Object(tf) =>
+                        if tf.is_callable {
+                          ctx.invoke(tf, this_val, args)
+                        } else {
+                          ctx.throw_type_error("Proxy target is not a function")
+                        }
+                      _ =>
+                        ctx.throw_type_error("Proxy target is not a function")
+                    }
+                  _ =>
+                    ctx.throw_type_error("Proxy apply trap is not a function")
                 }
-                Undefined | Null =>
-                  match target {
-                    Function(tf) => ctx.invoke(tf, this_val, args)
-                    _ => ctx.throw_type_error("Proxy target is not a function")
-                  }
-                _ => ctx.throw_type_error("Proxy apply trap is not a function")
               }
+              _ => ctx.throw_type_error("Cannot call a revoked proxy")
             }
-            _ => ctx.throw_type_error("Cannot call a revoked proxy")
-          }
-        })
-        let proxy_func = JSFunction::new(
-          params=t_func.params,
-          body=proxy_func_body,
-          context=t_func.context,
-          is_constructor=t_func.is_constructor,
-        )
-        proxy_func.name = t_func.name
-        proxy_func.inner.prototype = t_func.inner.prototype
-        proxy_func.inner.is_proxy = true
-        proxy_func.inner.proxy_target = Some(target)
-        proxy_func.inner.proxy_handler = Some(handler)
-        proxy_func_ref.val = Some(proxy_func)
-        JSValue::Function(proxy_func)
-      }
+          })
+          let proxy_func = JSObject::new_function(
+            params=call_info.params,
+            body=proxy_func_body,
+            context=call_info.context,
+            is_constructor=call_info.is_constructor,
+          )
+          proxy_func.call_info.unwrap().name = call_info.name
+          proxy_func.prototype = t_obj.prototype
+          proxy_func.is_proxy = true
+          proxy_func.proxy_target = Some(target)
+          proxy_func.proxy_handler = Some(handler)
+          proxy_func_ref.val = Some(proxy_func)
+          JSValue::Object(proxy_func)
+        } else {
+          let proxy_obj = JSObject::new(
+            prototype=t_obj.prototype.unwrap_or(JSValue::Undefined),
+          )
+          proxy_obj.is_proxy = true
+          proxy_obj.proxy_target = Some(target)
+          proxy_obj.proxy_handler = Some(handler)
+          JSValue::Object(proxy_obj)
+        }
       _ => {
         ctx.throw_type_error("Proxy target must be an object")
         JSValue::Undefined
@@ -135,10 +146,6 @@ fn ProxyBuiltin::revocable(
           o.proxy_target = None
           o.proxy_handler = None
         }
-        Function(f) => {
-          f.inner.proxy_target = None
-          f.inner.proxy_handler = None
-        }
         _ => ()
       }
       JSValue::Undefined
@@ -147,11 +154,11 @@ fn ProxyBuiltin::revocable(
     res_obj["proxy"] = proxy
     // Built-in revoke function should have Function.prototype as [[Prototype]]
     let func_proto = match ctx.resolve("Function") {
-      Function(f) => JSValue::Function(f).get_property("prototype")
+      Object(f) => JSValue::Object(f).get_property("prototype")
       _ => JSValue::Undefined
     }
-    res_obj["revoke"] = JSValue::Function(
-      JSFunction::new(name="", body=revoke_fn, prototype=func_proto),
+    res_obj["revoke"] = JSValue::Object(
+      JSObject::new_function(name="", body=revoke_fn, prototype=func_proto),
     )
     JSValue::Object(res_obj)
   } else {

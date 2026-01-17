@@ -27,8 +27,8 @@ pub fn init_global_functions(ctx : Context) -> Unit {
       _ => code
     }
   })
-  let eval_obj = JSFunction::new(name="eval", body=eval_fn)
-  ctx.scope.set("eval", JSValue::Function(eval_obj))
+  let eval_obj = JSObject::new_function(name="eval", body=eval_fn)
+  ctx.scope.set("eval", JSValue::Object(eval_obj))
 
   // isNaN
   let is_nan_fn = Native(fn(_ctx, _this, args) {
@@ -38,8 +38,8 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     let n = js_to_number(_ctx, args[0]) catch { _ => @double.not_a_number }
     Boolean(n.is_nan())
   })
-  let is_nan_obj = JSFunction::new(name="isNaN", body=is_nan_fn)
-  ctx.scope.set("isNaN", JSValue::Function(is_nan_obj))
+  let is_nan_obj = JSObject::new_function(name="isNaN", body=is_nan_fn)
+  ctx.scope.set("isNaN", JSValue::Object(is_nan_obj))
 
   // isFinite
   let is_finite_fn = Native(fn(_ctx, _this, args) {
@@ -49,8 +49,8 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     let n = js_to_number(_ctx, args[0]) catch { _ => @double.not_a_number }
     Boolean(not(n.is_nan()) && not(n.is_inf()))
   })
-  let is_finite_obj = JSFunction::new(name="isFinite", body=is_finite_fn)
-  ctx.scope.set("isFinite", JSValue::Function(is_finite_obj))
+  let is_finite_obj = JSObject::new_function(name="isFinite", body=is_finite_fn)
+  ctx.scope.set("isFinite", JSValue::Object(is_finite_obj))
 
   // parseInt
   let parse_int_fn = Native(fn(_ctx, _this, args) {
@@ -70,8 +70,8 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     let res = @strconv.parse_double(s) catch { _ => @double.not_a_number }
     Number(res.floor())
   })
-  let parse_int_obj = JSFunction::new(name="parseInt", body=parse_int_fn)
-  ctx.scope.set("parseInt", JSValue::Function(parse_int_obj))
+  let parse_int_obj = JSObject::new_function(name="parseInt", body=parse_int_fn)
+  ctx.scope.set("parseInt", JSValue::Object(parse_int_obj))
 
   // parseFloat
   let parse_float_fn = Native(fn(_ctx, _this, args) {
@@ -82,8 +82,11 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     let res = @strconv.parse_double(s) catch { _ => @double.not_a_number }
     Number(res)
   })
-  let parse_float_obj = JSFunction::new(name="parseFloat", body=parse_float_fn)
-  ctx.scope.set("parseFloat", JSValue::Function(parse_float_obj))
+  let parse_float_obj = JSObject::new_function(
+    name="parseFloat",
+    body=parse_float_fn,
+  )
+  ctx.scope.set("parseFloat", JSValue::Object(parse_float_obj))
 
   // TypedArrays (Dummies)
   let typed_array_fn = Native(fn(_ctx, _this, _args) {
@@ -96,8 +99,12 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     "BigUint64Array",
   ]
   for name in typed_arrays {
-    let ctor = JSFunction::new(name~, body=typed_array_fn, is_constructor=true)
-    ctx.scope.set(name, JSValue::Function(ctor))
+    let ctor = JSObject::new_function(
+      name~,
+      body=typed_array_fn,
+      is_constructor=true,
+    )
+    ctx.scope.set(name, JSValue::Object(ctor))
   }
 
   // BigInt
@@ -108,8 +115,8 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     let val = args[0].to_string()
     JSValue::BigInt(BigInt::from_string(val))
   })
-  let bigint_ctor = JSFunction::new(name="BigInt", body=bigint_fn)
-  ctx.scope.set("BigInt", JSValue::Function(bigint_ctor))
+  let bigint_ctor = JSObject::new_function(name="BigInt", body=bigint_fn)
+  ctx.scope.set("BigInt", JSValue::Object(bigint_ctor))
 
   // Set, WeakMap, WeakSet, WeakRef (Dummies)
   let dummy_ctor_fn = Native(fn(_ctx, _this, _args) {
@@ -117,7 +124,11 @@ pub fn init_global_functions(ctx : Context) -> Unit {
   })
   let dummies = ["WeakMap", "WeakSet", "WeakRef"]
   for name in dummies {
-    let ctor = JSFunction::new(name~, body=dummy_ctor_fn, is_constructor=true)
-    ctx.scope.set(name, JSValue::Function(ctor))
+    let ctor = JSObject::new_function(
+      name~,
+      body=dummy_ctor_fn,
+      is_constructor=true,
+    )
+    ctx.scope.set(name, JSValue::Object(ctor))
   }
 }

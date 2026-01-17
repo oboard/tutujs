@@ -40,7 +40,10 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
     })
   }
   let install_method = fn(name : String, func : FunctionBody) {
-    math_props.set(name, JSValue::Function(JSFunction::new(name~, body=func)))
+    math_props.set(
+      name,
+      JSValue::Object(JSObject::new_function(name~, body=func)),
+    )
   }
 
   // abs

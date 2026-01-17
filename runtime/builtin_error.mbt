@@ -31,7 +31,7 @@ pub fn create_error_prototype(object_proto : JSValue) -> JSValue {
   })
   proto_props.set(
     "toString",
-    JSValue::Function(JSFunction::new(name="toString", body=to_string_fn)),
+    JSValue::Object(JSObject::new_function(name="toString", body=to_string_fn)),
   )
   proto
 }
@@ -51,14 +51,14 @@ pub fn create_error_constructor(
     let obj = JSObject::new(properties=obj_props, prototype=error_proto)
     JSValue::Object(obj)
   })
-  let ctor = JSFunction::new(
+  let ctor = JSObject::new_function(
     name~,
     body=ctor_fn,
     prototype=func_proto,
     is_constructor=true,
   )
   ctor["prototype"] = error_proto
-  let ctor_val = JSValue::Function(ctor)
+  let ctor_val = JSValue::Object(ctor)
 
   // Set constructor on prototype
   match error_proto {

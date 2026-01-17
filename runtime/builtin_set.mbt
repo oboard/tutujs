@@ -9,7 +9,7 @@ pub fn init_set_prototype(
       proto["constructor"] = JSValue::Undefined // Will be set later
 
       // size getter
-      let size_getter = JSFunction::new(
+      let size_getter = JSObject::new_function(
         name="get size",
         body=Native(fn(ctx, this_val, _args) {
           match this_val {
@@ -29,7 +29,7 @@ pub fn init_set_prototype(
       proto["size"] = JSValue::Internal(size_accessor)
 
       // add
-      let add_fn = JSFunction::new(
+      let add_fn = JSObject::new_function(
         name="add",
         params=["value"],
         body=Native(fn(ctx, this_val, args) {
@@ -54,10 +54,10 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["add"] = JSValue::Function(add_fn)
+      proto["add"] = JSValue::Object(add_fn)
 
       // has
-      let has_fn = JSFunction::new(
+      let has_fn = JSObject::new_function(
         name="has",
         params=["value"],
         body=Native(fn(ctx, this_val, args) {
@@ -81,10 +81,10 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["has"] = JSValue::Function(has_fn)
+      proto["has"] = JSValue::Object(has_fn)
 
       // delete
-      let delete_fn = JSFunction::new(
+      let delete_fn = JSObject::new_function(
         name="delete",
         params=["value"],
         body=Native(fn(ctx, this_val, args) {
@@ -115,10 +115,10 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["delete"] = JSValue::Function(delete_fn)
+      proto["delete"] = JSValue::Object(delete_fn)
 
       // clear
-      let clear_fn = JSFunction::new(
+      let clear_fn = JSObject::new_function(
         name="clear",
         params=[],
         body=Native(fn(ctx, this_val, _args) {
@@ -137,7 +137,7 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["clear"] = JSValue::Function(clear_fn)
+      proto["clear"] = JSValue::Object(clear_fn)
 
       // Iterator Setup
       let iterator_proto = match ctx.scope.get("IteratorPrototype") {
@@ -181,7 +181,7 @@ pub fn init_set_prototype(
                   "key" | "value" => entry.key
                   "key+value" => {
                     let array_proto = match ctx.scope.get("Array") {
-                      Some(Function({ inner: { properties, .. }, .. })) =>
+                      Some(Object({ properties, .. })) =>
                         properties.get("prototype").unwrap_or(JSValue::Null)
                       _ => JSValue::Null
                     }
@@ -197,7 +197,7 @@ pub fn init_set_prototype(
                   _ => Undefined
                 }
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ inner: { properties, .. }, .. })) =>
+                  Some(Object({ properties, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -208,7 +208,7 @@ pub fn init_set_prototype(
               }
               None => {
                 let object_proto = match ctx.scope.get("Object") {
-                  Some(Function({ inner: { properties, .. }, .. })) =>
+                  Some(Object({ properties, .. })) =>
                     properties.get("prototype").unwrap_or(JSValue::Null)
                   _ => JSValue::Null
                 }
@@ -227,21 +227,21 @@ pub fn init_set_prototype(
           }
         }
       })
-      let set_iter_next = JSFunction::new(
+      let set_iter_next = JSObject::new_function(
         name="next",
         body=set_iter_next_fn,
         prototype=func_proto,
       )
-      set_iter_proto["next"] = JSValue::Function(set_iter_next)
+      set_iter_proto["next"] = JSValue::Object(set_iter_next)
 
       // Symbol.iterator -> this
       let set_iter_sym_iter_fn = Native(fn(_ctx, this_val, _args) { this_val })
-      let set_iter_sym_iter = JSFunction::new(
+      let set_iter_sym_iter = JSObject::new_function(
         name="[Symbol.iterator]",
         body=set_iter_sym_iter_fn,
         prototype=func_proto,
       )
-      set_iter_proto["Symbol(Symbol.iterator)"] = JSValue::Function(
+      set_iter_proto["Symbol(Symbol.iterator)"] = JSValue::Object(
         set_iter_sym_iter,
       )
 
@@ -258,7 +258,7 @@ pub fn init_set_prototype(
       }
 
       // entries
-      let entries_fn = JSFunction::new(
+      let entries_fn = JSObject::new_function(
         name="entries",
         params=[],
         body=Native(fn(ctx, this_val, _args) {
@@ -275,10 +275,10 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["entries"] = JSValue::Function(entries_fn)
+      proto["entries"] = JSValue::Object(entries_fn)
 
       // values
-      let values_fn = JSFunction::new(
+      let values_fn = JSObject::new_function(
         name="values",
         params=[],
         body=Native(fn(ctx, this_val, _args) {
@@ -295,11 +295,11 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["values"] = JSValue::Function(values_fn)
-      proto["keys"] = JSValue::Function(values_fn)
+      proto["values"] = JSValue::Object(values_fn)
+      proto["keys"] = JSValue::Object(values_fn)
 
       // forEach
-      let for_each_fn = JSFunction::new(
+      let for_each_fn = JSObject::new_function(
         name="forEach",
         params=["callbackfn"], // length 1
         body=Native(fn(ctx, this_val, args) {
@@ -308,21 +308,27 @@ pub fn init_set_prototype(
           match (this_val, callback) {
             (
               Object({ properties: { "SetData": Internal(Set(m)), .. }, .. }),
-              Function(f),
-            ) => {
-              let mut current = m.head
-              while true {
-                match current {
-                  Some(entry) => {
-                    ctx.invoke(f, this_arg, [entry.key, entry.key, this_val])
-                    |> ignore
-                    current = entry.next
+              Object(f),
+            ) =>
+              if f.is_callable {
+                let mut current = m.head
+                while true {
+                  match current {
+                    Some(entry) => {
+                      ctx.invoke(f, this_arg, [entry.key, entry.key, this_val])
+                      |> ignore
+                      current = entry.next
+                    }
+                    None => break
                   }
-                  None => break
                 }
+                Undefined
+              } else {
+                ctx.throw_type_error(
+                  "Set.prototype.forEach callback must be a function",
+                )
+                Undefined
               }
-              Undefined
-            }
             _ => {
               ctx.throw_type_error(
                 "Method Set.prototype.forEach called on incompatible receiver",
@@ -333,10 +339,10 @@ pub fn init_set_prototype(
         }),
         prototype=func_proto,
       )
-      proto["forEach"] = JSValue::Function(for_each_fn)
+      proto["forEach"] = JSValue::Object(for_each_fn)
 
       // Symbol.iterator -> values
-      proto["Symbol(Symbol.iterator)"] = JSValue::Function(values_fn)
+      proto["Symbol(Symbol.iterator)"] = JSValue::Object(values_fn)
 
       // Symbol.toStringTag
       proto["Symbol(Symbol.toStringTag)"] = JSValue::String("Set")

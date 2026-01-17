@@ -5,7 +5,7 @@ pub fn[T] Context::throw_error(
   message : String,
 ) -> T raise EvalError {
   let ctor = match self.resolve(error_type) {
-    Function(f) => f
+    Object(f) => f
     _ => abort("Error constructor " + error_type + " not found")
   }
   let err_obj = self.invoke(ctor, JSValue::Undefined, [JSValue::String(message)]) catch {

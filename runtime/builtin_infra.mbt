@@ -22,8 +22,12 @@ pub fn prop_method(
     "length": JSValue::Number(length.to_double()),
     "name": JSValue::String(name),
   }
-  let func = JSFunction::new(name~, body=Native(f), properties=func_props)
-  { name, value: JSValue::Function(func), enumerable, configurable, writable }
+  let func = JSObject::new_function(
+    name~,
+    body=Native(f),
+    properties=func_props,
+  )
+  { name, value: JSValue::Object(func), enumerable, configurable, writable }
 }
 
 ///|
@@ -79,7 +83,7 @@ pub fn create_array_from_values(
   values : Array[JSValue],
 ) -> JSValue {
   let array_proto = match ctx.resolve("Array") {
-    Function(f) => f.get("prototype")
+    Object(f) => f.get("prototype")
     _ => JSValue::Null
   }
   let arr = JSObject::new(prototype=array_proto, properties={

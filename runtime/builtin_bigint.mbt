@@ -13,7 +13,7 @@ pub fn create_bigint_constructor(
       JSValue::BigInt(BigInt::from_int(0))
     }
   })
-  let bigint_fn = JSFunction::new(
+  let bigint_fn = JSObject::new_function(
     name="BigInt",
     params=["value"],
     body=bigint_fn_body,
@@ -21,7 +21,7 @@ pub fn create_bigint_constructor(
     is_constructor=false, // BigInt cannot be called with 'new'
   )
   bigint_fn["prototype"] = bigint_proto
-  JSValue::Function(bigint_fn)
+  JSValue::Object(bigint_fn)
 }
 
 ///|
@@ -43,12 +43,12 @@ pub fn init_bigint_prototype(
           _ => JSValue::BigInt(BigInt::from_int(0))
         }
       })
-      let value_of_obj = JSFunction::new(
+      let value_of_obj = JSObject::new_function(
         name="valueOf",
         body=value_of_fn,
         prototype=func_proto,
       )
-      obj["valueOf"] = JSValue::Function(value_of_obj)
+      obj["valueOf"] = JSValue::Object(value_of_obj)
 
       // toString
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
@@ -63,12 +63,12 @@ pub fn init_bigint_prototype(
         }
         JSValue::String(val.to_string())
       })
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=to_string_fn,
         prototype=func_proto,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
     }
     _ => ()
   }

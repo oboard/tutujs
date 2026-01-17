@@ -161,7 +161,7 @@ pub fn Context::create_global() -> Context {
     Object(JSObject::new(properties=arr_props, prototype=array_proto_val))
   })
   let array_fn_props = { "prototype": array_proto_val }
-  let array_fn = JSFunction::new(
+  let array_fn = JSObject::new_function(
     name="Array",
     body=array_fn_body,
     context=ctx,
@@ -169,7 +169,7 @@ pub fn Context::create_global() -> Context {
     prototype=func_proto_val,
     is_constructor=true,
   )
-  let array_fn_val = JSValue::Function(array_fn)
+  let array_fn_val = JSValue::Object(array_fn)
   init_array_constructor(array_fn_val)
 
   // Array.prototype.constructor = Array
@@ -361,14 +361,14 @@ pub fn Context::get_property(
   name : String,
 ) -> JSValue {
   match value {
-    Object(_) | Function(_) => value.get_property(name)
+    Object(_) => value.get_property(name)
     String(s) =>
       if name == "length" {
         JSValue::Number(s.length().to_double())
       } else {
         match self.resolve("String") {
-          Function(f) =>
-            match f.inner.properties.get("prototype") {
+          Object(f) =>
+            match f.properties.get("prototype") {
               Some(proto) => proto.get_property(name)
               None => Undefined
             }
@@ -377,8 +377,8 @@ pub fn Context::get_property(
       }
     Number(_) =>
       match self.resolve("Number") {
-        Function(f) =>
-          match f.inner.properties.get("prototype") {
+        Object(f) =>
+          match f.properties.get("prototype") {
             Some(proto) => proto.get_property(name)
             None => Undefined
           }
@@ -386,8 +386,8 @@ pub fn Context::get_property(
       }
     Boolean(_) =>
       match self.resolve("Boolean") {
-        Function(f) =>
-          match f.inner.properties.get("prototype") {
+        Object(f) =>
+          match f.properties.get("prototype") {
             Some(proto) => proto.get_property(name)
             None => Undefined
           }

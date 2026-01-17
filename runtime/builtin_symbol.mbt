@@ -6,7 +6,7 @@ pub fn init_symbol_prototype(
   match symbol_proto_val {
     Object(obj) => {
       // toString
-      let to_string_obj = JSFunction::new(
+      let to_string_obj = JSObject::new_function(
         name="toString",
         body=Native(fn(_ctx, this_val, _args) {
           match this_val {
@@ -16,7 +16,7 @@ pub fn init_symbol_prototype(
         }),
         prototype=func_proto,
       )
-      obj["toString"] = JSValue::Function(to_string_obj)
+      obj["toString"] = JSValue::Object(to_string_obj)
     }
     _ => ()
   }
@@ -36,7 +36,7 @@ pub fn create_symbol_constructor(
     // TODO: Implement unique symbols
     JSValue::Symbol(next_object_id(), desc)
   })
-  let ctor = JSFunction::new(
+  let ctor = JSObject::new_function(
     name="Symbol",
     body=ctor_fn,
     prototype=func_proto_val,
@@ -56,5 +56,5 @@ pub fn create_symbol_constructor(
       "unscopables": JSValue::Symbol(1011, "Symbol.unscopables"),
     },
   )
-  JSValue::Function(ctor)
+  JSValue::Object(ctor)
 }

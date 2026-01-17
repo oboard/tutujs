@@ -5,30 +5,32 @@ pub fn to_primitive(
   hint? : String,
 ) -> JSValue raise EvalError {
   match val {
-    Object(_) | Function({ inner: _, .. }) => {
+    Object(_) => {
       // 1. Check Symbol.toPrimitive
       let to_prim_key = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
       match val.get_property_throwing(to_prim_key) {
-        Function(f) => {
-          let h = match hint {
-            Some("String") => JSValue::String("string")
-            Some("Number") => JSValue::String("number")
-            _ => JSValue::String("default")
+        Object(f) =>
+          if f.is_callable {
+            let h = match hint {
+              Some("String") => JSValue::String("string")
+              Some("Number") => JSValue::String("number")
+              _ => JSValue::String("default")
+            }
+            let res = ctx.invoke(f, val, [h])
+            match res {
+              Object(_) =>
+                ctx.throw_type_error(
+                  "Symbol.toPrimitive must return a primitive",
+                )
+              _ => return res
+            }
           }
-          let res = ctx.invoke(f, val, [h])
-          match res {
-            Object(_) | Function(_) =>
-              ctx.throw_type_error("Symbol.toPrimitive must return a primitive")
-            _ => return res
-          }
-        }
         _ => ()
       }
 
       // 2. Default hint for Date is String
       let is_date = match val {
-        Object({ properties, .. })
-        | Function({ inner: { properties, .. }, .. }) => {
+        Object({ properties, .. }) => {
           let toStringTag = JSValue::Symbol(1011, "Symbol.toStringTag").to_property_key()
           properties.contains("__internal_date__") ||
           properties.get(toStringTag) == Some(JSValue::String("Date"))
@@ -46,13 +48,14 @@ pub fn to_primitive(
       }
       for name in method_names {
         match val.get_property_throwing(name) {
-          Function(f) => {
-            let res = ctx.invoke(f, val, [])
-            match res {
-              Object(_) | Function(_) => ()
-              _ => return res
+          Object(f) =>
+            if f.is_callable {
+              let res = ctx.invoke(f, val, [])
+              match res {
+                Object(_) => ()
+                _ => return res
+              }
             }
-          }
           _ => ()
         }
       }
@@ -94,7 +97,7 @@ pub fn js_to_string(ctx : Context, val : JSValue) -> String raise EvalError {
       ctx.throw_type_error("Cannot convert a Symbol value to a string")
       ""
     }
-    Object(_) | Function(_) => {
+    Object(_) => {
       let prim = to_primitive(ctx, val, hint="String")
       js_to_string(ctx, prim)
     }
@@ -122,7 +125,7 @@ pub fn js_to_number(ctx : Context, val : JSValue) -> Double raise EvalError {
       @strconv.parse_double(i.to_string()) catch {
         _ => @double.not_a_number
       }
-    Object(_) | Function(_) => {
+    Object(_) => {
       let prim = to_primitive(ctx, val, hint="Number")
       js_to_number(ctx, prim)
     }

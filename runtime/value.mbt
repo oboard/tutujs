@@ -14,7 +14,6 @@ pub(all) enum JSValue {
   Boolean(Bool)
   BigInt(BigInt)
   Symbol(Int, String)
-  Function(JSFunction)
   Object(JSObject)
   Null
   Undefined
@@ -36,8 +35,7 @@ pub impl Eq for JSValue with equal(self, other) {
     (String(a), String(b)) => a == b
     (BigInt(a), BigInt(b)) => a == b
     (Symbol(id1, _), Symbol(id2, _)) => id1 == id2
-    (Object(a), Object(b))
-    | (Function({ inner: a, .. }), Function({ inner: b, .. })) => a._id == b._id
+    (Object(a), Object(b)) => a._id == b._id
     (Internal(a), Internal(b)) => a == b
     _ => false
   }
@@ -60,7 +58,7 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
     String(s) => hasher.combine(s)
     BigInt(i) => hasher.combine(i)
     Symbol(id, _) => hasher.combine(id)
-    Object(o) | Function({ inner: o, .. }) => hasher.combine(o._id)
+    Object(o) => hasher.combine(o._id)
     Internal(i) => hasher.combine(i)
   }
 }
@@ -73,7 +71,7 @@ pub(all) enum JSInternal {
   MapIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
   Set(LinkedMap)
   SetIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
-  Accessor(JSFunction?, JSFunction?) // Getter, Setter
+  Accessor(JSObject?, JSObject?) // Getter, Setter
 }
 
 ///|
@@ -150,9 +148,13 @@ pub impl Show for JSValue with output(self, logger) {
       logger.write_string(s)
       logger.write_string(")")
     }
-    Function(f) =>
-      logger.write_string("Function: " + f.name.unwrap_or("anonymous"))
-    Object(_) => logger.write_string("[object Object]")
+    Object(o) =>
+      if o.is_callable {
+        let name = o.call_info.unwrap().name.unwrap_or("anonymous")
+        logger.write_string("Function: " + name)
+      } else {
+        logger.write_string("[object Object]")
+      }
     Null => logger.write_string("null")
     Undefined => logger.write_string("undefined")
     Internal(i) => i.output(logger)
@@ -163,7 +165,6 @@ pub impl Show for JSValue with output(self, logger) {
 pub fn JSValue::get_prototype(self : JSValue) -> JSValue? {
   match self {
     Object(o) => o.prototype
-    Function(f) => f.inner.prototype
     _ => None
   }
 }
@@ -179,15 +180,18 @@ pub fn JSValue::own_keys(
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("ownKeys")
           match trap {
-            Function(f) => {
-              let keys_list = ctx.invoke(f, handler, [target])
-              let len = keys_list.get_property("length").to_number().to_int()
-              let keys = []
-              for i = 0; i < len; i = i + 1 {
-                keys.push(keys_list.get_property(i.to_string()).to_string())
+            Object(f) =>
+              if f.is_callable {
+                let keys_list = ctx.invoke(f, handler, [target])
+                let len = keys_list.get_property("length").to_number().to_int()
+                let keys = []
+                for i = 0; i < len; i = i + 1 {
+                  keys.push(keys_list.get_property(i.to_string()).to_string())
+                }
+                return keys
+              } else {
+                return target.own_keys(ctx)
               }
-              return keys
-            }
             _ => return target.own_keys(ctx)
           }
         }
@@ -204,23 +208,6 @@ pub fn JSValue::own_keys(
       }
       for k, _ in o.properties {
         if not(k.has_prefix("__")) && k != "PrimitiveValue" {
-          keys.push(k)
-        }
-      }
-      keys
-    }
-    Function(f) => {
-      // Similar logic for Function
-      let keys = ["length", "name"]
-      if f.is_constructor {
-        keys.push("prototype")
-      }
-      for k, _ in f.inner.properties {
-        if not(k.has_prefix("__")) &&
-          k != "PrimitiveValue" &&
-          k != "length" &&
-          k != "name" &&
-          k != "prototype" {
           keys.push(k)
         }
       }
@@ -272,6 +259,17 @@ pub impl FromJson for FunctionBody with from_json(_, _) {
 }
 
 ///|
+pub(all) struct CallInfo {
+  mut name : String?
+  params : Array[String]
+  body : FunctionBody
+  context : Context
+  strict : Bool
+  is_constructor : Bool
+  is_arrow : Bool
+} derive(Show, Eq, ToJson)
+
+///|
 pub(all) struct JSObject {
   _id : Int
   properties : Map[String, JSValue]
@@ -283,30 +281,12 @@ pub(all) struct JSObject {
   mut is_proxy : Bool
   mut proxy_target : JSValue?
   mut proxy_handler : JSValue?
+  is_callable : Bool
+  mut call_info : CallInfo?
 } derive(Show, Eq)
 
 ///|
-pub(all) struct JSFunction {
-  mut name : String?
-  params : Array[String]
-  body : FunctionBody
-  context : Context
-  strict : Bool
-  is_constructor : Bool
-  is_arrow : Bool
-  inner : JSObject
-  // _id : Int
-  // properties : Map[String, JSValue]
-  // mut prototype : JSValue? // [[Prototype]]
-  // mut extensible : Bool
-  // mut is_sealed : Bool
-  // mut is_frozen : Bool
-  // mut proxy_target : JSValue?
-  // mut proxy_handler : JSValue?
-} derive(Show, Eq, ToJson)
-
-///|
-pub fn JSFunction::new(
+pub fn JSObject::new_function(
   name? : String,
   params? : Array[String],
   body~ : FunctionBody,
@@ -316,7 +296,7 @@ pub fn JSFunction::new(
   strict? : Bool,
   is_constructor? : Bool,
   is_arrow? : Bool,
-) -> JSFunction {
+) -> JSObject {
   let params = params.unwrap_or([])
   let properties = properties.unwrap_or({})
   if not(properties.contains("length")) {
@@ -381,55 +361,25 @@ pub fn JSFunction::new(
       }
   }
   {
-    name,
-    params,
-    body,
-    context: context.unwrap_or(Context::new()),
-    strict: is_strict,
-    is_constructor: is_ctor,
-    is_arrow: is_arrow.unwrap_or(false),
-    inner: {
-      _id: next_object_id(),
-      properties,
-      prototype,
-      extensible: true,
-      is_sealed: false,
-      is_frozen: false,
-      is_proxy: false,
-      proxy_target: None,
-      proxy_handler: None,
-    },
-  }
-}
-
-///|
-pub impl FromJson for JSFunction with from_json(_, _) {
-  // Dummy implementation
-  let ctx = Context::{
-    scope: {},
-    parent: None,
-    pending_labels: [],
-    strict: false,
-  }
-  {
-    name: None,
-    params: [],
-    body: User(@parser.BlockStatement::{ body: [], directives: [] }),
-    context: ctx,
-    strict: false,
-    is_constructor: true,
-    is_arrow: false,
-    inner: {
-      _id: next_object_id(),
-      properties: {},
-      prototype: None,
-      extensible: true,
-      is_sealed: false,
-      is_frozen: false,
-      is_proxy: false,
-      proxy_target: None,
-      proxy_handler: None,
-    },
+    _id: next_object_id(),
+    properties,
+    prototype,
+    extensible: true,
+    is_sealed: false,
+    is_frozen: false,
+    is_proxy: false,
+    proxy_target: None,
+    proxy_handler: None,
+    is_callable: true,
+    call_info: Some({
+      name,
+      params,
+      body,
+      context: context.unwrap_or(Context::new()),
+      strict: is_strict,
+      is_constructor: is_ctor,
+      is_arrow: is_arrow.unwrap_or(false),
+    }),
   }
 }
 
@@ -448,6 +398,8 @@ pub fn JSObject::new(
     is_proxy: false,
     proxy_target: None,
     proxy_handler: None,
+    is_callable: false,
+    call_info: None,
   }
 }
 
@@ -480,6 +432,8 @@ pub impl FromJson for JSObject with from_json(_, _) {
     is_proxy: false,
     proxy_target: None,
     proxy_handler: None,
+    is_callable: false,
+    call_info: None,
   }
 }
 
@@ -491,32 +445,6 @@ pub impl Compare for JSObject with compare(_, _) -> Int {
 ///|
 pub impl Hash for JSObject with hash_combine(self, hasher) -> Unit {
   hasher.combine(self._id)
-}
-
-///|
-pub impl Compare for JSFunction with compare(_, _) -> Int {
-  0
-}
-
-///|
-pub impl Hash for JSFunction with hash_combine(self, hasher) -> Unit {
-  hasher.combine(self.inner._id)
-}
-
-///|
-#alias("_[_]=_")
-pub fn JSFunction::set(
-  self : JSFunction,
-  key : String,
-  value : JSValue,
-) -> Unit {
-  self.inner[key] = value
-}
-
-///|
-#alias("_[_]")
-pub fn JSFunction::get(self : JSFunction, key : String) -> JSValue {
-  JSValue::Function(self).get_property(key)
 }
 
 ///|
@@ -549,12 +477,17 @@ pub fn JSValue::get_property_internal_throwing(
             _ => Undefined
           }
           match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ])
+            Object(f) =>
+              if f.is_callable {
+                let ctx = f.call_info.unwrap().context
+                return ctx.invoke(f, handler, [
+                  target,
+                  JSValue::String(name),
+                  receiver,
+                ])
+              } else {
+                return target.get_property_internal_throwing(name, receiver)
+              }
             _ => return target.get_property_internal_throwing(name, receiver)
           }
         }
@@ -589,8 +522,10 @@ pub fn JSValue::get_property_internal_throwing(
       match obj.properties.get(name) {
         Some(v) =>
           match v {
-            Internal(Accessor(Some(getter), _)) =>
-              return getter.context.invoke(getter, receiver, [])
+            Internal(Accessor(Some(getter), _)) => {
+              let ctx = getter.call_info.unwrap().context
+              return ctx.invoke(getter, receiver, [])
+            }
             Internal(Accessor(None, _)) => return Undefined
             _ => return v
           }
@@ -599,33 +534,6 @@ pub fn JSValue::get_property_internal_throwing(
             Some(proto) =>
               return proto.get_property_internal_throwing(name, receiver)
             None => return Undefined
-          }
-      }
-    }
-    Function(func) => {
-      match (func.inner.proxy_target, func.inner.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property_throwing("get") catch {
-            _ => Undefined
-          }
-          match trap {
-            Function(f) =>
-              return f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                receiver,
-              ])
-            _ => return target.get_property_internal_throwing(name, receiver)
-          }
-        }
-        _ => ()
-      }
-      match func.inner.properties.get(name) {
-        Some(v) => v
-        None =>
-          match func.inner.prototype {
-            Some(proto) => proto.get_property_internal_throwing(name, receiver)
-            None => Undefined
           }
       }
     }
@@ -658,20 +566,24 @@ pub fn JSValue::set_property(
         (Some(target), Some(handler)) => {
           let trap = handler.get_property("set")
           match trap {
-            Function(f) => {
-              let res = f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                value,
-                self,
-              ])
-              if not(res.is_truthy()) && strict {
-                raise EvalError::Throw(
-                  JSValue::String("TypeError: Proxy set trap returned false"),
-                )
+            Object(f) =>
+              if f.is_callable {
+                let ctx = f.call_info.unwrap().context
+                let res = ctx.invoke(f, handler, [
+                  target,
+                  JSValue::String(name),
+                  value,
+                  self,
+                ])
+                if not(res.is_truthy()) && strict {
+                  raise EvalError::Throw(
+                    JSValue::String("TypeError: Proxy set trap returned false"),
+                  )
+                }
+                return
+              } else {
+                return target.set_property(name, value, strict~)
               }
-              return
-            }
             _ => return target.set_property(name, value, strict~)
           }
         }
@@ -680,9 +592,8 @@ pub fn JSValue::set_property(
       // Check for accessor
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
-          let _ = setter.context.invoke(setter, self, [value]) catch {
-            e => raise e
-          }
+          let ctx = setter.call_info.unwrap().context
+          let _ = ctx.invoke(setter, self, [value]) catch { e => raise e }
           return
         }
         Some(Internal(Accessor(_, None))) => {
@@ -742,94 +653,9 @@ pub fn JSValue::set_property(
           return
         }
       }
-      match properties.get(name) {
-        Some(Internal(Accessor(_, Some(setter)))) => {
-          let _ = setter.context.invoke(setter, self, [value]) catch {
-            _ => Undefined
-          }
-
-        }
-        Some(Internal(Accessor(_, None))) =>
-          if strict {
-            raise EvalError::Throw(
-              JSValue::String("TypeError: Cannot assign to read only property"),
-            )
-          }
-        _ => properties.set(name, value)
-      }
-    }
-    Function(func) => {
-      match (func.inner.proxy_target, func.inner.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("set")
-          match trap {
-            Function(f) => {
-              let res = f.context.invoke(f, handler, [
-                target,
-                JSValue::String(name),
-                value,
-                self,
-              ])
-              if not(res.is_truthy()) && strict {
-                raise EvalError::Throw(
-                  JSValue::String("TypeError: Proxy set trap returned false"),
-                )
-              }
-              return
-            }
-            _ => return target.set_property(name, value, strict~)
-          }
-        }
-        _ => ()
-      }
-      // Check for accessor
-      match func.inner.properties.get(name) {
-        Some(Internal(Accessor(_, Some(setter)))) => {
-          let _ = setter.context.invoke(setter, self, [value]) catch {
-            e => raise e
-          }
-          return
-        }
-        Some(Internal(Accessor(_, None))) => {
-          if strict {
-            raise EvalError::Throw(
-              JSValue::String("TypeError: Cannot assign to read-only accessor"),
-            )
-          }
-          return
-        }
-        _ => ()
-      }
-      if func.inner.is_frozen {
-        if strict {
-          raise EvalError::Throw(
-            JSValue::String("TypeError: Cannot assign to read only property"),
-          )
-        }
-        return
-      }
-      if not(func.inner.properties.contains(name)) {
-        if not(func.inner.extensible) || func.inner.is_sealed {
-          if strict {
-            raise EvalError::Throw(
-              JSValue::String(
-                "TypeError: Cannot add property to non-extensible object",
-              ),
-            )
-          }
-          return
-        }
-      }
-      if name == "length" || name == "name" {
-        if strict {
-          raise EvalError::Throw(
-            JSValue::String("TypeError: Cannot assign to read only property"),
-          )
-        }
-        return
-      }
-      if name == "prototype" {
-        let func_name = func.name.unwrap_or("")
+      // Check for prototype assignment on built-in constructors
+      if obj.is_callable && name == "prototype" {
+        let func_name = obj.call_info.unwrap().name.unwrap_or("")
         if func_name == "String" ||
           func_name == "Number" ||
           func_name == "Boolean" ||
@@ -854,7 +680,20 @@ pub fn JSValue::set_property(
           return
         }
       }
-      func.inner[name] = value
+      match properties.get(name) {
+        Some(Internal(Accessor(_, Some(setter)))) => {
+          let ctx = setter.call_info.unwrap().context
+          let _ = ctx.invoke(setter, self, [value]) catch { _ => Undefined }
+
+        }
+        Some(Internal(Accessor(_, None))) =>
+          if strict {
+            raise EvalError::Throw(
+              JSValue::String("TypeError: Cannot assign to read only property"),
+            )
+          }
+        _ => properties.set(name, value)
+      }
     }
     _ =>
       if strict {
@@ -879,50 +718,66 @@ pub fn JSValue::delete_property(
           (Some(target), Some(handler)) => {
             let trap = handler.get_property("deleteProperty")
             match trap {
-              Function(f) => {
-                let res = ctx.invoke(f, handler, [target, JSValue::String(name)])
-                let is_truthy = res.is_truthy()
-                if not(is_truthy) && strict {
-                  ctx.throw_type_error(
-                    "Proxy deleteProperty trap returned false",
-                  )
-                }
-                // Invariant check: cannot report true for non-configurable property
-                if is_truthy {
-                  let get_own_desc = match ctx.resolve("Object") {
-                    Function(obj_ctor) =>
-                      obj_ctor.get("getOwnPropertyDescriptor")
-                    _ => Undefined
+              Object(f) =>
+                if f.is_callable {
+                  let res = ctx.invoke(f, handler, [
+                    target,
+                    JSValue::String(name),
+                  ])
+                  let is_truthy = res.is_truthy()
+                  if not(is_truthy) && strict {
+                    ctx.throw_type_error(
+                      "Proxy deleteProperty trap returned false",
+                    )
                   }
-                  match get_own_desc {
-                    Function(get_desc_fn) => {
-                      let desc = ctx.invoke(get_desc_fn, Undefined, [
-                        target,
-                        JSValue::String(name),
-                      ]) catch {
-                        _ => Undefined
-                      }
-                      match desc {
-                        Object(d) => {
-                          let configurable = match
-                            d.properties.get("configurable") {
-                            Some(Boolean(b)) => b
-                            _ => true
+                  // Invariant check: cannot report true for non-configurable property
+                  if is_truthy {
+                    let get_own_desc = match ctx.resolve("Object") {
+                      Object(obj_ctor) =>
+                        if obj_ctor.is_callable {
+                          JSValue::Object(obj_ctor).get_property(
+                            "getOwnPropertyDescriptor",
+                          )
+                        } else {
+                          Undefined
+                        }
+                      _ => Undefined
+                    }
+                    match get_own_desc {
+                      Object(get_desc_fn) =>
+                        if get_desc_fn.is_callable {
+                          let desc = ctx.invoke(get_desc_fn, Undefined, [
+                            target,
+                            JSValue::String(name),
+                          ]) catch {
+                            _ => Undefined
                           }
-                          if not(configurable) {
-                            ctx.throw_type_error(
-                              "Proxy deleteProperty trap invariant violated: cannot report true for non-configurable property",
-                            )
+                          match desc {
+                            Object(d) => {
+                              let configurable = match
+                                d.properties.get("configurable") {
+                                Some(Boolean(b)) => b
+                                _ => true
+                              }
+                              if not(configurable) {
+                                ctx.throw_type_error(
+                                  "Proxy deleteProperty trap invariant violated: cannot report true for non-configurable property",
+                                )
+                              }
+                            }
+                            _ => ()
                           }
                         }
-                        _ => ()
-                      }
+                      _ => ()
                     }
-                    _ => ()
                   }
+                  return is_truthy
+                } else {
+                  ctx.throw_type_error(
+                    "Proxy deleteProperty trap is not a function",
+                  )
+                  return false // Unreachable if throw works
                 }
-                return is_truthy
-              }
               Undefined | Null =>
                 return target.delete_property(ctx, name, strict~)
               _ =>
@@ -940,6 +795,15 @@ pub fn JSValue::delete_property(
       if obj.is_frozen || obj.is_sealed {
         if strict {
           ctx.throw_type_error("Cannot delete property of sealed/frozen object")
+        }
+        return false
+      }
+      // Special case: Function prototype
+      if obj.is_callable && name == "prototype" {
+        if strict {
+          ctx.throw_type_error(
+            "Cannot delete non-configurable property prototype",
+          )
         }
         return false
       }
@@ -998,17 +862,6 @@ pub fn JSValue::delete_property(
       obj.properties.remove(name)
       return true
     }
-    Function(func) => {
-      if name == "prototype" {
-        if strict {
-          ctx.throw_type_error(
-            "Cannot delete non-configurable property prototype",
-          )
-        }
-        return false
-      }
-      JSValue::Object(func.inner).delete_property(ctx, name, strict~)
-    }
     _ => true
   }
 }
@@ -1016,7 +869,7 @@ pub fn JSValue::delete_property(
 ///|
 pub fn JSValue::is_object(self : JSValue) -> Bool {
   match self {
-    Object(_) | Function(_) => true
+    Object(_) => true
     _ => false
   }
 }
@@ -1028,7 +881,7 @@ pub fn JSValue::is_truthy(self : JSValue) -> Bool {
     Number(n) => n != 0.0 && not(n.is_nan())
     Boolean(b) => b
     BigInt(i) => i != 0
-    Symbol(_, _) | Function(_) | Object(_) | Internal(_) => true
+    Symbol(_, _) | Object(_) | Internal(_) => true
     Null | Undefined => false
   }
 }
@@ -1056,7 +909,6 @@ pub fn JSValue::to_number(self : JSValue) -> Double {
     Null => 0.0
     Undefined => @double.not_a_number
     Object(_) => @double.not_a_number
-    Function(_) => @double.not_a_number
     Internal(_) => @double.not_a_number
     BigInt(i) =>
       @strconv.parse_double(i.to_string()) catch {
