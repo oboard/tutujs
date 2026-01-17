@@ -11,7 +11,7 @@ pub fn create_map_constructor(
         if args.length() > 0 && not(args[0] is (Undefined | Null)) {
           let iterable = args[0]
           let adder_val = this_val.get_property_throwing("set") catch {
-            _ => Undefined
+            e => raise e
           }
           let adder = match adder_val {
             Object(f) =>
@@ -82,20 +82,30 @@ pub fn create_map_constructor(
                       if done {
                         break
                       }
-                      let value = JSValue::Object(res_obj).get_property("value")
+                      let value = JSValue::Object(res_obj).get_property_throwing(
+                        "value",
+                      ) catch {
+                        e => {
+                          iterator_close(ctx, iterator)
+                          raise e
+                        }
+                      }
                       match value {
-                        Object(item_obj) => {
-                          let key = JSValue::Object(item_obj).get_property("0")
-                          let val = JSValue::Object(item_obj).get_property("1")
-                          try
+                        Object(item_obj) =>
+                          try {
+                            let key = JSValue::Object(item_obj).get_property_throwing(
+                              "0",
+                            )
+                            let val = JSValue::Object(item_obj).get_property_throwing(
+                              "1",
+                            )
                             ctx.invoke(adder, this_val, [key, val]) |> ignore
-                          catch {
+                          } catch {
                             e => {
                               iterator_close(ctx, iterator)
                               raise e
                             }
                           }
-                        }
                         _ => {
                           iterator_close(ctx, iterator)
                           ctx.throw_type_error(
@@ -134,6 +144,21 @@ pub fn create_map_constructor(
     prototype=func_proto,
     is_constructor=true,
   )
+  let proto_desc = JSObject::new(properties={
+    "value": map_proto,
+    "writable": JSValue::Boolean(false),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(false),
+  })
+  let descriptors = match ctor_obj.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      ctor_obj["__descriptors"] = JSValue::Object(d)
+      d
+    }
+  }
+  descriptors["prototype"] = JSValue::Object(proto_desc)
   ctor_obj["prototype"] = map_proto
   JSValue::Object(ctor_obj)
 }
