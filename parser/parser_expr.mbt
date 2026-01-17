@@ -680,12 +680,7 @@ fn Parser::parse_identifier_name(self : Parser) -> Expression {
       self.advance()
       let s = token.value.to_string()
       let mut val = @strconv.parse_double(s) catch {
-        _ =>
-          if s.get(0) == Some('-') {
-            -@double.infinity
-          } else {
-            @double.infinity
-          }
+        _ => if s is ['-', ..] { -@double.infinity } else { @double.infinity }
       }
       // Handle overflow for scientific notation if parse_double returns 0 or doesn't throw
       if val == 0.0 && s.to_lower().contains("e") {
@@ -698,9 +693,9 @@ fn Parser::parse_identifier_name(self : Parser) -> Expression {
           }
         }
         if e_idx != -1 {
-          let mut exp_s = s.substring(start=e_idx + 1)
+          let mut exp_s = s[e_idx + 1:] catch { _ => "" }
           if exp_s.length() > 0 && exp_s[0].to_int() == 0x2B { // '+'
-            exp_s = exp_s.substring(start=1)
+            exp_s = exp_s[1:] catch { _ => "" }
           }
           let exp = @strconv.parse_int(exp_s) catch { _ => 0 }
           if exp > 308 {

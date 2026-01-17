@@ -17,7 +17,7 @@ fn Parser::parse_primary(self : Parser) -> Expression {
       self.advance()
       let s = token.value.to_string()
       if s.has_suffix("n") {
-        let val_str = s.substring(end=s.length() - 1)
+        let val_str = s[:s.length() - 1].to_string() catch { _ => "" }
         let val = parse_bigint(val_str)
         Expression::BigIntLiteral({ value: val })
       } else {
@@ -34,9 +34,9 @@ fn Parser::parse_primary(self : Parser) -> Expression {
             }
           }
           if e_idx != -1 {
-            let mut exp_s = s.substring(start=e_idx + 1)
+            let mut exp_s = s[e_idx + 1:] catch { _ => "" }
             if exp_s.length() > 0 && exp_s[0].to_int() == 0x2B { // '+'
-              exp_s = exp_s.substring(start=1)
+              exp_s = exp_s[1:] catch { _ => "" }
             }
             let exp = @strconv.parse_int(exp_s) catch { _ => 0 }
             if exp > 308 {

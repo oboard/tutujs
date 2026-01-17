@@ -120,7 +120,7 @@ pub fn js_to_number(ctx : Context, val : JSValue) -> Double raise EvalError {
     }
     BigInt(i) => {
       let s = i.to_string()
-      if s == "0" || s == "-0" {
+      if s is ("0" | "-0") {
         return 0.0
       }
       @strconv.parse_double(s) catch {
@@ -157,7 +157,7 @@ pub fn parse_js_number(s : String) -> Double {
   while end > start && is_js_whitespace(s[end - 1].to_int()) {
     end = end - 1
   }
-  let s_str = s.substring(start~, end~)
+  let s_str = s[start:end] catch { _ => return 0 }
   if s_str == "" {
     return 0.0
   }
@@ -184,35 +184,38 @@ pub fn parse_js_number(s : String) -> Double {
       second = 0x62 // 'b'
     }
     if second == 0x78 { // 'x'
-      let rest = s_str.substring(start=2)
-      if rest == "" {
-        return @double.not_a_number
+      return if s_str is [_, _, .. rest] {
+        let res = @strconv.parse_int(rest, base=16) catch { _ => -1 }
+        if res == -1 {
+          @double.not_a_number
+        } else {
+          res.to_double()
+        }
+      } else {
+        @double.not_a_number
       }
-      let res = @strconv.parse_int(rest, base=16) catch { _ => -1 }
-      if res == -1 {
-        return @double.not_a_number
-      }
-      return res.to_double()
     } else if second == 0x6F { // 'o'
-      let rest = s_str.substring(start=2)
-      if rest == "" {
-        return @double.not_a_number
+      return if s_str is [_, _, .. rest] {
+        let res = @strconv.parse_int(rest, base=8) catch { _ => -1 }
+        if res == -1 {
+          @double.not_a_number
+        } else {
+          res.to_double()
+        }
+      } else {
+        @double.not_a_number
       }
-      let res = @strconv.parse_int(rest, base=8) catch { _ => -1 }
-      if res == -1 {
-        return @double.not_a_number
-      }
-      return res.to_double()
     } else if second == 0x62 { // 'b'
-      let rest = s_str.substring(start=2)
-      if rest == "" {
-        return @double.not_a_number
+      return if s_str is [_, _, .. rest] {
+        let res = @strconv.parse_int(rest, base=2) catch { _ => -1 }
+        if res == -1 {
+          @double.not_a_number
+        } else {
+          res.to_double()
+        }
+      } else {
+        @double.not_a_number
       }
-      let res = @strconv.parse_int(rest, base=2) catch { _ => -1 }
-      if res == -1 {
-        return @double.not_a_number
-      }
-      return res.to_double()
     }
   }
   let mut val = @strconv.parse_double(s_str) catch { _ => @double.not_a_number }
@@ -227,9 +230,9 @@ pub fn parse_js_number(s : String) -> Double {
       }
     }
     if e_idx != -1 {
-      let mut exp_s = s_str.substring(start=e_idx + 1)
+      let mut exp_s = s_str[e_idx + 1:] catch { _ => s_str }
       if exp_s.length() > 0 && exp_s[0].to_int() == 0x2B { // '+'
-        exp_s = exp_s.substring(start=1)
+        exp_s = exp_s[1:] catch { _ => exp_s }
       }
       let exp = @strconv.parse_int(exp_s) catch { _ => 0 }
       if exp > 308 {
@@ -258,56 +261,4 @@ fn is_js_whitespace(code : Int) -> Bool {
       code == 0x205F ||
       code == 0x3000
   }
-}
-
-///|
-fn parse_int_radix(s : String, radix : Int) -> Double {
-  let mut res = 0.0
-  let len = s.length()
-  for i = 0; i < len; i = i + 1 {
-    match s.get(i) {
-      Some(c) => {
-        let mut digit = -1
-        if c == '0' {
-          digit = 0
-        } else if c == '1' {
-          digit = 1
-        } else if c == '2' {
-          digit = 2
-        } else if c == '3' {
-          digit = 3
-        } else if c == '4' {
-          digit = 4
-        } else if c == '5' {
-          digit = 5
-        } else if c == '6' {
-          digit = 6
-        } else if c == '7' {
-          digit = 7
-        } else if c == '8' {
-          digit = 8
-        } else if c == '9' {
-          digit = 9
-        } else if c == 'a' || c == 'A' {
-          digit = 10
-        } else if c == 'b' || c == 'B' {
-          digit = 11
-        } else if c == 'c' || c == 'C' {
-          digit = 12
-        } else if c == 'd' || c == 'D' {
-          digit = 13
-        } else if c == 'e' || c == 'E' {
-          digit = 14
-        } else if c == 'f' || c == 'F' {
-          digit = 15
-        }
-        if digit == -1 || digit >= radix {
-          return @double.not_a_number
-        }
-        res = res * radix.to_double() + digit.to_double()
-      }
-      None => break
-    }
-  }
-  res
 }
