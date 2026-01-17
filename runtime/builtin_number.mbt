@@ -5,13 +5,17 @@ pub fn init_number_prototype(
 ) -> Unit {
   match number_proto_val {
     Object(obj) => {
+      obj.properties.set("PrimitiveValue", JSValue::Number(0.0))
       // valueOf
       let value_of_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
           Number(n) => JSValue::Number(n)
-          Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) =>
-            JSValue::Number(n)
-          _ => JSValue::Number(0.0) // Should throw TypeError
+          Object(obj) =>
+            match obj.properties.get("PrimitiveValue") {
+              Some(Number(n)) => JSValue::Number(n)
+              _ => JSValue::Number(0.0) // Should throw TypeError
+            }
+          _ => JSValue::Number(0.0)
         }
       })
       let value_of_obj = JSObject::new_function(
@@ -25,12 +29,15 @@ pub fn init_number_prototype(
       let to_string_fn = Native(fn(_ctx, this_val, _args) {
         let val = match this_val {
           Number(n) => n
-          Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) => n
-          _ => @double.not_a_number // Should throw TypeError
+          Object(obj) =>
+            match obj.properties.get("PrimitiveValue") {
+              Some(Number(n)) => n
+              _ => @double.not_a_number // Should throw TypeError
+            }
+          _ => @double.not_a_number
         }
 
         // TODO: Handle radix properly
-        // For now we just return standard string representation
         JSValue::String(val.to_string())
       })
       let to_string_obj = JSObject::new_function(
@@ -138,30 +145,25 @@ pub fn init_number_prototype(
 
 ///|
 pub fn create_number_constructor(
+  ctx : Context,
   proto : JSValue,
   func_proto : JSValue,
 ) -> JSValue {
-  let ctor_fn = Native(fn(ctx, this_val, args) {
-    let val = if args is [arg0, ..] {
-      js_to_number(ctx, arg0) catch {
-        _ => @double.not_a_number
+  let ctor_fn = Native(fn(ctx, this_val, args) raise EvalError {
+    let val = if args is [arg0, ..] { js_to_number(ctx, arg0) } else { 0.0 }
+    match this_val {
+      Object(obj) => {
+        // Check if called as constructor (this_val has Number.prototype)
+        let is_ctor = match (obj.prototype, proto) {
+          (Some(p1), Object(p2)) => p1.strict_equal(JSValue::Object(p2))
+          _ => false
+        }
+        if is_ctor {
+          obj.properties.set("PrimitiveValue", JSValue::Number(val))
+          return JSValue::Undefined // Result of constructor call is ignored if it's primitive
+        }
       }
-    } else {
-      0.0
-    }
-    let is_constructor = match (this_val, proto) {
-      (
-        Object({ prototype: Some(Object({ properties: p1, .. })), .. }),
-        Object({ properties: p2, .. }),
-      ) => physical_equal(p1, p2)
-      _ => false
-    }
-    if is_constructor {
-      match this_val {
-        Object({ properties, .. }) =>
-          properties["PrimitiveValue"] = JSValue::Number(val)
-        _ => ()
-      }
+      _ => ()
     }
     JSValue::Number(val)
   })
@@ -173,10 +175,59 @@ pub fn create_number_constructor(
     is_constructor=true,
   )
   ctor_obj["prototype"] = proto
-  ctor_obj["MAX_VALUE"] = JSValue::Number(1.7976931348623157e308)
-  ctor_obj["MIN_VALUE"] = JSValue::Number(5.0e-324)
-  ctor_obj["NaN"] = JSValue::Number(@double.not_a_number)
-  ctor_obj["NEGATIVE_INFINITY"] = JSValue::Number(-@double.infinity)
-  ctor_obj["POSITIVE_INFINITY"] = JSValue::Number(@double.infinity)
+  let set_readonly_prop = fn(name : String, val : JSValue) {
+    ctor_obj[name] = val
+    let descriptors = match ctor_obj.properties.get("__descriptors") {
+      Some(Object(d)) => d
+      _ => {
+        let d = JSObject::new()
+        ctor_obj.properties.set("__descriptors", JSValue::Object(d))
+        d
+      }
+    }
+    let desc = JSObject::new(properties={
+      "enumerable": JSValue::Boolean(false),
+      "configurable": JSValue::Boolean(false),
+      "writable": JSValue::Boolean(false),
+      "value": val,
+    })
+    descriptors[name] = JSValue::Object(desc)
+  }
+  let set_std_prop = fn(name : String, val : JSValue) {
+    ctor_obj[name] = val
+    let descriptors = match ctor_obj.properties.get("__descriptors") {
+      Some(Object(d)) => d
+      _ => {
+        let d = JSObject::new()
+        ctor_obj.properties.set("__descriptors", JSValue::Object(d))
+        d
+      }
+    }
+    let desc = JSObject::new(properties={
+      "enumerable": JSValue::Boolean(false),
+      "configurable": JSValue::Boolean(true),
+      "writable": JSValue::Boolean(true),
+      "value": val,
+    })
+    descriptors[name] = JSValue::Object(desc)
+  }
+  set_readonly_prop("MAX_VALUE", JSValue::Number(1.7976931348623157e308))
+  set_readonly_prop("MIN_VALUE", JSValue::Number(5.0e-324))
+  set_readonly_prop("NaN", JSValue::Number(@double.not_a_number))
+  set_readonly_prop("NEGATIVE_INFINITY", JSValue::Number(-@double.infinity))
+  set_readonly_prop("POSITIVE_INFINITY", JSValue::Number(@double.infinity))
+  set_readonly_prop("EPSILON", JSValue::Number(2.220446049250313e-16))
+  set_readonly_prop("MAX_SAFE_INTEGER", JSValue::Number(9007199254740991.0))
+  set_readonly_prop("MIN_SAFE_INTEGER", JSValue::Number(-9007199254740991.0))
+
+  // parseInt & parseFloat
+  match ctx.resolve("parseInt") {
+    Object(_) as f => set_std_prop("parseInt", f)
+    _ => ()
+  }
+  match ctx.resolve("parseFloat") {
+    Object(_) as f => set_std_prop("parseFloat", f)
+    _ => ()
+  }
   JSValue::Object(ctor_obj)
 }

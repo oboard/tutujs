@@ -678,7 +678,40 @@ fn Parser::parse_identifier_name(self : Parser) -> Expression {
     }
     TokenKind::NumericLiteral => {
       self.advance()
-      let val = @strconv.parse_double(token.value) catch { _ => 0.0 }
+      let s = token.value.to_string()
+      let mut val = @strconv.parse_double(s) catch {
+        _ =>
+          if s.get(0) == Some('-') {
+            -@double.infinity
+          } else {
+            @double.infinity
+          }
+      }
+      // Handle overflow for scientific notation if parse_double returns 0 or doesn't throw
+      if val == 0.0 && s.to_lower().contains("e") {
+        let mut e_idx = -1
+        for i = 0; i < s.length(); i = i + 1 {
+          let c = s[i].to_int()
+          if c == 0x65 || c == 0x45 {
+            e_idx = i
+            break
+          }
+        }
+        if e_idx != -1 {
+          let mut exp_s = s.substring(start=e_idx + 1)
+          if exp_s.length() > 0 && exp_s[0].to_int() == 0x2B { // '+'
+            exp_s = exp_s.substring(start=1)
+          }
+          let exp = @strconv.parse_int(exp_s) catch { _ => 0 }
+          if exp > 308 {
+            let mut is_neg = false
+            if s.length() > 0 && s[0].to_int() == 0x2D {
+              is_neg = true
+            }
+            val = if is_neg { -@double.infinity } else { @double.infinity }
+          }
+        }
+      }
       Expression::NumericLiteral({ value: val })
     }
     _ =>

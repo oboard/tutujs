@@ -298,6 +298,7 @@ fn Context::evaluate(
         }
         ClassDeclaration({ id, superClass, .. }) => {
           let name = id.name
+          self.scope.set(name, Undefined) // Pre-declare
           let super_val = match superClass {
             Some(expr) => self.evaluate(Expression(expr))
             None => self.resolve("Object")
@@ -308,17 +309,16 @@ fn Context::evaluate(
             params=[],
             body=Native(fn(ctx, this_val, args) {
               match super_val {
-                Object(f) =>
-                  if f.is_callable {
-                    let res = ctx.invoke(f, this_val, args) catch {
-                      EvalError::Return(v) => return v
-                      e => raise e
-                    }
-                    match res {
-                      Object(_) => return res
-                      _ => ()
-                    }
+                Object(f) if f.is_callable => {
+                  let res = ctx.invoke(f, this_val, args) catch {
+                    EvalError::Return(v) => return v
+                    e => raise e
                   }
+                  match res {
+                    Object(_) => return res
+                    _ => ()
+                  }
+                }
                 _ => ()
               }
               this_val
@@ -340,7 +340,7 @@ fn Context::evaluate(
           let proto_val = JSValue::Object(proto_obj)
           proto_props.set("constructor", func_val)
           func_props.set("prototype", proto_val)
-          self.scope.set(name, func_val)
+          self.register_builtin(name, func_val)
           Undefined
         }
         _ => Undefined
@@ -999,6 +999,7 @@ fn Context::evaluate(
         NumericLiteral({ value }) => Number(value)
         StringLiteral({ value }) => String(value)
         BooleanLiteral({ value }) => Boolean(value)
+        BigIntLiteral({ value }) => BigInt(value)
         NullLiteral => Null
         RegExpLiteral({ pattern, flags }) => {
           let pattern_val = JSValue::String(pattern[:])

@@ -16,11 +16,11 @@ pub fn init_object_prototype(
               String(s) => s.to_string()
               _ => {
                 let properties = obj.properties
-                match properties["PrimitiveValue"] {
-                  String(_) => "String"
-                  Number(_) => "Number"
-                  Boolean(_) => "Boolean"
-                  BigInt(_) => "BigInt"
+                match properties.get("PrimitiveValue") {
+                  Some(String(_)) => "String"
+                  Some(Number(_)) => "Number"
+                  Some(Boolean(_)) => "Boolean"
+                  Some(BigInt(_)) => "BigInt"
                   _ => if obj.is_callable { "Function" } else { "Object" }
                 }
               }
@@ -279,18 +279,18 @@ pub fn create_object_constructor(
 ) -> JSValue {
   let desc_key = "__descriptors"
   let ensure_desc_map = fn(o : JSObject) -> JSObject {
-    match o.properties[desc_key] {
-      Object(m) => m
+    match o.properties.get(desc_key) {
+      Some(Object(m)) => m
       _ => {
         let m = JSObject::new(properties={}, prototype=Null)
-        o[desc_key] = JSValue::Object(m)
+        o.properties.set(desc_key, JSValue::Object(m))
         m
       }
     }
   }
   let get_desc_entry = fn(o : JSObject, prop : String) -> JSObject? {
-    match o.properties[desc_key] {
-      Object(m) =>
+    match o.properties.get(desc_key) {
+      Some(Object(m)) =>
         match m.properties.get(prop) {
           Some(Object(d)) => Some(d)
           _ => None
@@ -304,7 +304,7 @@ pub fn create_object_constructor(
     desc : JSObject,
   ) -> Unit {
     let m = ensure_desc_map(o)
-    m[prop] = JSValue::Object(desc)
+    m.properties.set(prop, JSValue::Object(desc))
   }
   let infer_desc_entry = fn(o : JSObject, prop : String) -> JSObject {
     match o.properties.get(prop) {
@@ -431,14 +431,22 @@ pub fn create_object_constructor(
         BigInt(_) => {
           let big_proto = match ctx.resolve("BigInt") {
             Object(f) => f.get("prototype")
-            _ => Undefined
+            _ =>
+              // Try to find BigInt prototype directly in the global scope if resolve failed
+              match ctx.scope.get("BigInt") {
+                Some(Object(f)) => f.get("prototype")
+                _ => proto // Fallback to Object.prototype
+              }
           }
           let obj = JSObject::new(prototype=big_proto)
           obj["PrimitiveValue"] = val
           let res = Object(obj)
           match big_proto {
-            Object({ properties: { "constructor": ctor, .. }, .. }) =>
-              obj["constructor"] = ctor
+            Object(p) =>
+              match p.properties.get("constructor") {
+                Some(ctor) => obj["constructor"] = ctor
+                None => ()
+              }
             _ => ()
           }
           res
@@ -759,19 +767,19 @@ pub fn create_object_constructor(
           _ => false
         }
         if not(cur_conf) {
-          match desc_props["configurable"] {
-            Boolean(true) =>
+          match desc_props.get("configurable") {
+            Some(Boolean(true)) =>
               ctx.throw_type_error(
                 "Cannot redefine non-configurable property '" + prop + "'",
               )
             _ => ()
           }
-          let cur_enum = match current_desc["enumerable"] {
+          let cur_enum = match current_desc.get("enumerable") {
             Boolean(b) => b
             _ => false
           }
-          match desc_props["enumerable"] {
-            Boolean(new_enum) =>
+          match desc_props.get("enumerable") {
+            Some(Boolean(new_enum)) =>
               if new_enum != cur_enum {
                 ctx.throw_type_error(
                   "Cannot change enumerable attribute of non-configurable property '" +
@@ -803,8 +811,8 @@ pub fn create_object_constructor(
               _ => false
             }
             if not(cur_writable) {
-              match desc_props["writable"] {
-                Boolean(true) =>
+              match desc_props.get("writable") {
+                Some(Boolean(true)) =>
                   ctx.throw_type_error(
                     "Cannot change non-configurable, non-writable property to writable",
                   )
@@ -847,8 +855,8 @@ pub fn create_object_constructor(
         }
         properties[prop] = Internal(Accessor(getter, setter))
         let d_props = { "get": get_val, "set": set_val }
-        let enumerable = match desc_props["enumerable"] {
-          Boolean(b) => b
+        let enumerable = match desc_props.get("enumerable") {
+          Some(Boolean(b)) => b
           _ =>
             match current_desc.properties.get("enumerable") {
               Some(Boolean(b)) => b
@@ -858,8 +866,8 @@ pub fn create_object_constructor(
         let configurable = match desc_props.get("configurable") {
           Some(Boolean(b)) => b
           _ =>
-            match current_desc.properties["configurable"] {
-              Boolean(b) => b
+            match current_desc.properties.get("configurable") {
+              Some(Boolean(b)) => b
               _ => false
             }
         }
@@ -880,27 +888,27 @@ pub fn create_object_constructor(
             }
         }
         properties[prop] = value
-        let writable = match desc_props["writable"] {
-          Boolean(b) => b
+        let writable = match desc_props.get("writable") {
+          Some(Boolean(b)) => b
           _ =>
-            match current_desc.properties["writable"] {
-              Boolean(b) => b
+            match current_desc.properties.get("writable") {
+              Some(Boolean(b)) => b
               _ => false
             }
         }
-        let enumerable = match desc_props["enumerable"] {
-          Boolean(b) => b
+        let enumerable = match desc_props.get("enumerable") {
+          Some(Boolean(b)) => b
           _ =>
-            match current_desc.properties["enumerable"] {
-              Boolean(b) => b
+            match current_desc.properties.get("enumerable") {
+              Some(Boolean(b)) => b
               _ => false
             }
         }
-        let configurable = match desc_props["configurable"] {
-          Boolean(b) => b
+        let configurable = match desc_props.get("configurable") {
+          Some(Boolean(b)) => b
           _ =>
-            match current_desc.properties["configurable"] {
-              Boolean(b) => b
+            match current_desc.properties.get("configurable") {
+              Some(Boolean(b)) => b
               _ => false
             }
         }
@@ -930,48 +938,20 @@ pub fn create_object_constructor(
   object_fn["defineProperty"] = JSValue::Object(define_property_obj)
 
   // Object.freeze
-  let freeze_fn = Native(fn(ctx, _this_val, args) {
+  let freeze_fn = Native(fn(ctx, _this_val, args) raise EvalError {
     if args is [obj_arg, ..] {
       match obj_arg {
         Object(o) => {
           // 1. Prevent Extensions
-          let mut success = false
-          match (o.proxy_target, o.proxy_handler) {
-            (Some(target), Some(handler)) => {
-              let trap = handler.get_property("preventExtensions")
-              match trap {
-                Object(f) =>
-                  if f.is_callable {
-                    let res = ctx.invoke(f, handler, [target]) catch {
-                      e => raise e
-                    }
-                    success = res.is_truthy()
-                  } else {
-                    match target {
-                      Object(t) => {
-                        t.extensible = false
-                        success = true
-                      }
-                      _ => success = true
-                    }
-                  }
-                _ =>
-                  match target {
-                    Object(t) => {
-                      t.extensible = false
-                      success = true
-                    }
-                    _ => success = true
-                  }
-              }
-            }
-            _ => {
-              o.extensible = false
-              success = true
-            }
+          let prevent_extensions_fn = match ctx.resolve("Object") {
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("preventExtensions")
+            _ => Undefined
           }
-          if not(success) {
-            ctx.throw_type_error("unable to prevent extensions")
+          match prevent_extensions_fn {
+            Object(f) if f.is_callable =>
+              ctx.invoke(f, Undefined, [obj_arg]) |> ignore
+            _ => o.extensible = false
           }
 
           // 2. Get all keys (names and symbols)
@@ -986,44 +966,18 @@ pub fn create_object_constructor(
             _ => Undefined
           }
           let keys = []
-          match get_names_fn {
-            Object(f) =>
-              if f.is_callable {
-                let names_val = ctx.invoke(f, Undefined, [obj_arg]) catch {
-                  _ => Undefined
-                }
-                match names_val {
-                  Object({ properties: keys_props, .. }) => {
-                    let len = match keys_props["length"] {
-                      Number(n) => n.to_int()
-                      _ => 0
-                    }
-                    for i in 0..<len {
-                      match keys_props.get(i.to_string()) {
-                        Some(v) => keys.push(v)
-                        _ => ()
-                      }
-                    }
-                  }
-                  _ => ()
-                }
-              }
-            _ => ()
-          }
-          match get_syms_fn {
-            Object(f) =>
-              if f.is_callable {
-                let syms_val = ctx.invoke(f, Undefined, [obj_arg]) catch {
-                  _ => Undefined
-                }
-                match syms_val {
-                  Object({ properties: keys_props, .. }) => {
-                    let len = match keys_props.get("length") {
+          let collect_keys = fn(fn_val : JSValue) raise EvalError {
+            match fn_val {
+              Object(f) if f.is_callable => {
+                let res = ctx.invoke(f, Undefined, [obj_arg])
+                match res {
+                  Object(arr_obj) => {
+                    let len = match arr_obj.properties.get("length") {
                       Some(Number(n)) => n.to_int()
                       _ => 0
                     }
                     for i in 0..<len {
-                      match keys_props.get(i.to_string()) {
+                      match arr_obj.properties.get(i.to_string()) {
                         Some(v) => keys.push(v)
                         _ => ()
                       }
@@ -1032,8 +986,11 @@ pub fn create_object_constructor(
                   _ => ()
                 }
               }
-            _ => ()
+              _ => ()
+            }
           }
+          collect_keys(get_names_fn)
+          collect_keys(get_syms_fn)
 
           // 3. Define properties
           let define_prop_fn = match ctx.resolve("Object") {
@@ -1047,54 +1004,61 @@ pub fn create_object_constructor(
             _ => Undefined
           }
           for k in keys {
-            let key_str = k.to_string()
-            // Determine if it's an accessor
-            let is_accessor = match o.proxy_target {
-              None =>
-                match o.properties.get(key_str) {
-                  Some(Internal(Accessor(_, _))) => true
-                  _ =>
-                    match o.properties["__descriptors"] {
-                      Object(d) =>
-                        match d["properties"][key_str] {
-                          Object(desc) =>
-                            desc.properties.contains("get") ||
-                            desc.properties.contains("set")
-                          _ => false
-                        }
-                      _ => false
+            // Get descriptor to check if it's an accessor
+            let (is_accessor, cur_enum) = match get_desc_fn {
+              Object(f) if f.is_callable => {
+                let d = ctx.invoke(f, Undefined, [obj_arg, k])
+                match d {
+                  Object(desc_obj) => {
+                    let acc = desc_obj.properties.contains("get") ||
+                      desc_obj.properties.contains("set")
+                    let enu = match desc_obj.get("enumerable") {
+                      Boolean(b) => b
+                      _ => true
                     }
+                    (acc, enu)
+                  }
+                  _ => (false, true)
                 }
-              _ =>
-                match get_desc_fn {
-                  Object(f) =>
-                    if f.is_callable {
-                      let d = ctx.invoke(f, Undefined, [obj_arg, k]) catch {
-                        _ => Undefined
-                      }
-                      match d {
-                        Object(desc_obj) =>
-                          desc_obj.properties.contains("get") ||
-                          desc_obj.properties.contains("set")
-                        _ => false
-                      }
-                    } else {
-                      false
-                    }
-                  _ => false
-                }
+              }
+              _ => (false, true)
             }
-            let desc = JSObject::new()
+            let desc = JSObject::new(
+              prototype=match ctx.resolve("Object") {
+                Object(obj_ctor) => obj_ctor.get("prototype")
+                _ => Undefined
+              },
+            )
             desc["configurable"] = JSValue::Boolean(false)
+            desc["enumerable"] = JSValue::Boolean(cur_enum)
             if not(is_accessor) {
               desc["writable"] = JSValue::Boolean(false)
+            } else {
+              // For accessors, ensure get/set are present in the descriptor if they exist
+              match get_desc_fn {
+                Object(f) if f.is_callable => {
+                  let d = ctx.invoke(f, Undefined, [obj_arg, k])
+                  match d {
+                    Object(desc_obj) => {
+                      match desc_obj.get("get") {
+                        v if v != Undefined => desc["get"] = v
+                        _ => ()
+                      }
+                      match desc_obj.get("set") {
+                        v if v != Undefined => desc["set"] = v
+                        _ => ()
+                      }
+                    }
+                    _ => ()
+                  }
+                }
+                _ => ()
+              }
             }
             match define_prop_fn {
-              Object(f) =>
-                if f.is_callable {
-                  ctx.invoke(f, Undefined, [obj_arg, k, JSValue::Object(desc)])
-                  |> ignore
-                }
+              Object(f) if f.is_callable =>
+                ctx.invoke(f, Undefined, [obj_arg, k, JSValue::Object(desc)])
+                |> ignore
               _ => ()
             }
           }

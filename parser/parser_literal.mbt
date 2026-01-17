@@ -16,16 +16,39 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     TokenKind::NumericLiteral => {
       self.advance()
       let s = token.value.to_string()
-      if s is [.. val_str, 'n'] {
-        let val_str = val_str.to_string()
+      if s.has_suffix("n") {
+        let val_str = s.substring(end=s.length() - 1)
         let val = parse_bigint(val_str)
         Expression::BigIntLiteral({ value: val })
       } else {
-        Expression::NumericLiteral({
-          value: @strconv.parse_double(s) catch {
-            _ => 0.0
-          },
-        })
+        let mut val = @strconv.parse_double(s) catch {
+          _ => @double.not_a_number
+        }
+        if val.is_nan() && s.to_lower().contains("e") {
+          let mut e_idx = -1
+          for i = 0; i < s.length(); i = i + 1 {
+            let c = s[i].to_int()
+            if c == 0x65 || c == 0x45 {
+              e_idx = i
+              break
+            }
+          }
+          if e_idx != -1 {
+            let mut exp_s = s.substring(start=e_idx + 1)
+            if exp_s.length() > 0 && exp_s[0].to_int() == 0x2B { // '+'
+              exp_s = exp_s.substring(start=1)
+            }
+            let exp = @strconv.parse_int(exp_s) catch { _ => 0 }
+            if exp > 308 {
+              let mut is_neg = false
+              if s.length() > 0 && s[0].to_int() == 0x2D {
+                is_neg = true
+              }
+              val = if is_neg { -@double.infinity } else { @double.infinity }
+            }
+          }
+        }
+        Expression::NumericLiteral({ value: val })
       }
     }
     TokenKind::StringLiteral => {

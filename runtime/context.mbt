@@ -197,13 +197,6 @@ pub fn Context::create_global() -> Context {
   let number_proto_val = JSValue::Object(number_proto)
   init_number_prototype(number_proto_val, func_proto_val)
 
-  // Number Constructor
-  let number_ctor_val = create_number_constructor(
-    number_proto_val, func_proto_val,
-  )
-  number_proto_props.set("constructor", number_ctor_val)
-  ctx.register_builtin("Number", number_ctor_val)
-
   // BigInt.prototype
   let bigint_proto_props = {}
   let bigint_proto = JSObject::new(
@@ -343,6 +336,14 @@ pub fn Context::create_global() -> Context {
 
   // Global functions (eval, isNaN, etc.)
   init_global_functions(ctx)
+
+  // Number Constructor
+  // We do this after global functions so parseInt/parseFloat are available
+  let number_ctor_val = create_number_constructor(
+    ctx, number_proto_val, func_proto_val,
+  )
+  number_proto_props.set("constructor", number_ctor_val)
+  ctx.register_builtin("Number", number_ctor_val)
 
   // Create global object
   let global_obj = JSObject::new(

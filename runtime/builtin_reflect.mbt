@@ -101,23 +101,33 @@ fn ReflectBuiltin::construct(
   let args_list = args[1]
   let new_target = if args.length() > 2 { args[2] } else { target }
   let func = match target {
-    Object(f) =>
-      if f.is_callable && f.call_info.unwrap().is_constructor {
+    Object(f) => {
+      let is_ctor = match f.call_info {
+        Some(info) => info.is_constructor
+        None => false
+      }
+      if f.is_callable && is_ctor {
         f
       } else {
         ctx.throw_type_error("Reflect.construct: target must be a constructor")
       }
+    }
     _ => ctx.throw_type_error("Reflect.construct: target must be a constructor")
   }
   let nt = match new_target {
-    Object(f) =>
-      if f.is_callable && f.call_info.unwrap().is_constructor {
+    Object(f) => {
+      let is_ctor = match f.call_info {
+        Some(info) => info.is_constructor
+        None => false
+      }
+      if f.is_callable && is_ctor {
         f
       } else {
         ctx.throw_type_error(
           "Reflect.construct: newTarget must be a constructor",
         )
       }
+    }
     _ =>
       ctx.throw_type_error("Reflect.construct: newTarget must be a constructor")
   }

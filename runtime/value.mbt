@@ -935,10 +935,7 @@ pub fn JSValue::to_number(self : JSValue) -> Double {
     Number(n) => n
     Boolean(true) => 1.0
     Boolean(false) => 0.0
-    String(s) =>
-      @strconv.parse_double(s.to_string()) catch {
-        _ => @double.not_a_number
-      }
+    String(s) => parse_js_number(s.to_string())
     Null => 0.0
     Undefined => @double.not_a_number
     Object(_) => @double.not_a_number

@@ -1,15 +1,26 @@
 ///|
 pub fn JSValue::instanceof(self : JSValue, other : JSValue) -> Bool {
   let prototype = match other {
-    Object(f) => f.properties.get("prototype")
-    _ => return false // Right-hand side of 'instanceof' is not callable or doesn't have prototype
+    Object(f) =>
+      match f.properties.get("prototype") {
+        Some(p) => p
+        None => Undefined
+      }
+    _ => return false
   }
   match prototype {
-    Some(proto) => {
+    Object(_) => {
       let mut current = self
+      // Handle wrappers
+      match self {
+        String(_) | Number(_) | Boolean(_) | BigInt(_) | Symbol(_, _) =>
+          // Primitive values are not instances of their constructors
+          return false
+        _ => ()
+      }
       loop current {
         Object({ prototype: Some(p), .. }) => {
-          if p.strict_equal(proto) {
+          if p.strict_equal(prototype) {
             return true
           }
           current = p
@@ -18,6 +29,6 @@ pub fn JSValue::instanceof(self : JSValue, other : JSValue) -> Bool {
         _ => return false
       }
     }
-    None => false
+    _ => false
   }
 }
