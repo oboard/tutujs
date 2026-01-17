@@ -27,8 +27,11 @@ pub(all) struct Lexer {
   mut line : Int
   mut line_start : Int
   mut tokens : Array[LexToken]
+  mut errors : Array[String]
+  mut json_mode : Bool
 }
 pub fn Lexer::new(String) -> Self
+pub fn Lexer::set_json_mode(Self, Bool) -> Unit
 pub fn Lexer::tokenize(Self) -> Array[LexToken]
 
 // Type aliases

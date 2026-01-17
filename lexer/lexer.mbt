@@ -13,11 +13,26 @@ pub(all) struct Lexer {
   mut line : Int
   mut line_start : Int
   mut tokens : Array[LexToken]
+  mut errors : Array[String]
+  mut json_mode : Bool
 }
 
 ///|
 pub fn Lexer::new(input : String) -> Lexer {
-  { input, position: 0, line: 1, line_start: 0, tokens: [] }
+  {
+    input,
+    position: 0,
+    line: 1,
+    line_start: 0,
+    tokens: [],
+    errors: [],
+    json_mode: false,
+  }
+}
+
+///|
+pub fn Lexer::set_json_mode(self : Lexer, mode : Bool) -> Unit {
+  self.json_mode = mode
 }
 
 ///|
@@ -67,6 +82,10 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
 
     // Newlines
     ("\n|\r|\r\n|\u2028|\u2029" as raw, rest) => {
+      if lexer.json_mode && (raw == "\u2028" || raw == "\u2029") {
+        lexer.errors.push("Invalid JSON whitespace")
+        lexer.add_token(@tokens.TokenKind::Illegal, raw)
+      }
       lexer.line += 1
       lexer.position += raw.length()
       lexer.line_start = lexer.position
@@ -75,10 +94,18 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
 
     // Comments
     ("//[^\r\n]*" as raw, rest) => {
+      if lexer.json_mode {
+        lexer.errors.push("Comments not allowed in JSON")
+        lexer.add_token(@tokens.TokenKind::Illegal, raw)
+      }
       lexer.position += raw.length()
       lex_tokens(rest, lexer)
     }
     ("/\*[^*]*\*+([^/*][^*]*\*+)*/" as raw, rest) => {
+      if lexer.json_mode {
+        lexer.errors.push("Comments not allowed in JSON")
+        lexer.add_token(@tokens.TokenKind::Illegal, raw)
+      }
       lexer.position += raw.length()
       // Count newlines in block comment
       for i = 0; i < raw.length(); i = i + 1 {
@@ -116,6 +143,20 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
 
     // String literals
     ("\"" ("([^\\\"\\\\]|[\\\\].)*" as raw) "\"", rest) => {
+      // Check for control characters
+      let len = raw.length()
+      let mut i = 0
+      while i < len {
+        let c = raw[i]
+        if c == '\\' {
+          i = i + 2
+          continue
+        }
+        if c < '\u0020' {
+          lexer.errors.push("Control character in string literal")
+        }
+        i = i + 1
+      }
       lexer.add_token(@tokens.TokenKind::StringLiteral, raw)
       lexer.position += 2
       lex_tokens(rest, lexer)

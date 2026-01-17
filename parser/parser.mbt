@@ -8,11 +8,12 @@ type LexToken = @lexer.LexToken
 pub(all) struct Parser {
   tokens : Array[LexToken]
   mut pos : Int
+  errors : Array[String]
 }
 
 ///|
 pub fn Parser::new(tokens : Array[LexToken]) -> Parser {
-  { tokens, pos: 0 }
+  { tokens, pos: 0, errors: [] }
 }
 
 ///|

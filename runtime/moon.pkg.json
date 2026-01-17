@@ -2,6 +2,7 @@
   "import": [
     "oboard/tutujs/parser",
     "oboard/tutujs/lexer",
+    "oboard/tutujs/tokens",
     "oboard/tutujs/time",
     "moonbitlang/regexp"
   ]

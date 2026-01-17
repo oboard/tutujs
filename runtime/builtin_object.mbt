@@ -721,6 +721,13 @@ pub fn create_object_constructor(
         ..,
       ] {
       let prop = prop_arg.to_property_key()
+      let has_own = match get_desc_entry(o, prop) {
+        Some(_) => true
+        None => properties.contains(prop)
+      }
+      if not(has_own) && not(o.extensible) {
+        ctx.throw_type_error("Cannot define property on non-extensible object")
+      }
       let mut current_desc = match get_desc_entry(o, prop) {
         Some(d) => d
         None =>
@@ -747,6 +754,81 @@ pub fn create_object_constructor(
               JSObject::new(properties=d_props, prototype=proto)
             }
           }
+      }
+      if has_own {
+        let cur_conf = match current_desc.properties.get("configurable") {
+          Some(Boolean(b)) => b
+          _ => false
+        }
+        if not(cur_conf) {
+          match desc_props.get("configurable") {
+            Some(Boolean(true)) =>
+              ctx.throw_type_error(
+                "Cannot redefine non-configurable property '" + prop + "'",
+              )
+            _ => ()
+          }
+          let cur_enum = match current_desc.properties.get("enumerable") {
+            Some(Boolean(b)) => b
+            _ => false
+          }
+          match desc_props.get("enumerable") {
+            Some(Boolean(new_enum)) =>
+              if new_enum != cur_enum {
+                ctx.throw_type_error(
+                  "Cannot change enumerable attribute of non-configurable property '" +
+                  prop +
+                  "'",
+                )
+              }
+            _ => ()
+          }
+          let is_current_accessor = current_desc.properties.contains("get") ||
+            current_desc.properties.contains("set")
+          let is_desc_accessor = desc_props.contains("get") ||
+            desc_props.contains("set")
+          let is_desc_data = desc_props.contains("value") ||
+            desc_props.contains("writable")
+          if is_current_accessor && is_desc_data {
+            ctx.throw_type_error(
+              "Cannot change non-configurable accessor property to data property",
+            )
+          }
+          if not(is_current_accessor) && is_desc_accessor {
+            ctx.throw_type_error(
+              "Cannot change non-configurable data property to accessor property",
+            )
+          }
+          if not(is_current_accessor) && not(is_desc_accessor) {
+            let cur_writable = match current_desc.properties.get("writable") {
+              Some(Boolean(b)) => b
+              _ => false
+            }
+            if not(cur_writable) {
+              match desc_props.get("writable") {
+                Some(Boolean(true)) =>
+                  ctx.throw_type_error(
+                    "Cannot change non-configurable, non-writable property to writable",
+                  )
+                _ => ()
+              }
+              match desc_props.get("value") {
+                Some(new_val) => {
+                  let cur_val = match current_desc.properties.get("value") {
+                    Some(v) => v
+                    _ => Undefined
+                  }
+                  if not(new_val.strict_equal(cur_val)) {
+                    ctx.throw_type_error(
+                      "Cannot change value of non-configurable, non-writable property",
+                    )
+                  }
+                }
+                None => ()
+              }
+            }
+          }
+        }
       }
       if desc_props.contains("get") || desc_props.contains("set") {
         let get_val = match desc_props.get("get") {

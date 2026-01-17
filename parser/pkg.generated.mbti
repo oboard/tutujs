@@ -1773,6 +1773,7 @@ pub impl @json.FromJson for ParseSubscriptState
 pub(all) struct Parser {
   tokens : Array[@lexer.LexToken]
   mut pos : Int
+  errors : Array[String]
 }
 pub fn Parser::new(Array[@lexer.LexToken]) -> Self
 pub fn Parser::parse_expression(Self) -> Expression

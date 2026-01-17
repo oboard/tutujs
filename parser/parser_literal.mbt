@@ -92,11 +92,11 @@ fn Parser::parse_primary(self : Parser) -> Expression {
     // }
     _ => {
       let token = self.peek()
-      self.advance()
-      // println("Unexpected token in parse_primary: \{token.kind}")
-      abort(
+      self.errors.push(
         "Unexpected token in parse_primary: \{token.kind} at \{token.line}:\{token.column}, value: \{token.value}",
       )
+      self.advance()
+      Expression::NullLiteral
     }
   }
 }
@@ -321,7 +321,13 @@ fn Parser::parse_function_params(self : Parser) -> Array[Pattern] {
           }),
         )
       }
-      _ => abort("Only identifier params supported for now")
+      _ => {
+        let token = self.peek()
+        self.errors.push(
+          "Only identifier params supported for now: " + token.kind.to_string(),
+        )
+        self.advance()
+      }
     }
     if self.peek().kind == TokenKind::Comma {
       self.advance()
@@ -344,7 +350,9 @@ fn Parser::parse_identifier(self : Parser) -> Identifier {
       typeAnnotation: None,
     }
   } else {
-    abort("Expected identifier, got \{token.kind}")
+    self.errors.push("Expected identifier, got \{token.kind}")
+    self.advance()
+    Identifier::{ name: "", optional: false, typeAnnotation: None }
   }
 }
 

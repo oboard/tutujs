@@ -58,8 +58,15 @@ pub fn test_from(path : String) -> Unit raise Error {
   harness_code = harness_code + "}\n"
   let full_code = harness_code + code
   let ctx = @runtime.Context::create_global()
+  let is_negative = code.contains("negative:")
   match ctx.eval_safe(full_code) {
-    Ok(_) => ()
-    Err(msg) => fail("Test failed: " + @runtime.format_js_error(msg))
+    Ok(_) =>
+      if is_negative {
+        fail("Test failed: Expected error but got success")
+      }
+    Err(msg) =>
+      if not(is_negative) {
+        fail("Test failed: " + @runtime.format_js_error(msg))
+      }
   }
 }
