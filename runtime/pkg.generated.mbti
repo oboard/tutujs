@@ -85,7 +85,7 @@ pub fn populate_builtin(JSObject, Array[BuiltinProperty]) -> Unit
 
 pub fn prop_data(String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
 
-pub fn prop_method(String, (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
+pub fn prop_method(String, (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool, prototype? : JSValue) -> BuiltinProperty
 
 pub fn to_primitive(Context, JSValue, hint? : String) -> JSValue raise EvalError
 

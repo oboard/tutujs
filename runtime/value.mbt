@@ -746,6 +746,28 @@ pub fn JSValue::delete_property(
 ) -> Bool raise EvalError {
   match self {
     Object(obj) => {
+      // String object index property is non-configurable
+      let is_string_obj = match obj.properties.get("PrimitiveValue") {
+        Some(String(_)) => true
+        _ => false
+      }
+      if is_string_obj {
+        let idx = @strconv.parse_int(name) catch { _ => -1 }
+        if idx >= 0 {
+          let len = match obj.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          if idx < len {
+            if strict {
+              ctx.throw_type_error(
+                "Cannot delete property " + name + " of String",
+              )
+            }
+            return false
+          }
+        }
+      }
       if obj.is_proxy {
         match (obj.proxy_target, obj.proxy_handler) {
           (Some(target), Some(handler)) => {
@@ -767,40 +789,49 @@ pub fn JSValue::delete_property(
                   if is_truthy {
                     let get_own_desc = match ctx.resolve("Object") {
                       Object(obj_ctor) =>
-                        if obj_ctor.is_callable {
-                          JSValue::Object(obj_ctor).get_property(
-                            "getOwnPropertyDescriptor",
-                          )
-                        } else {
-                          Undefined
-                        }
+                        obj_ctor.get("getOwnPropertyDescriptor")
                       _ => Undefined
                     }
                     match get_own_desc {
-                      Object(get_desc_fn) =>
-                        if get_desc_fn.is_callable {
-                          let desc = ctx.invoke(get_desc_fn, Undefined, [
-                            target,
-                            JSValue::String(name),
-                          ]) catch {
-                            _ => Undefined
-                          }
-                          match desc {
-                            Object(d) => {
-                              let configurable = match
-                                d.properties.get("configurable") {
-                                Some(Boolean(b)) => b
-                                _ => true
-                              }
-                              if not(configurable) {
-                                ctx.throw_type_error(
-                                  "Proxy deleteProperty trap invariant violated: cannot report true for non-configurable property",
-                                )
-                              }
-                            }
-                            _ => ()
-                          }
+                      Object(get_desc_fn) if get_desc_fn.is_callable => {
+                        let desc = ctx.invoke(get_desc_fn, Undefined, [
+                          target,
+                          JSValue::String(name),
+                        ]) catch {
+                          _ => Undefined
                         }
+                        match desc {
+                          Object(d) => {
+                            let configurable = match d.get("configurable") {
+                              Boolean(b) => b
+                              _ => true
+                            }
+                            if not(configurable) {
+                              ctx.throw_type_error(
+                                "Proxy deleteProperty trap invariant violated: cannot report true for non-configurable property",
+                              )
+                            }
+                            // Check extensibility invariant
+                            let is_ext = match ctx.resolve("Object") {
+                              Object(ctor) =>
+                                match ctor.get("isExtensible") {
+                                  Object(ie) if ie.is_callable =>
+                                    ctx
+                                    .invoke(ie, Undefined, [target])
+                                    .is_truthy()
+                                  _ => true
+                                }
+                              _ => true
+                            }
+                            if not(is_ext) {
+                              ctx.throw_type_error(
+                                "Proxy deleteProperty trap invariant violated: cannot report true for existing property on non-extensible target",
+                              )
+                            }
+                          }
+                          _ => ()
+                        }
+                      }
                       _ => ()
                     }
                   }
@@ -859,7 +890,10 @@ pub fn JSValue::delete_property(
           Some(String(_)) => true
           _ => false
         })
-      if is_string_obj {
+      let is_array = not(obj.is_callable) &&
+        not(is_string_obj) &&
+        obj.properties.contains("length")
+      if is_string_obj || is_array {
         if name == "length" {
           if strict {
             ctx.throw_type_error(
@@ -868,19 +902,21 @@ pub fn JSValue::delete_property(
           }
           return false
         }
-        let idx = @strconv.parse_int(name) catch { _ => -1 }
-        if idx >= 0 {
-          let len = match obj.properties.get("length") {
-            Some(Number(n)) => n.to_int()
-            _ => 0
-          }
-          if idx < len {
-            if strict {
-              ctx.throw_type_error(
-                "Cannot delete non-configurable property " + name,
-              )
+        if is_string_obj {
+          let idx = @strconv.parse_int(name) catch { _ => -1 }
+          if idx >= 0 {
+            let len = match obj.properties.get("length") {
+              Some(Number(n)) => n.to_int()
+              _ => 0
             }
-            return false
+            if idx < len {
+              if strict {
+                ctx.throw_type_error(
+                  "Cannot delete non-configurable property " + name,
+                )
+              }
+              return false
+            }
           }
         }
       }

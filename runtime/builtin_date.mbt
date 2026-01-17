@@ -22,7 +22,7 @@ pub fn create_date_object(
             if n.is_nan() || n.is_inf() || n.abs() > 8.64e15 {
               ms_opt = None
             } else {
-              ms_opt = Some(n)
+              ms_opt = Some(if n == 0.0 { 0.0 } else { n })
             }
           String(s) => ms_opt = parse_date_string(ctx, s.to_string())
           Object(_) =>
@@ -140,7 +140,11 @@ pub fn create_date_object(
     name : String,
     body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
   ) {
-    let f = JSObject::new_function(name~, body=Native(body))
+    let f = JSObject::new_function(
+      name~,
+      body=Native(body),
+      prototype=func_proto,
+    )
     match date_proto {
       Object(obj) => define_property(obj, name, JSValue::Object(f), false)
       _ => ()
@@ -151,13 +155,25 @@ pub fn create_date_object(
     body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
     len : Int,
   ) {
-    let f = JSObject::new_function(name~, body=Native(body))
-    f["length"] = JSValue::Number(len.to_double())
+    let params = []
+    for i = 0; i < len; i = i + 1 {
+      params.push("arg" + i.to_string())
+    }
+    let f = JSObject::new_function(
+      name~,
+      body=Native(body),
+      params~,
+      prototype=func_proto,
+    )
     define_property(date_ctor, name, JSValue::Object(f), false)
   }
   define_static(
     "now",
-    fn(_ctx, _this, _args) { JSValue::Number(@env.now().to_uint().to_double()) },
+    fn(_ctx, _this, _args) {
+      JSValue::Number(
+        @env.now().reinterpret_as_int64().to_double() / 1_000_000.0,
+      )
+    },
     0,
   )
   define_static(
@@ -172,7 +188,7 @@ pub fn create_date_object(
           (to_primitive(ctx, args[0], hint="String") catch { _ => Undefined }).to_string()
       }
       match parse_date_string(ctx, s) {
-        Some(ms) => JSValue::Number(ms)
+        Some(ms) => JSValue::Number(if ms == 0.0 { 0.0 } else { ms })
         None => JSValue::Number(@double.not_a_number)
       }
     },
@@ -1183,15 +1199,15 @@ fn parse_date_string(_ctx : Context, s : String) -> Double? {
       }
       // Thu, 01 Jan 1970 00:00:00 GMT
       (
-        "[A-Za-z]"
+        "[A-Za-z]{3}"
         ", "
-        ("[0-9]{2}" as d_s)
+        ("[0-9]{1,2}" as d_s)
         " "
         ("[A-Za-z]{3}" as m_s)
         " "
         ("[0-9]+" as y_s)
         " "
-        ("[0-9]{2}" as h_s)
+        ("[0-9]{1,2}" as h_s)
         ":"
         ("[0-9]{2}" as min_s)
         ":"

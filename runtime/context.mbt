@@ -37,23 +37,24 @@ pub fn Context::register_builtin(
   self.scope.set(name, value)
 
   // 如果是顶级作用域，且有名为 globalThis 的对象，也要设置到它的属性描述符里
-  match self.scope.get("globalThis") {
-    Some(Object(g)) => {
-      g[name] = value
+  match self.resolve("globalThis") {
+    Object(g) => {
       let descriptors = match g.properties.get("__descriptors") {
         Some(Object(d)) => d
         _ => {
           let d = JSObject::new()
-          g["__descriptors"] = JSValue::Object(d)
+          g.properties.set("__descriptors", JSValue::Object(d))
           d
         }
       }
-      let desc = JSObject::new()
-      desc["enumerable"] = JSValue::Boolean(enumerable)
-      desc["configurable"] = JSValue::Boolean(configurable)
-      desc["writable"] = JSValue::Boolean(writable)
-      desc["value"] = value
-      descriptors[name] = JSValue::Object(desc)
+      let desc = JSObject::new(properties={
+        "enumerable": JSValue::Boolean(enumerable),
+        "configurable": JSValue::Boolean(configurable),
+        "writable": JSValue::Boolean(writable),
+        "value": value,
+      })
+      descriptors.properties.set(name, JSValue::Object(desc))
+      g.properties.set(name, value)
     }
     _ => ()
   }
@@ -118,15 +119,14 @@ pub fn Context::create_global() -> Context {
   let global_obj = JSObject::new(prototype=object_proto_val)
   let global_val = JSValue::Object(global_obj)
   ctx.scope.set("globalThis", global_val)
+  ctx.scope.set("this", global_val)
 
   // Object Constructor
-  let object_fn_val = create_object_constructor(
+  let object_ctor_val = create_object_constructor(
     object_proto_val, func_proto_val,
   )
-
-  // Object.prototype.constructor = Object
-  object_proto_props.set("constructor", object_fn_val)
-  ctx.register_builtin("Object", object_fn_val)
+  object_proto_props.set("constructor", object_ctor_val)
+  ctx.register_builtin("Object", object_ctor_val)
 
   // Function Constructor
   let func_ctor_val = create_function_constructor(func_proto_val)
@@ -318,7 +318,7 @@ pub fn Context::create_global() -> Context {
   // Map Constructor
   let map_ctor_val = create_map_constructor(map_proto_val, func_proto_val)
   map_proto_props.set("constructor", map_ctor_val)
-  ctx.scope.set("Map", map_ctor_val)
+  ctx.register_builtin("Map", map_ctor_val)
 
   // Set.prototype
   let set_proto_props = {}
@@ -332,7 +332,7 @@ pub fn Context::create_global() -> Context {
   // Set Constructor
   let set_ctor_val = create_set_constructor(set_proto_val, func_proto_val)
   set_proto_props.set("constructor", set_ctor_val)
-  ctx.scope.set("Set", set_ctor_val)
+  ctx.register_builtin("Set", set_ctor_val)
 
   // Global functions (eval, isNaN, etc.)
   init_global_functions(ctx)
@@ -344,14 +344,6 @@ pub fn Context::create_global() -> Context {
   )
   number_proto_props.set("constructor", number_ctor_val)
   ctx.register_builtin("Number", number_ctor_val)
-
-  // Create global object
-  let global_obj = JSObject::new(
-    properties=ctx.scope,
-    prototype=object_proto_val,
-  )
-  let global_val = JSValue::Object(global_obj)
-  ctx.scope..set("this", global_val)..set("globalThis", global_val)
   ctx
 }
 

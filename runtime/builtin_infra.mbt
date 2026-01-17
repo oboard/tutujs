@@ -17,16 +17,40 @@ pub fn prop_method(
   enumerable? : Bool = false,
   configurable? : Bool = true,
   writable? : Bool = true,
+  prototype? : JSValue,
 ) -> BuiltinProperty {
-  let func_props = {
-    "length": JSValue::Number(length.to_double()),
-    "name": JSValue::String(name),
-  }
   let func = JSObject::new_function(
     name~,
     body=Native(f),
-    properties=func_props,
+    params=[], // We use length override instead of params
+    prototype?,
   )
+  // Override length and name descriptors to be correct for built-ins
+  let len = JSValue::Number(length.to_double())
+  func["length"] = len
+  func["name"] = JSValue::String(name)
+  let descriptors = match func.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new()
+      func.properties.set("__descriptors", JSValue::Object(d))
+      d
+    }
+  }
+  let len_desc = JSObject::new(properties={
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(true),
+    "writable": JSValue::Boolean(false),
+    "value": len,
+  })
+  descriptors["length"] = JSValue::Object(len_desc)
+  let name_desc = JSObject::new(properties={
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(true),
+    "writable": JSValue::Boolean(false),
+    "value": JSValue::String(name),
+  })
+  descriptors["name"] = JSValue::Object(name_desc)
   { name, value: JSValue::Object(func), enumerable, configurable, writable }
 }
 
@@ -50,19 +74,14 @@ pub trait Builtin {
 
 ///|
 /// 组装内置对象的通用逻辑
-pub fn populate_builtin(
-  obj : JSObject,
-  properties : Array[BuiltinProperty],
-) -> Unit {
-  for prop in properties {
+pub fn populate_builtin(obj : JSObject, props : Array[BuiltinProperty]) -> Unit {
+  for prop in props {
     obj[prop.name] = prop.value
-
-    // 如果有描述符存储，也记录下来
     let descriptors = match obj.properties.get("__descriptors") {
       Some(Object(d)) => d
       _ => {
         let d = JSObject::new()
-        obj["__descriptors"] = JSValue::Object(d)
+        obj.properties.set("__descriptors", JSValue::Object(d))
         d
       }
     }

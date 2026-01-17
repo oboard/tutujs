@@ -51,7 +51,17 @@ pub fn create_regexp_object(
       raise EvalError::Throw(JSValue::Object(err))
     }
     let init_regexp_props = fn(obj : JSObject) {
+      // lastIndex is non-enumerable, non-configurable, writable
       obj["lastIndex"] = JSValue::Number(0.0)
+      let descriptors = JSObject::new()
+      let last_index_desc = JSObject::new(properties={
+        "enumerable": JSValue::Boolean(false),
+        "configurable": JSValue::Boolean(false),
+        "writable": JSValue::Boolean(true),
+        "value": JSValue::Number(0.0),
+      })
+      descriptors["lastIndex"] = JSValue::Object(last_index_desc)
+      obj.properties.set("__descriptors", JSValue::Object(descriptors))
       obj["source"] = JSValue::String(pattern_view)
       obj["global"] = JSValue::Boolean(flags_str.contains("g"))
       obj["ignoreCase"] = JSValue::Boolean(flags_str.contains("i"))

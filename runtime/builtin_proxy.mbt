@@ -26,6 +26,7 @@ pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
       "revocable",
       fn(ctx, this, args) { proxy_builtin.revocable(ctx, this, args) },
       length=2,
+      prototype=func_proto,
     ),
   ])
   proxy_builtin.to_js_value()
@@ -61,28 +62,105 @@ fn ProxyBuiltin::builtin_constructor(
             let base = proxy_func
             match (base.proxy_target, base.proxy_handler) {
               (Some(target), Some(handler)) => {
-                let trap = handler.get_property("apply")
-                match trap {
-                  Object(f) =>
-                    if f.is_callable {
+                let is_construct = match ctx.scope.get("__is_construct") {
+                  Some(Boolean(b)) => b
+                  _ => false
+                }
+                if is_construct {
+                  let trap = handler.get_property("construct")
+                  match trap {
+                    Object(f) if f.is_callable => {
                       let arg_array = create_array_from_values(ctx, args)
-                      ctx.invoke(f, handler, [target, this_val, arg_array])
-                    } else {
-                      ctx.throw_type_error("Proxy apply trap is not a function")
+                      let new_target = match ctx.scope.get("__new_target") {
+                        Some(v) => v
+                        _ => JSValue::Object(proxy_func)
+                      }
+                      let res = ctx.invoke(f, handler, [
+                        target, arg_array, new_target,
+                      ]) catch {
+                        e => raise e
+                      }
+                      if not(res.is_object()) {
+                        ctx.throw_type_error(
+                          "Proxy construct trap must return an object",
+                        )
+                      }
+                      return res
                     }
-                  Undefined | Null =>
-                    match target {
-                      Object(tf) =>
-                        if tf.is_callable {
-                          ctx.invoke(tf, this_val, args)
-                        } else {
-                          ctx.throw_type_error("Proxy target is not a function")
+                    Undefined | Null =>
+                      // Forward to target
+                      match target {
+                        Object(t) => {
+                          let is_target_constructor = match t.call_info {
+                            Some(ci) => ci.is_constructor
+                            None => false
+                          }
+                          if is_target_constructor {
+                            // We need to call target as constructor
+                            // Since we are in a Native function, we can use ctx.construct if available
+                            // or simulate it. 
+                            // For now, let's use ctx.invoke but mark it as construct.
+                            let old_is_construct = ctx.scope.get(
+                              "__is_construct",
+                            )
+                            ctx.scope.set(
+                              "__is_construct",
+                              JSValue::Boolean(true),
+                            )
+                            let res = ctx.invoke(t, this_val, args) catch {
+                              e => {
+                                match old_is_construct {
+                                  Some(v) => ctx.scope.set("__is_construct", v)
+                                  None => ctx.scope.remove("__is_construct")
+                                }
+                                raise e
+                              }
+                            }
+                            match old_is_construct {
+                              Some(v) => ctx.scope.set("__is_construct", v)
+                              None => ctx.scope.remove("__is_construct")
+                            }
+                            return res
+                          } else {
+                            ctx.throw_type_error(
+                              "Proxy target is not a constructor",
+                            )
+                          }
                         }
-                      _ =>
-                        ctx.throw_type_error("Proxy target is not a function")
+                        _ =>
+                          ctx.throw_type_error(
+                            "Proxy target is not a constructor",
+                          )
+                      }
+                    _ =>
+                      ctx.throw_type_error(
+                        "Proxy construct trap is not a function",
+                      )
+                  }
+                } else {
+                  // apply trap
+                  let trap = handler.get_property("apply")
+                  match trap {
+                    Object(f) if f.is_callable => {
+                      let arg_array = create_array_from_values(ctx, args)
+                      return ctx.invoke(f, handler, [
+                        target, this_val, arg_array,
+                      ]) catch {
+                        e => raise e
+                      }
                     }
-                  _ =>
-                    ctx.throw_type_error("Proxy apply trap is not a function")
+                    Undefined | Null =>
+                      match target {
+                        Object(tf) if tf.is_callable =>
+                          return ctx.invoke(tf, this_val, args) catch {
+                            e => raise e
+                          }
+                        _ =>
+                          ctx.throw_type_error("Proxy target is not a function")
+                      }
+                    _ =>
+                      ctx.throw_type_error("Proxy apply trap is not a function")
+                  }
                 }
               }
               _ => ctx.throw_type_error("Cannot call a revoked proxy")
