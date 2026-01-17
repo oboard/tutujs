@@ -1442,6 +1442,55 @@ fn Context::evaluate(
             }
             _ => Undefined
           }
+        ClassExpression({ id, superClass, .. }) => {
+          let name = match id {
+            Some(ident) => ident.name
+            None => ""
+          }
+          let super_val = match superClass {
+            Some(expr) => self.evaluate(Expression(expr))
+            None => self.resolve("Object")
+          }
+          let func_props = {}
+          let func = JSObject::new_function(
+            name~,
+            params=[],
+            body=Native(fn(ctx, this_val, args) {
+              match super_val {
+                Object(f) =>
+                  if f.is_callable {
+                    let res = ctx.invoke(f, this_val, args) catch {
+                      EvalError::Return(v) => return v
+                      e => raise e
+                    }
+                    match res {
+                      Object(_) => return res
+                      _ => ()
+                    }
+                  }
+                _ => ()
+              }
+              this_val
+            }),
+            context=self,
+            properties=func_props,
+            is_constructor=true,
+          )
+          let func_val = JSValue::Object(func)
+          let super_proto = match super_val {
+            Object(f) => f.get("prototype")
+            _ => self.resolve("Object").get_property("prototype")
+          }
+          let proto_props = {}
+          let proto_obj = JSObject::new(
+            properties=proto_props,
+            prototype=super_proto,
+          )
+          let proto_val = JSValue::Object(proto_obj)
+          proto_props.set("constructor", func_val)
+          func_props.set("prototype", proto_val)
+          func_val
+        }
         _ => Undefined
       }
     Pattern(_) => Undefined

@@ -6,7 +6,7 @@ pub fn init_object_prototype(
   match object_proto_val {
     Object(obj) => {
       // toString
-      let to_string_fn = Native(fn(_, this_val, _args) {
+      let to_string_fn = Native((_, this_val, _args) => {
         let tag = match this_val {
           Undefined => "Undefined"
           Null => "Null"
@@ -16,10 +16,11 @@ pub fn init_object_prototype(
               String(s) => s.to_string()
               _ => {
                 let properties = obj.properties
-                match properties.get("PrimitiveValue") {
-                  Some(String(_)) => "String"
-                  Some(Number(_)) => "Number"
-                  Some(Boolean(_)) => "Boolean"
+                match properties["PrimitiveValue"] {
+                  String(_) => "String"
+                  Number(_) => "Number"
+                  Boolean(_) => "Boolean"
+                  BigInt(_) => "BigInt"
                   _ => if obj.is_callable { "Function" } else { "Object" }
                 }
               }
@@ -42,7 +43,7 @@ pub fn init_object_prototype(
       obj["toString"] = JSValue::Object(to_string_obj)
 
       // valueOf
-      let value_of_fn = Native(fn(_ctx, this_val, _args) { this_val })
+      let value_of_fn = Native((_, this_val, _args) => this_val)
       let value_of_obj = JSObject::new_function(
         name="valueOf",
         body=value_of_fn,
@@ -51,7 +52,7 @@ pub fn init_object_prototype(
       obj["valueOf"] = JSValue::Object(value_of_obj)
 
       // toLocaleString
-      let to_locale_string_fn = Native(fn(ctx, this_val, _args) {
+      let to_locale_string_fn = Native((ctx, this_val, _args) => {
         let to_string = this_val.get_property("toString")
         match to_string {
           Object(f) =>
@@ -73,35 +74,34 @@ pub fn init_object_prototype(
       obj["toLocaleString"] = JSValue::Object(to_locale_string_obj)
 
       // hasOwnProperty
-      let has_own_property_fn = Native(fn(_ctx, this_val, args) {
-        if args is [prop, ..] {
-          let key = prop.to_property_key()
-          match this_val {
-            Object(
-              {
-                properties: { "PrimitiveValue": String(_), .. } as properties,
-                ..,
-              }
-            ) => {
-              let idx = @strconv.parse_int(key) catch { _ => -1 }
-              if idx >= 0 {
-                let len = if properties.get("length") is Some(Number(n)) {
-                  n.to_int()
-                } else {
-                  0
-                }
-                if idx < len {
-                  return Boolean(true)
-                }
-              }
-              Boolean(properties.contains(key))
+      let has_own_property_fn = Native((_ctx, this_val, args) => if args
+        is [prop, ..] {
+        let key = prop.to_property_key()
+        match this_val {
+          Object(
+            {
+              properties: { "PrimitiveValue": String(_), .. } as properties,
+              ..,
             }
-            Object({ properties, .. }) => Boolean(properties.contains(key))
-            _ => Boolean(false)
+          ) => {
+            let idx = @strconv.parse_int(key) catch { _ => -1 }
+            if idx >= 0 {
+              let len = if properties.get("length") is Some(Number(n)) {
+                n.to_int()
+              } else {
+                0
+              }
+              if idx < len {
+                return Boolean(true)
+              }
+            }
+            Boolean(properties.contains(key))
           }
-        } else {
-          Boolean(false)
+          Object({ properties, .. }) => Boolean(properties.contains(key))
+          _ => Boolean(false)
         }
+      } else {
+        Boolean(false)
       })
       let has_own_property_obj = JSObject::new_function(
         name="hasOwnProperty",
@@ -112,32 +112,31 @@ pub fn init_object_prototype(
       obj["hasOwnProperty"] = JSValue::Object(has_own_property_obj)
 
       // isPrototypeOf
-      let is_prototype_of_fn = Native(fn(_ctx, this_val, args) {
-        if args is [arg, ..] {
-          match arg {
-            Object(o) => {
-              let mut proto = o.prototype
-              while true {
-                match proto {
-                  Some(p) => {
-                    if p.strict_equal(this_val) {
-                      return Boolean(true)
-                    }
-                    match p {
-                      Object({ prototype, .. }) => proto = prototype
-                      _ => break
-                    }
+      let is_prototype_of_fn = Native((_ctx, this_val, args) => if args
+        is [arg, ..] {
+        match arg {
+          Object(o) => {
+            let mut proto = o.prototype
+            while true {
+              match proto {
+                Some(p) => {
+                  if p.strict_equal(this_val) {
+                    return Boolean(true)
                   }
-                  None => break
+                  match p {
+                    Object({ prototype, .. }) => proto = prototype
+                    _ => break
+                  }
                 }
+                None => break
               }
-              Boolean(false)
             }
-            _ => Boolean(false)
+            Boolean(false)
           }
-        } else {
-          Boolean(false)
+          _ => Boolean(false)
         }
+      } else {
+        Boolean(false)
       })
       let is_prototype_of_obj = JSObject::new_function(
         name="isPrototypeOf",
@@ -148,120 +147,118 @@ pub fn init_object_prototype(
       obj["isPrototypeOf"] = JSValue::Object(is_prototype_of_obj)
 
       // propertyIsEnumerable
-      let property_is_enumerable_fn = Native(fn(ctx, this_val, args) {
-        if args is [prop, ..] {
-          let key = prop.to_property_key()
-          match this_val {
-            Object({ properties, .. }) => {
-              // Global check
-              let mut root_ctx = ctx
-              while true {
-                match root_ctx.parent {
-                  Some(p) => root_ctx = p
-                  None => break
-                }
+      let property_is_enumerable_fn = Native((ctx, this_val, args) => if args
+        is [prop, ..] {
+        let key = prop.to_property_key()
+        match this_val {
+          Object({ properties, .. }) => {
+            // Global check
+            let mut root_ctx = ctx
+            while true {
+              match root_ctx.parent {
+                Some(p) => root_ctx = p
+                None => break
               }
-              let is_global = match root_ctx.scope.get("globalThis") {
-                Some(g) => g.strict_equal(this_val)
-                None => false
-              }
-              if is_global &&
-                (
-                  key == "Map" ||
-                  key == "Set" ||
-                  key == "WeakMap" ||
-                  key == "WeakSet" ||
-                  key == "Promise" ||
-                  key == "Symbol" ||
-                  key == "Reflect" ||
-                  key == "JSON" ||
-                  key == "Math" ||
-                  key == "Date" ||
-                  key == "RegExp" ||
-                  key == "Error" ||
-                  key == "eval" ||
-                  key == "parseInt" ||
-                  key == "parseFloat" ||
-                  key == "isNaN" ||
-                  key == "isFinite" ||
-                  key == "Object" ||
-                  key == "Function" ||
-                  key == "Array" ||
-                  key == "String" ||
-                  key == "Number" ||
-                  key == "Boolean"
-                ) {
-                return Boolean(false)
-              }
-
-              // Map.prototype and Set.prototype check
-              if key
-                is ("get"
-                | "set"
-                | "add"
-                | "has"
-                | "delete"
-                | "clear"
-                | "size"
-                | "entries"
-                | "keys"
-                | "values"
-                | "forEach"
-                | "getOrInsertComputed"
-                | "constructor") {
-                let tag = properties.get("Symbol(Symbol.toStringTag)")
-                if tag == Some(JSValue::String("Map")) ||
-                  tag == Some(JSValue::String("Set")) {
-                  return Boolean(false)
-                }
-              }
-              let is_string_obj = properties.contains("PrimitiveValue") &&
-                (match properties.get("PrimitiveValue") {
-                  Some(String(_)) => true
-                  _ => false
-                })
-              if is_string_obj {
-                let idx = @strconv.parse_int(key) catch { _ => -1 }
-                if idx >= 0 {
-                  let len = match properties.get("length") {
-                    Some(Number(n)) => n.to_int()
-                    _ => 0
-                  }
-                  if idx < len {
-                    return Boolean(true)
-                  }
-                }
-              }
-              // Hack: hide prototype, length, name, arguments, caller
-              if key
-                is ("prototype" | "length" | "name" | "arguments" | "caller") {
-                return Boolean(false)
-              }
-              if key.has_prefix("Symbol(") {
-                return Boolean(false)
-              }
-              let is_enumerable = match properties.get("__descriptors") {
-                Some(Object(d)) =>
-                  match d.properties.get(key) {
-                    Some(Object(desc)) =>
-                      match desc.properties.get("enumerable") {
-                        Some(Boolean(b)) => b
-                        _ => true
-                      }
-                    _ => true
-                  }
-                _ => true
-              }
-              if not(is_enumerable) {
-                return Boolean(false)
-              }
-              Boolean(properties.contains(key) && not(key.has_prefix("__")))
             }
-            _ => Boolean(false)
+            let is_global = match root_ctx.scope.get("globalThis") {
+              Some(g) => g.strict_equal(this_val)
+              None => false
+            }
+            if is_global &&
+              (
+                key == "Map" ||
+                key == "Set" ||
+                key == "WeakMap" ||
+                key == "WeakSet" ||
+                key == "Promise" ||
+                key == "Symbol" ||
+                key == "Reflect" ||
+                key == "JSON" ||
+                key == "Math" ||
+                key == "Date" ||
+                key == "RegExp" ||
+                key == "Error" ||
+                key == "eval" ||
+                key == "parseInt" ||
+                key == "parseFloat" ||
+                key == "isNaN" ||
+                key == "isFinite" ||
+                key == "Object" ||
+                key == "Function" ||
+                key == "Array" ||
+                key == "String" ||
+                key == "Number" ||
+                key == "Boolean"
+              ) {
+              return Boolean(false)
+            }
+
+            // Map.prototype and Set.prototype check
+            if key
+              is ("get"
+              | "set"
+              | "add"
+              | "has"
+              | "delete"
+              | "clear"
+              | "size"
+              | "entries"
+              | "keys"
+              | "values"
+              | "forEach"
+              | "getOrInsertComputed"
+              | "constructor") {
+              let tag = properties.get("Symbol(Symbol.toStringTag)")
+              if tag == Some(JSValue::String("Map")) ||
+                tag == Some(JSValue::String("Set")) {
+                return Boolean(false)
+              }
+            }
+            let is_string_obj = properties.contains("PrimitiveValue") &&
+              (match properties.get("PrimitiveValue") {
+                Some(String(_)) => true
+                _ => false
+              })
+            if is_string_obj {
+              let idx = @strconv.parse_int(key) catch { _ => -1 }
+              if idx >= 0 {
+                let len = match properties.get("length") {
+                  Some(Number(n)) => n.to_int()
+                  _ => 0
+                }
+                if idx < len {
+                  return Boolean(true)
+                }
+              }
+            }
+            // Hack: hide prototype, length, name, arguments, caller
+            if key is ("prototype" | "length" | "name" | "arguments" | "caller") {
+              return Boolean(false)
+            }
+            if key.has_prefix("Symbol(") {
+              return Boolean(false)
+            }
+            let is_enumerable = match properties.get("__descriptors") {
+              Some(Object(d)) =>
+                match d.properties.get(key) {
+                  Some(Object(desc)) =>
+                    match desc.properties.get("enumerable") {
+                      Some(Boolean(b)) => b
+                      _ => true
+                    }
+                  _ => true
+                }
+              _ => true
+            }
+            if not(is_enumerable) {
+              return Boolean(false)
+            }
+            Boolean(properties.contains(key) && not(key.has_prefix("__")))
           }
-        } else {
-          Boolean(false)
+          _ => Boolean(false)
         }
+      } else {
+        Boolean(false)
       })
       let property_is_enumerable_obj = JSObject::new_function(
         name="propertyIsEnumerable",
@@ -282,8 +279,8 @@ pub fn create_object_constructor(
 ) -> JSValue {
   let desc_key = "__descriptors"
   let ensure_desc_map = fn(o : JSObject) -> JSObject {
-    match o.properties.get(desc_key) {
-      Some(Object(m)) => m
+    match o.properties[desc_key] {
+      Object(m) => m
       _ => {
         let m = JSObject::new(properties={}, prototype=Null)
         o[desc_key] = JSValue::Object(m)
@@ -292,8 +289,8 @@ pub fn create_object_constructor(
     }
   }
   let get_desc_entry = fn(o : JSObject, prop : String) -> JSObject? {
-    match o.properties.get(desc_key) {
-      Some(Object(m)) =>
+    match o.properties[desc_key] {
+      Object(m) =>
         match m.properties.get(prop) {
           Some(Object(d)) => Some(d)
           _ => None
@@ -461,9 +458,8 @@ pub fn create_object_constructor(
     body=object_fn_body,
     prototype=func_proto,
     is_constructor=true,
+    properties={ "prototype": proto, "length": JSValue::Number(1) },
   )
-  object_fn["prototype"] = proto
-  object_fn["length"] = JSValue::Number(1.0)
 
   // Object.keys
   let keys_fn = Native(fn(ctx, _this_val, args) {
@@ -763,19 +759,19 @@ pub fn create_object_constructor(
           _ => false
         }
         if not(cur_conf) {
-          match desc_props.get("configurable") {
-            Some(Boolean(true)) =>
+          match desc_props["configurable"] {
+            Boolean(true) =>
               ctx.throw_type_error(
                 "Cannot redefine non-configurable property '" + prop + "'",
               )
             _ => ()
           }
-          let cur_enum = match current_desc.properties.get("enumerable") {
-            Some(Boolean(b)) => b
+          let cur_enum = match current_desc["enumerable"] {
+            Boolean(b) => b
             _ => false
           }
-          match desc_props.get("enumerable") {
-            Some(Boolean(new_enum)) =>
+          match desc_props["enumerable"] {
+            Boolean(new_enum) =>
               if new_enum != cur_enum {
                 ctx.throw_type_error(
                   "Cannot change enumerable attribute of non-configurable property '" +
@@ -807,8 +803,8 @@ pub fn create_object_constructor(
               _ => false
             }
             if not(cur_writable) {
-              match desc_props.get("writable") {
-                Some(Boolean(true)) =>
+              match desc_props["writable"] {
+                Boolean(true) =>
                   ctx.throw_type_error(
                     "Cannot change non-configurable, non-writable property to writable",
                   )
@@ -851,8 +847,8 @@ pub fn create_object_constructor(
         }
         properties[prop] = Internal(Accessor(getter, setter))
         let d_props = { "get": get_val, "set": set_val }
-        let enumerable = match desc_props.get("enumerable") {
-          Some(Boolean(b)) => b
+        let enumerable = match desc_props["enumerable"] {
+          Boolean(b) => b
           _ =>
             match current_desc.properties.get("enumerable") {
               Some(Boolean(b)) => b
@@ -862,8 +858,8 @@ pub fn create_object_constructor(
         let configurable = match desc_props.get("configurable") {
           Some(Boolean(b)) => b
           _ =>
-            match current_desc.properties.get("configurable") {
-              Some(Boolean(b)) => b
+            match current_desc.properties["configurable"] {
+              Boolean(b) => b
               _ => false
             }
         }
@@ -884,27 +880,27 @@ pub fn create_object_constructor(
             }
         }
         properties[prop] = value
-        let writable = match desc_props.get("writable") {
-          Some(Boolean(b)) => b
+        let writable = match desc_props["writable"] {
+          Boolean(b) => b
           _ =>
-            match current_desc.properties.get("writable") {
-              Some(Boolean(b)) => b
+            match current_desc.properties["writable"] {
+              Boolean(b) => b
               _ => false
             }
         }
-        let enumerable = match desc_props.get("enumerable") {
-          Some(Boolean(b)) => b
+        let enumerable = match desc_props["enumerable"] {
+          Boolean(b) => b
           _ =>
-            match current_desc.properties.get("enumerable") {
-              Some(Boolean(b)) => b
+            match current_desc.properties["enumerable"] {
+              Boolean(b) => b
               _ => false
             }
         }
-        let configurable = match desc_props.get("configurable") {
-          Some(Boolean(b)) => b
+        let configurable = match desc_props["configurable"] {
+          Boolean(b) => b
           _ =>
-            match current_desc.properties.get("configurable") {
-              Some(Boolean(b)) => b
+            match current_desc.properties["configurable"] {
+              Boolean(b) => b
               _ => false
             }
         }
@@ -938,7 +934,8 @@ pub fn create_object_constructor(
     if args is [obj_arg, ..] {
       match obj_arg {
         Object(o) => {
-          // Proxy support
+          // 1. Prevent Extensions
+          let mut success = false
           match (o.proxy_target, o.proxy_handler) {
             (Some(target), Some(handler)) => {
               let trap = handler.get_property("preventExtensions")
@@ -948,131 +945,161 @@ pub fn create_object_constructor(
                     let res = ctx.invoke(f, handler, [target]) catch {
                       e => raise e
                     }
-                    if not(res.is_truthy()) {
-                      ctx.throw_type_error(
-                        "Proxy preventExtensions trap returned false",
-                      )
+                    success = res.is_truthy()
+                  } else {
+                    match target {
+                      Object(t) => {
+                        t.extensible = false
+                        success = true
+                      }
+                      _ => success = true
                     }
                   }
                 _ =>
                   match target {
-                    Object(o) => o.extensible = false
-                    _ => ()
-                  }
-              }
-              // For freeze, we also need to make all properties non-configurable/non-writable
-              // This is complex for Proxy. ES spec says we should call [[GetOwnPropertyKeys]]
-              // and then [[DefineProperty]] for each.
-              let get_names_fn = match ctx.resolve("Object") {
-                Object(obj_ctor) =>
-                  JSValue::Object(obj_ctor).get_property("getOwnPropertyNames")
-                _ => Undefined
-              }
-              let get_syms_fn = match ctx.resolve("Object") {
-                Object(obj_ctor) =>
-                  JSValue::Object(obj_ctor).get_property(
-                    "getOwnPropertySymbols",
-                  )
-                _ => Undefined
-              }
-              let names_val = match get_names_fn {
-                Object(f) =>
-                  if f.is_callable {
-                    ctx.invoke(f, Undefined, [obj_arg]) catch {
-                      _ => Undefined
+                    Object(t) => {
+                      t.extensible = false
+                      success = true
                     }
-                  } else {
-                    Undefined
+                    _ => success = true
                   }
-                _ => Undefined
               }
-              let syms_val = match get_syms_fn {
-                Object(f) =>
-                  if f.is_callable {
-                    ctx.invoke(f, Undefined, [obj_arg]) catch {
-                      _ => Undefined
-                    }
-                  } else {
-                    Undefined
-                  }
-                _ => Undefined
-              }
-              let keys = []
-              match names_val {
-                Object({ properties: keys_props, .. }) => {
-                  let len = match keys_props.get("length") {
-                    Some(Number(n)) => n.to_int()
-                    _ => 0
-                  }
-                  for i in 0..<len {
-                    match keys_props.get(i.to_string()) {
-                      Some(v) => keys.push(v)
-                      None => keys.push(Undefined)
-                    }
-                  }
-                }
-                _ => ()
-              }
-              match syms_val {
-                Object({ properties: keys_props, .. }) => {
-                  let len = match keys_props.get("length") {
-                    Some(Number(n)) => n.to_int()
-                    _ => 0
-                  }
-                  for i in 0..<len {
-                    match keys_props.get(i.to_string()) {
-                      Some(v) => keys.push(v)
-                      None => keys.push(Undefined)
-                    }
-                  }
-                }
-                _ => ()
-              }
-              let define_prop_fn = match ctx.resolve("Object") {
-                Object(obj_ctor) =>
-                  JSValue::Object(obj_ctor).get_property("defineProperty")
-                _ => Undefined
-              }
-              let target_props = match target {
-                Object(o) => o.properties
-                _ => {}
-              }
-              for k in keys {
-                let key_str = match k {
-                  String(s) => s.to_string()
-                  Symbol(_, _) => k.to_property_key()
-                  _ => k.to_string()
-                }
-                let is_accessor = match target_props.get(key_str) {
-                  Some(Internal(Accessor(_, _))) => true
-                  _ => false
-                }
-                let desc = JSObject::new()
-                desc["configurable"] = JSValue::Boolean(false)
-                if not(is_accessor) {
-                  desc["writable"] = JSValue::Boolean(false)
-                }
-                match define_prop_fn {
-                  Object(f) =>
-                    if f.is_callable {
-                      let _ = ctx.invoke(f, Undefined, [
-                        obj_arg,
-                        k,
-                        JSValue::Object(desc),
-                      ]) catch {
-                        e => raise e
-                      }
+            }
+            _ => {
+              o.extensible = false
+              success = true
+            }
+          }
+          if not(success) {
+            ctx.throw_type_error("unable to prevent extensions")
+          }
 
+          // 2. Get all keys (names and symbols)
+          let get_names_fn = match ctx.resolve("Object") {
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("getOwnPropertyNames")
+            _ => Undefined
+          }
+          let get_syms_fn = match ctx.resolve("Object") {
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("getOwnPropertySymbols")
+            _ => Undefined
+          }
+          let keys = []
+          match get_names_fn {
+            Object(f) =>
+              if f.is_callable {
+                let names_val = ctx.invoke(f, Undefined, [obj_arg]) catch {
+                  _ => Undefined
+                }
+                match names_val {
+                  Object({ properties: keys_props, .. }) => {
+                    let len = match keys_props["length"] {
+                      Number(n) => n.to_int()
+                      _ => 0
                     }
+                    for i in 0..<len {
+                      match keys_props.get(i.to_string()) {
+                        Some(v) => keys.push(v)
+                        _ => ()
+                      }
+                    }
+                  }
                   _ => ()
                 }
               }
-            }
             _ => ()
+          }
+          match get_syms_fn {
+            Object(f) =>
+              if f.is_callable {
+                let syms_val = ctx.invoke(f, Undefined, [obj_arg]) catch {
+                  _ => Undefined
+                }
+                match syms_val {
+                  Object({ properties: keys_props, .. }) => {
+                    let len = match keys_props.get("length") {
+                      Some(Number(n)) => n.to_int()
+                      _ => 0
+                    }
+                    for i in 0..<len {
+                      match keys_props.get(i.to_string()) {
+                        Some(v) => keys.push(v)
+                        _ => ()
+                      }
+                    }
+                  }
+                  _ => ()
+                }
+              }
+            _ => ()
+          }
+
+          // 3. Define properties
+          let define_prop_fn = match ctx.resolve("Object") {
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("defineProperty")
+            _ => Undefined
+          }
+          let get_desc_fn = match ctx.resolve("Object") {
+            Object(obj_ctor) =>
+              JSValue::Object(obj_ctor).get_property("getOwnPropertyDescriptor")
+            _ => Undefined
+          }
+          for k in keys {
+            let key_str = k.to_string()
+            // Determine if it's an accessor
+            let is_accessor = match o.proxy_target {
+              None =>
+                match o.properties.get(key_str) {
+                  Some(Internal(Accessor(_, _))) => true
+                  _ =>
+                    match o.properties["__descriptors"] {
+                      Object(d) =>
+                        match d["properties"][key_str] {
+                          Object(desc) =>
+                            desc.properties.contains("get") ||
+                            desc.properties.contains("set")
+                          _ => false
+                        }
+                      _ => false
+                    }
+                }
+              _ =>
+                match get_desc_fn {
+                  Object(f) =>
+                    if f.is_callable {
+                      let d = ctx.invoke(f, Undefined, [obj_arg, k]) catch {
+                        _ => Undefined
+                      }
+                      match d {
+                        Object(desc_obj) =>
+                          desc_obj.properties.contains("get") ||
+                          desc_obj.properties.contains("set")
+                        _ => false
+                      }
+                    } else {
+                      false
+                    }
+                  _ => false
+                }
+            }
+            let desc = JSObject::new()
+            desc["configurable"] = JSValue::Boolean(false)
+            if not(is_accessor) {
+              desc["writable"] = JSValue::Boolean(false)
+            }
+            match define_prop_fn {
+              Object(f) =>
+                if f.is_callable {
+                  ctx.invoke(f, Undefined, [obj_arg, k, JSValue::Object(desc)])
+                  |> ignore
+                }
+              _ => ()
+            }
           }
           o.is_frozen = true
           o.is_sealed = true
-          o.extensible = false
         }
         _ => ()
       }
@@ -1276,9 +1303,22 @@ pub fn create_object_constructor(
                       if k == "PrimitiveValue" || k.has_prefix("__") {
                         continue
                       }
-                      // For now, we assume properties are non-configurable if object is sealed
-                      // This is a simplification but covers most tests involving seal/freeze
-                      if is_sealed || not(is_target_extensible) {
+                      let is_configurable = match
+                        target_props.get("__descriptors") {
+                        Some(Object(d)) =>
+                          match d.properties.get(k) {
+                            Some(Object(desc)) =>
+                              match desc.properties.get("configurable") {
+                                Some(Boolean(b)) => b
+                                _ => true
+                              }
+                            _ => true
+                          }
+                        _ => true
+                      }
+                      if not(is_configurable) ||
+                        is_sealed ||
+                        not(is_target_extensible) {
                         if not(seen_keys.contains(k)) {
                           ctx.throw_type_error(
                             "Proxy ownKeys trap failed to include a required property: " +
@@ -1781,6 +1821,7 @@ pub fn create_object_constructor(
                   prototype=array_proto,
                 )
                 let mut i = 0.0
+                let seen_keys = {}
                 match keys_list {
                   Object({ properties: keys_props, .. }) => {
                     let len = match keys_props.get("length") {
@@ -1788,13 +1829,88 @@ pub fn create_object_constructor(
                       _ => 0
                     }
                     for j in 0..<len {
-                      let k = match keys_props.get(j.to_string()) {
-                        Some(v) => v.to_string()
-                        None => ""
+                      let k_val = match keys_props.get(j.to_string()) {
+                        Some(v) => v
+                        None => Undefined
                       }
+                      let k = k_val.to_string()
+                      if seen_keys.contains(k) {
+                        ctx.throw_type_error(
+                          "Proxy ownKeys trap returned duplicate keys",
+                        )
+                      }
+                      seen_keys.set(k, true)
                       if not(k.has_prefix("Symbol(")) {
                         names_array[i.to_string()] = JSValue::String(k)
                         i = i + 1.0
+                      }
+                    }
+                    // Invariants check
+                    let is_target_extensible = match target {
+                      Object(o) => o.extensible
+                      _ => true
+                    }
+                    let target_props = match target {
+                      Object(o) => o.properties
+                      _ => {}
+                    }
+                    let is_sealed = match target {
+                      Object(o) => o.is_sealed
+                      _ => false
+                    }
+                    for k, _ in target_props {
+                      if k == "PrimitiveValue" || k.has_prefix("__") {
+                        continue
+                      }
+                      if k.has_prefix("Symbol(") {
+                        continue
+                      }
+                      let is_configurable = match
+                        target_props.get("__descriptors") {
+                        Some(Object(d)) =>
+                          match d.properties.get(k) {
+                            Some(Object(desc)) =>
+                              match desc.properties.get("configurable") {
+                                Some(Boolean(b)) => b
+                                _ => true
+                              }
+                            _ => true
+                          }
+                        _ => true
+                      }
+                      if not(is_configurable) ||
+                        is_sealed ||
+                        not(is_target_extensible) {
+                        if not(seen_keys.contains(k)) {
+                          ctx.throw_type_error(
+                            "Proxy ownKeys trap failed to include a required property: " +
+                            k,
+                          )
+                        }
+                      }
+                    }
+                    if not(is_target_extensible) {
+                      for k, _ in seen_keys {
+                        if not(target_props.contains(k)) && k != "length" {
+                          let is_str_idx = match target {
+                            Object(o) =>
+                              match o.properties.get("PrimitiveValue") {
+                                Some(String(s)) => {
+                                  let idx = @strconv.parse_int(k) catch {
+                                    _ => -1
+                                  }
+                                  idx >= 0 && idx < s.length()
+                                }
+                                _ => false
+                              }
+                            _ => false
+                          }
+                          if not(is_str_idx) {
+                            ctx.throw_type_error(
+                              "Proxy ownKeys trap returned extra property for non-extensible target",
+                            )
+                          }
+                        }
                       }
                     }
                   }
