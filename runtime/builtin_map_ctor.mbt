@@ -37,15 +37,22 @@ pub fn create_map_constructor(
             Symbol(_) => iterator_sym.to_property_key()
             _ => "Symbol.iterator"
           }
-          let iterator_method_val = iterable.get_property(iterator_key)
+          let iterator_method_val = iterable.get_property_throwing(iterator_key) catch {
+            e => raise e
+          }
           let iterator_method = match iterator_method_val {
             Object(f) =>
               if f.is_callable {
                 iterator_method_val
               } else {
-                iterable.get_property("Symbol.iterator")
+                iterable.get_property_throwing("Symbol.iterator") catch {
+                  e => raise e
+                }
               }
-            _ => iterable.get_property("Symbol.iterator")
+            _ =>
+              iterable.get_property_throwing("Symbol.iterator") catch {
+                e => raise e
+              }
           }
           match iterator_method {
             Object(iter_fn) =>
@@ -57,15 +64,23 @@ pub fn create_map_constructor(
                     return Undefined
                   }
                 }
-                let next_method = match iterator.get_property("next") {
+                let next_method_val = iterator.get_property_throwing("next") catch {
+                  e => {
+                    iterator_close(ctx, iterator)
+                    raise e
+                  }
+                }
+                let next_method = match next_method_val {
                   Object(f) =>
                     if f.is_callable {
                       f
                     } else {
+                      iterator_close(ctx, iterator)
                       ctx.throw_type_error("iterator.next is not a function")
                       return Undefined
                     }
                   _ => {
+                    iterator_close(ctx, iterator)
                     ctx.throw_type_error("iterator.next is not a function")
                     return Undefined
                   }
@@ -76,9 +91,15 @@ pub fn create_map_constructor(
                   }
                   match next_res {
                     Object(res_obj) => {
-                      let done = JSValue::Object(res_obj)
-                        .get_property("done")
-                        .is_truthy()
+                      let done_val = JSValue::Object(res_obj).get_property_throwing(
+                        "done",
+                      ) catch {
+                        e => {
+                          iterator_close(ctx, iterator)
+                          raise e
+                        }
+                      }
+                      let done = done_val.is_truthy()
                       if done {
                         break
                       }
@@ -161,17 +182,4 @@ pub fn create_map_constructor(
   descriptors["prototype"] = JSValue::Object(proto_desc)
   ctor_obj["prototype"] = map_proto
   JSValue::Object(ctor_obj)
-}
-
-///|
-fn iterator_close(ctx : Context, iterator : JSValue) -> Unit {
-  let return_val = iterator.get_property("return")
-  match return_val {
-    Object(f) =>
-      if f.is_callable {
-        let _ = ctx.invoke(f, iterator, []) catch { _ => Undefined }
-        ()
-      }
-    _ => ()
-  }
 }

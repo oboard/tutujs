@@ -75,6 +75,8 @@ pub fn init_string_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_symbol_prototype(JSValue, JSValue) -> Unit
 
+pub fn iterator_close(Context, JSValue) -> Unit
+
 pub fn js_to_number(Context, JSValue) -> Double raise EvalError
 
 pub fn js_to_string(Context, JSValue) -> String raise EvalError

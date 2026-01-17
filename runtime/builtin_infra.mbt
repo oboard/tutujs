@@ -113,3 +113,16 @@ pub fn create_array_from_values(
   }
   JSValue::Object(arr)
 }
+
+///|
+pub fn iterator_close(ctx : Context, iterator : JSValue) -> Unit {
+  let return_val = iterator.get_property("return")
+  match return_val {
+    Object(f) =>
+      if f.is_callable {
+        let _ = ctx.invoke(f, iterator, []) catch { _ => Undefined }
+        ()
+      }
+    _ => ()
+  }
+}

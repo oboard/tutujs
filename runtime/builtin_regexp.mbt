@@ -29,7 +29,7 @@ pub fn create_regexp_object(
     // Handle ignore case by prepending (?i) if supported or we rely on the engine
     // MoonBit's regexp currently doesn't support inline flags like (?i) or we don't have access to compile options.
     // So we just pass the pattern as is. Flags are stored in properties but not used for matching yet.
-    let effective_pattern = pattern_str
+    let effective_pattern = sanitize_pattern(pattern_str)
     let (re, valid) = (@regexp.compile(effective_pattern[:]), true) catch {
       _ => (@regexp.compile(""[:]) catch { _ => panic() }, false)
     }
@@ -218,4 +218,70 @@ pub fn create_regexp_object(
     JSValue::Object(JSObject::new_function(name="toString", body=to_string_fn)),
   )
   regexp_ctor_val
+}
+
+///|
+fn sanitize_pattern(pattern : String) -> String {
+  let mut res = ""
+  let mut i = 0
+  let n = pattern.length()
+  while i < n {
+    if pattern[i] == '\\' && i + 1 < n {
+      let slice = pattern[i:i + 2].to_string() catch { _ => "" }
+      res += slice
+      i += 2
+      continue
+    }
+    if pattern[i] == '{' {
+      let mut j = i + 1
+      let mut num1 = ""
+      while j < n && pattern[j] >= '0' && pattern[j] <= '9' {
+        let digit = pattern[j:j + 1].to_string() catch { _ => "" }
+        num1 += digit
+        j += 1
+      }
+      let mut has_comma = false
+      let mut num2 = ""
+      let mut second_num_present = false
+      if j < n && pattern[j] == ',' {
+        has_comma = true
+        j += 1
+        while j < n && pattern[j] >= '0' && pattern[j] <= '9' {
+          let digit = pattern[j:j + 1].to_string() catch { _ => "" }
+          num2 += digit
+          second_num_present = true
+          j += 1
+        }
+      }
+      if j < n && pattern[j] == '}' {
+        // We found a quantifier
+        let limit = 1000
+        let mut new_num1 = num1
+        if num1.length() > 0 {
+          let val = @strconv.parse_int(num1) catch { _ => limit + 1 }
+          if val > limit {
+            new_num1 = limit.to_string()
+          }
+        }
+        let mut new_num2 = num2
+        if second_num_present {
+          let val = @strconv.parse_int(num2) catch { _ => limit + 1 }
+          if val > limit {
+            new_num2 = limit.to_string()
+          }
+        }
+        res += "{" + new_num1
+        if has_comma {
+          res += "," + new_num2
+        }
+        res += "}"
+        i = j + 1
+        continue
+      }
+    }
+    let char_str = pattern[i:i + 1].to_string() catch { _ => "" }
+    res += char_str
+    i += 1
+  }
+  res
 }

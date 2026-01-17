@@ -10,7 +10,9 @@ pub fn create_set_constructor(
         obj["SetData"] = JSValue::Internal(Set(set_data))
         if args.length() > 0 && not(args[0] is (Undefined | Null)) {
           let iterable = args[0]
-          let adder_val = this_val.get_property("add")
+          let adder_val = this_val.get_property_throwing("add") catch {
+            e => raise e
+          }
           let adder = match adder_val {
             Object(f) =>
               if f.is_callable {
@@ -35,15 +37,22 @@ pub fn create_set_constructor(
             Symbol(_) => iterator_sym.to_property_key()
             _ => "Symbol.iterator"
           }
-          let iterator_method_val = iterable.get_property(iterator_key)
+          let iterator_method_val = iterable.get_property_throwing(iterator_key) catch {
+            e => raise e
+          }
           let iterator_method = match iterator_method_val {
             Object(f) =>
               if f.is_callable {
                 iterator_method_val
               } else {
-                iterable.get_property("Symbol.iterator")
+                iterable.get_property_throwing("Symbol.iterator") catch {
+                  e => raise e
+                }
               }
-            _ => iterable.get_property("Symbol.iterator")
+            _ =>
+              iterable.get_property_throwing("Symbol.iterator") catch {
+                e => raise e
+              }
           }
           match iterator_method {
             Object(iter_fn) =>
@@ -55,15 +64,23 @@ pub fn create_set_constructor(
                     return Undefined
                   }
                 }
-                let next_method = match iterator.get_property("next") {
+                let next_method_val = iterator.get_property_throwing("next") catch {
+                  e => {
+                    iterator_close(ctx, iterator)
+                    raise e
+                  }
+                }
+                let next_method = match next_method_val {
                   Object(f) =>
                     if f.is_callable {
                       f
                     } else {
+                      iterator_close(ctx, iterator)
                       ctx.throw_type_error("iterator.next is not a function")
                       return Undefined
                     }
                   _ => {
+                    iterator_close(ctx, iterator)
                     ctx.throw_type_error("iterator.next is not a function")
                     return Undefined
                   }
@@ -74,13 +91,26 @@ pub fn create_set_constructor(
                   }
                   match next_res {
                     Object(res_obj) => {
-                      let done = JSValue::Object(res_obj)
-                        .get_property("done")
-                        .is_truthy()
+                      let done_val = JSValue::Object(res_obj).get_property_throwing(
+                        "done",
+                      ) catch {
+                        e => {
+                          iterator_close(ctx, iterator)
+                          raise e
+                        }
+                      }
+                      let done = done_val.is_truthy()
                       if done {
                         break
                       }
-                      let value = JSValue::Object(res_obj).get_property("value")
+                      let value = JSValue::Object(res_obj).get_property_throwing(
+                        "value",
+                      ) catch {
+                        e => {
+                          iterator_close(ctx, iterator)
+                          raise e
+                        }
+                      }
                       try ctx.invoke(adder, this_val, [value]) |> ignore catch {
                         e => {
                           iterator_close(ctx, iterator)
