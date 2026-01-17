@@ -25,7 +25,7 @@ pub fn create_error_prototype(JSValue) -> JSValue
 
 pub fn create_function_constructor(JSValue) -> JSValue
 
-pub fn create_json_object(JSValue) -> JSValue
+pub fn create_json_object(Context, JSValue, JSValue) -> JSValue
 
 pub fn create_map_constructor(JSValue, JSValue) -> JSValue
 
@@ -188,6 +188,7 @@ pub(all) struct JSObject {
 pub fn JSObject::get(Self, String) -> JSValue
 pub fn JSObject::new(properties? : Map[String, JSValue], prototype? : JSValue) -> Self
 pub fn JSObject::new_function(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
+pub fn JSObject::own_keys(Self, Context) -> Array[String] raise EvalError
 #alias("_[_]=_")
 pub fn JSObject::set(Self, String, JSValue) -> Unit
 pub impl Compare for JSObject
@@ -224,7 +225,6 @@ pub fn JSValue::is_object(Self) -> Bool
 pub fn JSValue::is_truthy(Self) -> Bool
 pub fn JSValue::left_shift(Self, Self) -> Self
 pub fn JSValue::op_in(Self, Self) -> Bool
-pub fn JSValue::own_keys(Self, Context) -> Array[String] raise EvalError
 pub fn JSValue::pow(Self, Self) -> Self
 pub fn JSValue::right_shift(Self, Self) -> Self
 pub fn JSValue::set_property(Self, String, Self, strict? : Bool) -> Unit raise EvalError

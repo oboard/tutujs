@@ -240,6 +240,21 @@ pub fn init_object_prototype(
               if key.has_prefix("Symbol(") {
                 return Boolean(false)
               }
+              let is_enumerable = match properties.get("__descriptors") {
+                Some(Object(d)) =>
+                  match d.properties.get(key) {
+                    Some(Object(desc)) =>
+                      match desc.properties.get("enumerable") {
+                        Some(Boolean(b)) => b
+                        _ => true
+                      }
+                    _ => true
+                  }
+                _ => true
+              }
+              if not(is_enumerable) {
+                return Boolean(false)
+              }
               Boolean(properties.contains(key) && not(key.has_prefix("__")))
             }
             _ => Boolean(false)

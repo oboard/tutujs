@@ -151,12 +151,42 @@ pub fn create_string_constructor(
       match this_val {
         Object({ properties, .. }) => {
           properties["PrimitiveValue"] = JSValue::String(val_str)
-          properties["length"] = JSValue::Number(val_str.length().to_double())
+          let len = val_str.length().to_double()
+          properties["length"] = JSValue::Number(len)
+
+          // Set length with descriptors (non-writable, non-enumerable, non-configurable)
+          let len_desc = JSObject::new(properties={
+            "value": JSValue::Number(len),
+            "writable": JSValue::Boolean(false),
+            "enumerable": JSValue::Boolean(false),
+            "configurable": JSValue::Boolean(false),
+          })
+          let descriptors = match properties.get("__descriptors") {
+            Some(Object(d)) => d
+            _ => {
+              let d = JSObject::new(properties={})
+              properties["__descriptors"] = JSValue::Object(d)
+              d
+            }
+          }
+          descriptors["length"] = JSValue::Object(len_desc)
+
           // Populate indices for enumeration
           for i = 0; i < val_str.length(); i = i + 1 {
             // We need to store them in properties so for-in loop can see them.
             try {
-              properties[i.to_string()] = JSValue::String(val_str[i:i + 1])
+              let char_val = JSValue::String(val_str[i:i + 1])
+              let idx_str = i.to_string()
+              properties[idx_str] = char_val
+
+              // Indices are enumerable, non-writable, non-configurable
+              let idx_desc = JSObject::new(properties={
+                "value": char_val,
+                "writable": JSValue::Boolean(false),
+                "enumerable": JSValue::Boolean(true),
+                "configurable": JSValue::Boolean(false),
+              })
+              descriptors[idx_str] = JSValue::Object(idx_desc)
             } catch {
               _ => ()
             }
@@ -169,14 +199,36 @@ pub fn create_string_constructor(
       JSValue::String(val_str)
     }
   })
-  JSValue::Object(
-    JSObject::new_function(
-      name="String",
-      params=["value"],
-      body=ctor_fn,
-      prototype=func_proto,
-      is_constructor=true,
-      properties={ "prototype": proto },
-    ),
+  let ctor_obj = JSObject::new_function(
+    name="String",
+    params=["value"],
+    body=ctor_fn,
+    prototype=func_proto,
+    is_constructor=true,
   )
+
+  // Set String.prototype.constructor
+  match proto {
+    Object(p) => p["constructor"] = JSValue::Object(ctor_obj)
+    _ => ()
+  }
+
+  // Set String.prototype property on constructor (non-writable, non-enumerable, non-configurable)
+  let proto_desc = JSObject::new(properties={
+    "value": proto,
+    "writable": JSValue::Boolean(false),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(false),
+  })
+  let ctor_descriptors = match ctor_obj.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      ctor_obj["__descriptors"] = JSValue::Object(d)
+      d
+    }
+  }
+  ctor_descriptors["prototype"] = JSValue::Object(proto_desc)
+  ctor_obj["prototype"] = proto
+  JSValue::Object(ctor_obj)
 }

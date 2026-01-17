@@ -249,7 +249,7 @@ pub fn Context::create_global() -> Context {
   ctx.register_builtin("Date", date_val)
 
   // JSON Object
-  let json_val = create_json_object(object_proto_val)
+  let json_val = create_json_object(ctx, object_proto_val, func_proto_val)
   ctx.register_builtin("JSON", json_val)
 
   // Symbol.prototype

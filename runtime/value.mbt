@@ -170,51 +170,62 @@ pub fn JSValue::get_prototype(self : JSValue) -> JSValue? {
 }
 
 ///|
-pub fn JSValue::own_keys(
-  self : JSValue,
+pub fn JSObject::own_keys(
+  self : JSObject,
   ctx : Context,
 ) -> Array[String] raise EvalError {
-  match self {
-    Object(o) => {
-      match (o.proxy_target, o.proxy_handler) {
-        (Some(target), Some(handler)) => {
-          let trap = handler.get_property("ownKeys")
-          match trap {
-            Object(f) =>
-              if f.is_callable {
-                let keys_list = ctx.invoke(f, handler, [target])
-                let len = keys_list.get_property("length").to_number().to_int()
-                let keys = []
-                for i = 0; i < len; i = i + 1 {
-                  keys.push(keys_list.get_property(i.to_string()).to_string())
-                }
-                return keys
-              } else {
-                return target.own_keys(ctx)
-              }
-            _ => return target.own_keys(ctx)
+  match (self.proxy_target, self.proxy_handler) {
+    (Some(target), Some(handler)) => {
+      let trap = handler.get_property("ownKeys")
+      match trap {
+        Object({ is_callable: true, .. } as f) => {
+          let keys_list = ctx.invoke(f, handler, [target])
+          let len = keys_list.get_property("length").to_number().to_int()
+          let keys = []
+          for i = 0; i < len; i = i + 1 {
+            keys.push(keys_list.get_property(i.to_string()).to_string())
           }
+          return keys
         }
-        _ => ()
-      }
-      let keys = []
-      // String indices
-      match o.properties.get("PrimitiveValue") {
-        Some(String(s)) =>
-          for i = 0; i < s.length(); i = i + 1 {
-            keys.push(i.to_string())
+        _ =>
+          match target {
+            Object(t) => return t.own_keys(ctx)
+            _ => return []
           }
-        _ => ()
       }
-      for k, _ in o.properties {
-        if not(k.has_prefix("__")) && k != "PrimitiveValue" {
-          keys.push(k)
-        }
-      }
-      keys
     }
-    _ => []
+    _ => ()
   }
+  let keys = []
+  // String indices
+  match self.properties.get("PrimitiveValue") {
+    Some(String(s)) =>
+      for i = 0; i < s.length(); i = i + 1 {
+        keys.push(i.to_string())
+      }
+    _ => ()
+  }
+  let integer_keys : Array[Int] = []
+  let other_keys : Array[String] = []
+  for k, _ in self.properties {
+    if not(k.has_prefix("__")) && k != "PrimitiveValue" {
+      let idx = @strconv.parse_int(k) catch { _ => -1 }
+      if idx >= 0 && idx.to_string() == k {
+        integer_keys.push(idx)
+      } else {
+        other_keys.push(k)
+      }
+    }
+  }
+  integer_keys.sort()
+  // other_keys.sort() // Keep original order (random/insertion) for strings
+  for idx in integer_keys {
+    keys.push(idx.to_string())
+  }
+  for k in other_keys {
+    keys.push(k)
+  }
+  keys
 }
 
 ///|
@@ -679,6 +690,28 @@ pub fn JSValue::set_property(
           }
           return
         }
+      }
+
+      // Check writable descriptor
+      let is_writable = match properties.get("__descriptors") {
+        Some(Object(d)) =>
+          match d.properties.get(name) {
+            Some(Object(desc)) =>
+              match desc.properties.get("writable") {
+                Some(Boolean(b)) => b
+                _ => true
+              }
+            _ => true
+          }
+        _ => true
+      }
+      if not(is_writable) {
+        if strict {
+          raise EvalError::Throw(
+            JSValue::String("TypeError: Cannot assign to read only property"),
+          )
+        }
+        return
       }
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {

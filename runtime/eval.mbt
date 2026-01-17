@@ -806,64 +806,73 @@ fn Context::evaluate(
             args_values.push(self.evaluate(Expression(arg)))
           }
           match ctor_val {
-            Object(func) => {
-              let call_info = func.call_info.unwrap()
-              if not(call_info.is_constructor) {
-                self.throw_type_error(
-                  self.evaluate(Expression(callee)).to_string() +
-                  " is not a constructor",
-                )
-                return Undefined
-              }
-              let proto = match func.properties.get("prototype") {
-                Some(p) => Some(p)
-                None => Some(Null)
-              }
-              let new_obj = match proto {
-                Some(p) =>
-                  JSValue::Object(JSObject::new(properties={}, prototype=p))
-                None => JSValue::Object(JSObject::new(properties={}))
-              }
-              let res = match call_info.body {
-                User(block) => {
-                  let new_ctx = Context::new(
-                    parent=call_info.context,
-                    strict=call_info.strict,
-                  )
-                  new_ctx.scope.set("this", new_obj)
-                  new_ctx.scope.set("new.target", ctor_val)
-                  for i, val in args_values {
-                    if i < call_info.params.length() {
-                      new_ctx.scope.set(call_info.params[i], val)
-                    }
+            Object(func) =>
+              match func.call_info {
+                Some(call_info) => {
+                  if not(call_info.is_constructor) {
+                    self.throw_type_error(
+                      self.evaluate(Expression(callee)).to_string() +
+                      " is not a constructor",
+                    )
+                    return Undefined
                   }
-                  try {
-                    // Hoist FunctionDeclarations
-                    for stmt in block.body {
-                      match stmt {
-                        FunctionDeclaration(_) =>
+                  let proto = match func.properties.get("prototype") {
+                    Some(p) => Some(p)
+                    None => Some(Null)
+                  }
+                  let new_obj = match proto {
+                    Some(p) =>
+                      JSValue::Object(JSObject::new(properties={}, prototype=p))
+                    None => JSValue::Object(JSObject::new(properties={}))
+                  }
+                  let res = match call_info.body {
+                    User(block) => {
+                      let new_ctx = Context::new(
+                        parent=call_info.context,
+                        strict=call_info.strict,
+                      )
+                      new_ctx.scope.set("this", new_obj)
+                      new_ctx.scope.set("new.target", ctor_val)
+                      for i, val in args_values {
+                        if i < call_info.params.length() {
+                          new_ctx.scope.set(call_info.params[i], val)
+                        }
+                      }
+                      try {
+                        // Hoist FunctionDeclarations
+                        for stmt in block.body {
+                          match stmt {
+                            FunctionDeclaration(_) =>
+                              new_ctx.evaluate(Statement(stmt)) |> ignore
+                            _ => ()
+                          }
+                        }
+                        for stmt in block.body {
                           new_ctx.evaluate(Statement(stmt)) |> ignore
-                        _ => ()
+                        }
+                        JSValue::Undefined
+                      } catch {
+                        EvalError::Return(v) => v
+                        EvalError::Break(l) => raise EvalError::Break(l)
+                        EvalError::Continue(l) => raise EvalError::Continue(l)
+                        EvalError::Throw(v) => raise EvalError::Throw(v)
                       }
                     }
-                    for stmt in block.body {
-                      new_ctx.evaluate(Statement(stmt)) |> ignore
-                    }
-                    JSValue::Undefined
-                  } catch {
-                    EvalError::Return(v) => v
-                    EvalError::Break(l) => raise EvalError::Break(l)
-                    EvalError::Continue(l) => raise EvalError::Continue(l)
-                    EvalError::Throw(v) => raise EvalError::Throw(v)
+                    Native(f) => f(self, new_obj, args_values)
+                  }
+                  match res {
+                    Object(_) => res
+                    _ => new_obj
                   }
                 }
-                Native(f) => f(self, new_obj, args_values)
+                None => {
+                  self.throw_type_error(
+                    self.evaluate(Expression(callee)).to_string() +
+                    " is not a constructor",
+                  )
+                  Undefined
+                }
               }
-              match res {
-                Object(_) => res
-                _ => new_obj
-              }
-            }
             _ => {
               let msg = self.evaluate(Expression(callee)).to_string() +
                 " is not a constructor"

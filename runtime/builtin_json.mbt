@@ -1,7 +1,45 @@
 //|
 
 ///|
-pub fn create_json_object(object_proto : JSValue) -> JSValue {
+fn define_non_enumerable(
+  ctx : Context,
+  obj : JSObject,
+  prop : String,
+  val : JSValue,
+) -> Unit {
+  let define_prop = match ctx.resolve("Object") {
+    Object(f) => f.get("defineProperty")
+    _ => Undefined
+  }
+  match define_prop {
+    Object(f) => {
+      let desc = JSObject::new(properties={
+        "value": val,
+        "writable": JSValue::Boolean(true),
+        "enumerable": JSValue::Boolean(false),
+        "configurable": JSValue::Boolean(true),
+      })
+      try
+        ctx.invoke(f, JSValue::Undefined, [
+          JSValue::Object(obj),
+          JSValue::String(prop),
+          JSValue::Object(desc),
+        ])
+        |> ignore
+      catch {
+        _ => ()
+      }
+    }
+    _ => obj.set(prop, val)
+  }
+}
+
+///|
+pub fn create_json_object(
+  ctx : Context,
+  object_proto : JSValue,
+  func_proto : JSValue,
+) -> JSValue {
   let json_obj = JSObject::new(properties={}, prototype=object_proto)
 
   // JSON.parse
@@ -59,13 +97,158 @@ pub fn create_json_object(object_proto : JSValue) -> JSValue {
   let parse_obj = JSObject::new_function(name="parse", body=parse_fn, params=[
     "text", "reviver",
   ])
+  // Set length to be non-writable and non-enumerable
+  let length_desc = JSObject::new(properties={
+    "value": JSValue::Number(2.0),
+    "writable": JSValue::Boolean(false),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(true),
+  })
+  let descriptors = match parse_obj.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      parse_obj["__descriptors"] = JSValue::Object(d)
+      d
+    }
+  }
+  descriptors["length"] = JSValue::Object(length_desc)
+  // parse_obj["length"] = JSValue::Number(2.0) // Handled by descriptor
+
+  // Set parse property on JSON object (non-enumerable)
+  let parse_prop_desc = JSObject::new(properties={
+    "value": JSValue::Object(parse_obj),
+    "writable": JSValue::Boolean(true),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(true),
+  })
+  let json_descriptors = match json_obj.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      json_obj["__descriptors"] = JSValue::Object(d)
+      d
+    }
+  }
+  json_descriptors["parse"] = JSValue::Object(parse_prop_desc)
   json_obj["parse"] = JSValue::Object(parse_obj)
 
   // JSON.stringify
   let stringify_fn = Native(fn(ctx, _this_val, args) {
     if args is [value, ..] {
-      // TODO: Handle replacer and space
-      stringify(ctx, value)
+      let replacer = args.get(1).unwrap_or(JSValue::Undefined)
+      let space = args.get(2).unwrap_or(JSValue::Undefined)
+
+      // Process space
+      let mut gap : StringView = ""
+      match space {
+        Number(n) => {
+          let count = n.to_int()
+          let count = if count < 0 {
+            0
+          } else if count > 10 {
+            10
+          } else {
+            count
+          }
+          gap = " ".repeat(count)
+        }
+        String(s) => {
+          let s = s.to_string()
+          if s.length() > 10 {
+            gap = (s[0:10] catch { _ => s[:] }).to_string()
+          } else {
+            gap = s
+          }
+        }
+        Object({ properties, .. }) =>
+          if properties.contains("PrimitiveValue") {
+            match properties.get("PrimitiveValue") {
+              Some(Number(n)) => {
+                let count = n.to_int()
+                let count = if count < 0 {
+                  0
+                } else if count > 10 {
+                  10
+                } else {
+                  count
+                }
+                gap = " ".repeat(count)
+              }
+              Some(String(s)) => {
+                let s = s.to_string()
+                if s.length() > 10 {
+                  gap = (s[0:10] catch { _ => s[:] }).to_string()
+                } else {
+                  gap = s
+                }
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+
+      // Process replacer
+      let mut replacer_fn : JSObject? = None
+      let mut property_list : Array[String]? = None
+      match replacer {
+        Object(f) =>
+          if f.is_callable {
+            replacer_fn = Some(f)
+          } else {
+            let is_array = is_array_strict(ctx, replacer)
+            if is_array {
+              let list = []
+              let set = JSObject::new() // Use JSObject as set
+              let len_val = JSValue::Object(f).get_property_throwing("length")
+              let len = match len_val {
+                Number(n) => n.to_int()
+                _ => 0
+              }
+              for i = 0; i < len; i = i + 1 {
+                let v = JSValue::Object(f).get_property_throwing(i.to_string())
+                let item = match v {
+                  String(s) => Some(s.to_string())
+                  Number(n) => Some(n.to_string())
+                  Object({ properties, .. }) =>
+                    if properties.contains("PrimitiveValue") {
+                      match properties.get("PrimitiveValue") {
+                        Some(String(s)) => Some(s.to_string())
+                        Some(Number(n)) => Some(n.to_string())
+                        _ => None
+                      }
+                    } else {
+                      None
+                    }
+                  _ => None
+                }
+                match item {
+                  Some(s) =>
+                    if not(set.properties.contains(s)) {
+                      set.set(s, JSValue::Boolean(true))
+                      list.push(s)
+                    }
+                  None => ()
+                }
+              }
+              property_list = Some(list)
+            }
+          }
+        _ => ()
+      }
+      let wrapper = JSObject::new(properties={ "": value })
+      stringify(
+        ctx,
+        value,
+        "",
+        JSValue::Object(wrapper),
+        replacer_fn,
+        property_list,
+        [],
+        "",
+        gap,
+      )
     } else {
       JSValue::Undefined
     }
@@ -74,85 +257,248 @@ pub fn create_json_object(object_proto : JSValue) -> JSValue {
     name="stringify",
     body=stringify_fn,
     params=["value", "replacer", "space"],
+    prototype=func_proto,
   )
-  json_obj["stringify"] = JSValue::Object(stringify_obj)
+  // Set length to be non-writable and non-enumerable
+  let length_desc_str = JSObject::new(properties={
+    "value": JSValue::Number(3.0),
+    "writable": JSValue::Boolean(false),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(true),
+  })
+  let descriptors_str = match stringify_obj.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      stringify_obj["__descriptors"] = JSValue::Object(d)
+      d
+    }
+  }
+  descriptors_str["length"] = JSValue::Object(length_desc_str)
+
+  // Set stringify property on JSON object (non-enumerable)
+  define_non_enumerable(
+    ctx,
+    json_obj,
+    "stringify",
+    JSValue::Object(stringify_obj),
+  )
   JSValue::Object(json_obj)
 }
 
 ///|
-fn stringify(ctx : Context, value : JSValue) -> JSValue raise EvalError {
+fn stringify(
+  ctx : Context,
+  value : JSValue,
+  key : String,
+  holder : JSValue,
+  replacer_fn : JSObject?,
+  property_list : Array[String]?,
+  stack : Array[JSValue],
+  indent : StringView,
+  gap : StringView,
+) -> JSValue raise EvalError {
+  let mut value = value
+  // 1. toJSON
+  match value {
+    Object(o) => {
+      let to_json = JSValue::Object(o).get_property_throwing("toJSON")
+      match to_json {
+        Object(f) =>
+          if f.is_callable {
+            value = ctx.invoke(f, value, [JSValue::String(key)]) catch {
+              e => raise e
+            }
+          }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+
+  // 2. Replacer function
+  match replacer_fn {
+    Some(f) =>
+      value = ctx.invoke(f, holder, [JSValue::String(key), value]) catch {
+        e => raise e
+      }
+    None => ()
+  }
   match value {
     String(s) => JSValue::String("\"" + escape_string(s.to_string()) + "\"")
     Number(n) =>
-      if n.is_nan() || n.is_inf() {
-        JSValue::String("null")
-      } else {
-        JSValue::String(n.to_string())
-      }
+      JSValue::String(
+        if n.is_nan() || n.is_inf() {
+          "null"
+        } else {
+          n.to_string()
+        },
+      )
     Boolean(b) => JSValue::String(b.to_string())
     Null => JSValue::String("null")
-    Undefined => JSValue::Undefined // Should return Undefined for direct call, but omitted in object
+    Undefined => JSValue::Undefined
     Object(o) => {
       if o.is_callable {
         return JSValue::Undefined
       }
-      // Check for toJSON?
-      // TODO: toJSON support
 
       // Unbox wrapper objects
-      if o.properties.contains("PrimitiveValue") {
-        match o.properties.get("PrimitiveValue") {
-          Some(Number(n)) => return stringify(ctx, JSValue::Number(n))
-          Some(String(s)) => return stringify(ctx, JSValue::String(s))
-          Some(Boolean(b)) => return stringify(ctx, JSValue::Boolean(b))
-          _ => ()
+      match o["PrimitiveValue"] {
+        Number(_) => {
+          let num = js_to_number(ctx, value) // Removed catch
+          return stringify(
+            ctx,
+            JSValue::Number(num),
+            key,
+            holder,
+            replacer_fn,
+            property_list,
+            stack,
+            indent,
+            gap,
+          )
+        }
+        String(_) => {
+          let str = js_to_string(ctx, value)
+          return stringify(
+            ctx,
+            JSValue::String(str),
+            key,
+            holder,
+            replacer_fn,
+            property_list,
+            stack,
+            indent,
+            gap,
+          )
+        }
+        Boolean(b) =>
+          return stringify(
+            ctx,
+            JSValue::Boolean(b),
+            key,
+            holder,
+            replacer_fn,
+            property_list,
+            stack,
+            indent,
+            gap,
+          )
+        BigInt(bi) =>
+          return stringify(
+            ctx,
+            JSValue::BigInt(bi),
+            key,
+            holder,
+            replacer_fn,
+            property_list,
+            stack,
+            indent,
+            gap,
+          )
+        _ => ()
+      }
+
+      // Circular check
+      for v in stack {
+        if v == value {
+          ctx.throw_type_error("Converting circular structure to JSON")
         }
       }
+      stack.push(value)
 
       // Is it Array?
       let is_array = is_array_strict(ctx, JSValue::Object(o))
       if is_array {
-        let mut res = "["
         let len = match o["length"] {
           Number(n) => n.to_int()
           _ => 0
         }
+        if len == 0 {
+          stack.pop() |> ignore
+          return JSValue::String("[]")
+        }
+        let mut res : StringView = "["
+        let step : StringView = if gap != "" {
+          "\n".to_string_view() + indent + gap
+        } else {
+          ""
+        }
+        let next_indent = if gap != "" { indent + gap } else { "" }
         for i = 0; i < len; i = i + 1 {
           if i > 0 {
             res = res + ","
           }
-          let val = o[i.to_string()]
-          match stringify(ctx, val) {
+          res = res + step
+          let key = i.to_string()
+          let val = o[key]
+          match
+            stringify(
+              ctx, val, key, value, replacer_fn, property_list, stack, next_indent,
+              gap,
+            ) {
             String(s) => res = res + s.to_string()
-            Undefined => res = res + "null" // Array elements become null if undefined
+            Undefined => res = res + "null"
             _ => res = res + "null"
           }
         }
-        res = res + "]"
+        if gap != "" {
+          res = res + "\n" + indent + "]"
+        } else {
+          res = res + "]"
+        }
+        stack.pop() |> ignore
         JSValue::String(res)
       } else {
-        let mut res = "{"
+        let keys = match property_list {
+          Some(list) => list
+          None => o.own_keys(ctx)
+        }
+        if keys.length() == 0 {
+          stack.pop() |> ignore
+          return JSValue::String("{}")
+        }
+        let mut res : StringView = "{"
         let mut first = true
-        let keys = JSValue::Object(o).own_keys(ctx)
+        let step = if gap != "" {
+          "\n".to_string_view() + indent + gap
+        } else {
+          ""
+        }
+        let next_indent = if gap != "" { indent + gap } else { "" }
         for k in keys {
           let val = o[k]
-          match stringify(ctx, val) {
+          match
+            stringify(
+              ctx, val, k, value, replacer_fn, property_list, stack, next_indent,
+              gap,
+            ) {
             String(s) => {
-              if not(first) {
+              if !first {
                 res = res + ","
               }
-              res = res + "\"" + escape_string(k) + "\":" + s.to_string()
+              res = res + step
+              let key_str = "\"" + escape_string(k) + "\":"
+              let sep = if gap != "" { " " } else { "" }
+              res = res + key_str + sep + s.to_string()
               first = false
             }
-            _ => () // Skip undefined values
+            _ => ()
+          }
+        }
+        if gap != "" {
+          if not(first) {
+            res = res + "\n".to_string_view() + indent
           }
         }
         res = res + "}"
+        stack.pop() |> ignore
         JSValue::String(res)
       }
     }
     Symbol(_) => JSValue::Undefined
-    BigInt(_) => JSValue::Undefined // TypeError in spec, but undefined here for safety
+    BigInt(_) =>
+      ctx.throw_type_error("TypeError: Do not know how to serialize a BigInt")
     Internal(_) => JSValue::String("{}")
   }
 }
@@ -190,7 +536,7 @@ fn internalize_json_property(
           }
         }
       } else {
-        let keys = JSValue::Object(obj).own_keys(ctx)
+        let keys = obj.own_keys(ctx)
         for k in keys {
           let new_element = internalize_json_property(obj, k, reviver, ctx)
           match new_element {
