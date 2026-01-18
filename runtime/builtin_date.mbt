@@ -308,6 +308,26 @@ pub fn create_date_object(
       zdt.nanosecond() / 1000000,
     )
   })
+  define_setter("setYear", fn(ctx, zdt, args) raise EvalError {
+    if args.length() == 0 {
+      return None
+    }
+    let n = js_to_number(ctx, args[0])
+    if n.is_nan() {
+      return None
+    }
+    let y_v = n.to_int()
+    let y = if y_v >= 0 && y_v <= 99 { 1900 + y_v } else { y_v }
+    make_date(
+      y,
+      zdt.month(),
+      zdt.day(),
+      zdt.hour(),
+      zdt.minute(),
+      zdt.second(),
+      zdt.nanosecond() / 1000000,
+    )
+  })
   define_setter("setUTCFullYear", fn(ctx, zdt, args) raise EvalError {
     if args.length() == 0 {
       return None
