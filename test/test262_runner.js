@@ -10,6 +10,32 @@ const dbPath = path.join(__dirname, "test262_results.db")
 
 const db = new sqlite3.Database(dbPath)
 
+if (!fs.existsSync(listPath)) {
+  console.error("test262_files.txt not found, run convert_test262.py first")
+  process.exit(1)
+}
+
+const allLines = fs.readFileSync(listPath, "utf8").split("\n").map(s => s.trim()).filter(Boolean)
+
+if (allLines.length === 0) {
+  console.error("No tests found in test262_files.txt")
+  process.exit(1)
+}
+
+const workers = Number(process.env.WORKERS || "5")
+const timeoutMs = Number(process.env.TEST_TIMEOUT_MS || "5000")
+const port = Number(process.env.PORT || "3000")
+const total = allLines.length
+
+let completed = 0
+let passed = 0
+let failed = 0
+let timedOut = 0
+
+const running = new Map()
+let lines = []
+let nextIndex = 0
+
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,32 +45,13 @@ db.serialize(() => {
     duration_ms INTEGER,
     timestamp INTEGER
   )`)
+
+  lines = allLines
+  nextIndex = 0
+  for (let i = 0; i < workers && i < lines.length; i++) {
+    runNext(i)
+  }
 })
-
-if (!fs.existsSync(listPath)) {
-  console.error("test262_files.txt not found, run convert_test262.py first")
-  process.exit(1)
-}
-
-const lines = fs.readFileSync(listPath, "utf8").split("\n").map(s => s.trim()).filter(Boolean)
-
-if (lines.length === 0) {
-  console.error("No tests found in test262_files.txt")
-  process.exit(1)
-}
-
-const workers = Number(process.env.WORKERS || "10")
-const timeoutMs = Number(process.env.TEST_TIMEOUT_MS || "5000")
-const port = Number(process.env.PORT || "3000")
-
-const total = lines.length
-let nextIndex = 0
-let completed = 0
-let passed = 0
-let failed = 0
-let timedOut = 0
-
-const running = new Map()
 
 function logResult(relPath, status, error, duration) {
   db.run(
@@ -56,17 +63,13 @@ function logResult(relPath, status, error, duration) {
   )
 }
 
-function runNext(workerId) {
-  if (nextIndex >= lines.length) {
-    return
-  }
-  const relPath = lines[nextIndex++]
+function startTest(workerId, relPath) {
   const absPath = path.join(rootDir, relPath)
   const startTime = Date.now()
   const key = workerId + ":" + relPath
   running.set(key, { test: relPath, workerId, startTime })
 
-  const child = spawn("moon", ["run", "main", "--", "test262", absPath], {
+  const child = spawn("_build/native/release/build/main/main.exe", ["test262", absPath], {
     cwd: rootDir,
     stdio: ["ignore", "pipe", "pipe"],
   })
@@ -137,8 +140,34 @@ function runNext(workerId) {
   })
 }
 
-for (let i = 0; i < workers && i < lines.length; i++) {
-  runNext(i)
+function runNext(workerId) {
+  if (nextIndex >= lines.length) {
+    return
+  }
+  const relPath = lines[nextIndex++]
+  db.get(
+    "SELECT status FROM results WHERE id = (SELECT MAX(id) FROM results WHERE path = ?)",
+    [relPath],
+    (err, row) => {
+      if (err) {
+        console.error("DB get error:", err.message)
+        startTest(workerId, relPath)
+        return
+      }
+      if (row) {
+        completed++
+        if (row.status === "PASS") passed++
+        else if (row.status === "FAIL") failed++
+        else if (row.status === "TIMEOUT") {
+          failed++
+          timedOut++
+        }
+        runNext(workerId)
+      } else {
+        startTest(workerId, relPath)
+      }
+    }
+  )
 }
 
 const indexPath = path.join(__dirname, "test262_dashboard.html")
@@ -190,4 +219,3 @@ server.listen(port, () => {
   console.log("Test262 runner listening on http://localhost:" + port + "/")
   console.log("Total tests: " + total + ", workers: " + workers + ", timeout: " + timeoutMs + "ms")
 })
-

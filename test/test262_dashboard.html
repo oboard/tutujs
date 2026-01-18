@@ -67,6 +67,9 @@ createApp({
             series: [{
               type: "pie",
               radius: "70%",
+              label: {
+                formatter: "{b}: {d}%"
+              },
               data: [
                 { value: data.passed, name: "Passed" },
                 { value: data.failed, name: "Failed" },
@@ -84,9 +87,13 @@ createApp({
         title: { text: "Test262 Progress" },
         tooltip: { trigger: "item" },
         legend: { orient: "vertical", left: "right" },
+        color: ["#4caf50", "#f44336", "#ff9800", "#9e9e9e"],
         series: [{
           type: "pie",
           radius: "70%",
+          label: {
+            formatter: "{b}: {d}%"
+          },
           data: []
         }]
       })
@@ -99,4 +106,3 @@ createApp({
 </script>
 </body>
 </html>
-
