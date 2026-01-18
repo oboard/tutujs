@@ -449,7 +449,12 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
     ("/", rest) =>
       if is_regex_start(lexer) {
         lexmatch rest {
-          (("([^/\\\\\n\r]|\\\\.)*" as body) "/" ("[a-zA-Z]*" as flags), rest2) => {
+          (
+            ("([^/\\\\\n\r\x5B]|\\\\.|\x5B([^\x5D\\\n\r]|\\\\.)*\x5D)*" as body)
+            "/"
+            ("[a-zA-Z]*" as flags),
+            rest2
+          ) => {
             let full = "/" + body.to_string() + "/" + flags.to_string()
             lexer.add_token(@tokens.TokenKind::RegularExpressionLiteral, full)
             lex_tokens(rest2, lexer)

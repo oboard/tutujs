@@ -1019,21 +1019,8 @@ fn Context::evaluate(
           let flags_val = JSValue::String(flags_str[:])
           match self.resolve("RegExp") {
             Object(f) => {
-              let proto = match f.properties.get("prototype") {
-                Some(p) => Some(p)
-                None => Some(Null)
-              }
-              let new_obj = match proto {
-                Some(p) =>
-                  JSValue::Object(JSObject::new(properties={}, prototype=p))
-                None => JSValue::Object(JSObject::new(properties={}))
-              }
               let args = [pattern_val, flags_val]
-              let res = self.invoke(f, new_obj, args)
-              match res {
-                Object(_) => res
-                _ => new_obj
-              }
+              self.invoke(f, JSValue::Undefined, args)
             }
             _ => abort("RegExp constructor not found")
           }

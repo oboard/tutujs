@@ -4,6 +4,6 @@
     "oboard/tutujs/lexer",
     "oboard/tutujs/tokens",
     "oboard/tutujs/time",
-    "moonbitlang/regexp"
+    "oboard/tutujs/regexp"
   ]
 }

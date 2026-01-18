@@ -1,287 +1,370 @@
-//|
-
 ///|
-pub fn create_regexp_object(
-  object_proto : JSValue,
-  syntax_error_ctor : JSValue,
-) -> JSValue {
-  let regexp_proto_props = {}
-  let regexp_proto = JSValue::Object(
-    JSObject::new(properties=regexp_proto_props, prototype=object_proto),
-  )
-
-  // RegExp Constructor
-  let regexp_ctor_fn = Native(fn(_ctx, this_val, args) {
-    let (pattern_view, pattern_str) = if args is [JSValue::String(s), ..] {
-      (s, s.to_string())
-    } else {
-      let s = ""
-      (s[:], s)
-    }
-
-    // Parse flags
-    let flags_str = if args is [_, JSValue::String(s), ..] {
-      s.to_string()
-    } else {
-      ""
-    }
-
-    // Handle ignore case by prepending (?i) if supported or we rely on the engine
-    // MoonBit's regexp currently doesn't support inline flags like (?i) or we don't have access to compile options.
-    // So we just pass the pattern as is. Flags are stored in properties but not used for matching yet.
-    let effective_pattern = sanitize_pattern(pattern_str)
-    let (re, valid) = (@regexp.compile(effective_pattern[:]), true) catch {
-      _ => (@regexp.compile(""[:]) catch { _ => panic() }, false)
-    }
-    if not(valid) {
-      let syntax_error_proto = match syntax_error_ctor {
-        Object(o) => o.properties.get("prototype")
-        _ => None
-      }
-      let err_props = {
-        "name": JSValue::String("SyntaxError"),
-        "message": JSValue::String(
-          "Invalid regular expression: " + effective_pattern,
-        ),
-      }
-      let err = match syntax_error_proto {
-        Some(p) => JSObject::new(properties=err_props, prototype=p)
-        None => JSObject::new(properties=err_props)
-      }
-      raise EvalError::Throw(JSValue::Object(err))
-    }
-    let init_regexp_props = fn(obj : JSObject) {
-      // lastIndex is non-enumerable, non-configurable, writable
-      obj["lastIndex"] = JSValue::Number(0.0)
-      let descriptors = JSObject::new()
-      let last_index_desc = JSObject::new(properties={
-        "enumerable": JSValue::Boolean(false),
-        "configurable": JSValue::Boolean(false),
-        "writable": JSValue::Boolean(true),
-        "value": JSValue::Number(0.0),
-      })
-      descriptors["lastIndex"] = JSValue::Object(last_index_desc)
-      obj.properties.set("__descriptors", JSValue::Object(descriptors))
-      obj["source"] = JSValue::String(pattern_view)
-      obj["global"] = JSValue::Boolean(flags_str.contains("g"))
-      obj["ignoreCase"] = JSValue::Boolean(flags_str.contains("i"))
-      obj["multiline"] = JSValue::Boolean(flags_str.contains("m"))
-      obj["__internal_regexp__"] = JSValue::Internal(
-        JSInternal::RegExp(re, pattern_str),
-      )
-    }
-    let is_constructor_call = match this_val {
-      Object(_) => true
-      _ => false
-    }
-    if is_constructor_call {
-      match this_val {
-        Object(obj) => {
-          init_regexp_props(obj)
-          this_val
-        }
-        _ => JSValue::Undefined
-      }
-    } else {
-      // Function call - create new object
-      let new_obj_props = {}
-      let new_obj = JSValue::Object(
-        JSObject::new(properties=new_obj_props, prototype=regexp_proto),
-      )
-      let new_obj_inner = match new_obj {
-        Object(o) => o
-        _ => panic()
-      }
-      init_regexp_props(new_obj_inner)
-      new_obj
-    }
-  })
-  let regexp_ctor_props = { "prototype": regexp_proto }
-  let regexp_ctor = JSObject::new_function(
-    name="RegExp",
-    body=regexp_ctor_fn,
-    properties=regexp_ctor_props,
-    prototype=object_proto,
-    is_constructor=true,
-  )
-  let regexp_ctor_val = JSValue::Object(regexp_ctor)
-  regexp_proto_props.set("constructor", regexp_ctor_val)
-
-  // RegExp.prototype.exec(string)
-  let exec_fn = Native(fn(_ctx, this_val, args) {
-    let str = if args is [JSValue::String(s), ..] {
-      s.to_string()
-    } else {
-      "undefined"
-    }
-    match this_val {
-      Object(
-        {
-          properties: {
-            "__internal_regexp__": JSValue::Internal(JSInternal::RegExp(re, _)),
-            ..
-          } as properties,
-          ..,
-        }
-      ) => {
-        let global = match properties.get("global") {
-          Some(JSValue::Boolean(b)) => b
-          _ => false
-        }
-        let last_index = if global {
-          match properties.get("lastIndex") {
-            Some(JSValue::Number(n)) => n.to_int()
-            _ => 0
-          }
+fn validate_regexp_flags(
+  ctx : Context,
+  flags : String,
+) -> @regexp.RegexpFlags raise EvalError {
+  let mut global = false
+  let mut ignore_case = false
+  let mut multiline = false
+  let mut dot_all = false
+  let mut unicode = false
+  let mut sticky = false
+  let mut has_indices = false
+  let mut unicode_sets = false
+  for c in flags {
+    match c {
+      'g' =>
+        if global {
+          ctx.throw_syntax_error("Invalid regular expression flags")
         } else {
-          0
+          global = true
         }
-        if last_index < 0 || last_index > str.length() {
-          if global {
-            properties.set("lastIndex", JSValue::Number(0.0))
-          }
-          return JSValue::Null
-        }
-        let search_str = str[last_index:].to_string() catch { _ => "" }
-        let res = re.execute(search_str)
-        if res.results().length() > 0 {
-          let match_content = res.results()[0]
-          let match_str = match match_content {
-            Some(s) => s.to_string()
-            None => ""
-          }
-          let relative_index = res.before().length()
-          let match_index = last_index + relative_index
-          if global {
-            properties.set(
-              "lastIndex",
-              JSValue::Number((match_index + match_str.length()).to_double()),
-            )
-          }
-          let result_array_props = {
-            "0": JSValue::String(match_str),
-            "index": JSValue::Number(match_index.to_double()),
-            "input": JSValue::String(str),
-            "length": JSValue::Number(1.0),
-          }
-          JSValue::Object(
-            JSObject::new(properties=result_array_props, prototype=object_proto),
-          )
+      'i' =>
+        if ignore_case {
+          ctx.throw_syntax_error("Invalid regular expression flags")
         } else {
-          if global {
-            properties.set("lastIndex", JSValue::Number(0.0))
-          }
-          JSValue::Null
+          ignore_case = true
         }
-      }
-      _ => JSValue::Null
-    }
-  })
-  regexp_proto_props.set(
-    "exec",
-    JSValue::Object(JSObject::new_function(name="exec", body=exec_fn)),
-  )
-
-  // RegExp.prototype.test(string)
-  let test_fn = Native(fn(ctx, this_val, args) {
-    let exec_res = match exec_fn {
-      Native(f) => f(ctx, this_val, args)
-      _ => JSValue::Null
-    }
-    match exec_res {
-      Null => JSValue::Boolean(false)
-      _ => JSValue::Boolean(true)
-    }
-  })
-  regexp_proto_props.set(
-    "test",
-    JSValue::Object(JSObject::new_function(name="test", body=test_fn)),
-  )
-
-  // RegExp.prototype.toString()
-  let to_string_fn = Native(fn(_ctx, this_val, _args) {
-    match this_val {
-      Object(
-        {
-          properties: {
-            "__internal_regexp__": JSValue::Internal(JSInternal::RegExp(_, src)),
-            ..
-          },
-          ..,
+      'm' =>
+        if multiline {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          multiline = true
         }
-      ) => JSValue::String("/" + src + "/")
-      _ => JSValue::String("/(?:)/")
+      's' =>
+        if dot_all {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          dot_all = true
+        }
+      'u' =>
+        if unicode {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          unicode = true
+        }
+      'y' =>
+        if sticky {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          sticky = true
+        }
+      'd' =>
+        if has_indices {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          has_indices = true
+        }
+      'v' =>
+        if unicode_sets {
+          ctx.throw_syntax_error("Invalid regular expression flags")
+        } else {
+          unicode_sets = true
+        }
+      _ => ctx.throw_syntax_error("Invalid regular expression flags")
     }
-  })
-  regexp_proto_props.set(
-    "toString",
-    JSValue::Object(JSObject::new_function(name="toString", body=to_string_fn)),
-  )
-  regexp_ctor_val
+  }
+  if unicode && unicode_sets {
+    ctx.throw_syntax_error("Invalid regular expression flags")
+  }
+  {
+    compile: flags,
+    global,
+    ignore_case,
+    multiline,
+    dot_all,
+    unicode,
+    sticky,
+    has_indices,
+    unicode_sets,
+  }
 }
 
 ///|
-fn sanitize_pattern(pattern : String) -> String {
-  let mut res = ""
-  let mut i = 0
-  let n = pattern.length()
-  while i < n {
-    if pattern[i] == '\\' && i + 1 < n {
-      let slice = pattern[i:i + 2].to_string() catch { _ => "" }
-      res += slice
-      i += 2
-      continue
+pub fn create_regexp_constructor(
+  regexp_proto : JSValue,
+  func_proto : JSValue,
+) -> JSValue {
+  let regexp_ctor_fn = Native(fn(ctx, this_val, args) raise EvalError {
+    let pattern_arg = if args.length() > 0 { args[0] } else { Undefined }
+    let flags_arg = if args.length() > 1 { args[1] } else { Undefined }
+    let mut pattern_str = ""
+    let mut flags_str = ""
+
+    // Check if pattern is already a RegExp object
+    let mut pattern_is_regexp = false
+    let mut pattern_source = ""
+    let mut pattern_flags = ""
+    match pattern_arg {
+      Object(obj) =>
+        match obj.properties.get("__internal_regexp__") {
+          Some(Internal(RegExp(prog, src))) => {
+            pattern_is_regexp = true
+            pattern_source = src
+            pattern_flags = prog.flags.compile
+          }
+          _ => ()
+        }
+      _ => ()
     }
-    if pattern[i] == '{' {
-      let mut j = i + 1
-      let mut num1 = ""
-      while j < n && pattern[j] >= '0' && pattern[j] <= '9' {
-        let digit = pattern[j:j + 1].to_string() catch { _ => "" }
-        num1 += digit
-        j += 1
+    let new_target = match this_val {
+      Object(_) => true // Simplified new.target check
+      _ => false
+    }
+    if pattern_is_regexp && flags_arg == Undefined && !new_target {
+      return pattern_arg
+    }
+    if pattern_is_regexp {
+      pattern_str = pattern_source
+      if flags_arg != Undefined {
+        flags_str = match flags_arg {
+          Undefined => ""
+          _ => js_to_string(ctx, flags_arg).to_string()
+        }
+      } else {
+        flags_str = pattern_flags
       }
-      let mut has_comma = false
-      let mut num2 = ""
-      let mut second_num_present = false
-      if j < n && pattern[j] == ',' {
-        has_comma = true
-        j += 1
-        while j < n && pattern[j] >= '0' && pattern[j] <= '9' {
-          let digit = pattern[j:j + 1].to_string() catch { _ => "" }
-          num2 += digit
-          second_num_present = true
-          j += 1
-        }
+    } else {
+      pattern_str = match pattern_arg {
+        Undefined => ""
+        _ => js_to_string(ctx, pattern_arg).to_string()
       }
-      if j < n && pattern[j] == '}' {
-        // We found a quantifier
-        let limit = 1000
-        let mut new_num1 = num1
-        if num1.length() > 0 {
-          let val = @strconv.parse_int(num1) catch { _ => limit + 1 }
-          if val > limit {
-            new_num1 = limit.to_string()
-          }
-        }
-        let mut new_num2 = num2
-        if second_num_present {
-          let val = @strconv.parse_int(num2) catch { _ => limit + 1 }
-          if val > limit {
-            new_num2 = limit.to_string()
-          }
-        }
-        res += "{" + new_num1
-        if has_comma {
-          res += "," + new_num2
-        }
-        res += "}"
-        i = j + 1
-        continue
+      flags_str = match flags_arg {
+        Undefined => ""
+        _ => js_to_string(ctx, flags_arg).to_string()
       }
     }
-    let char_str = pattern[i:i + 1].to_string() catch { _ => "" }
-    res += char_str
-    i += 1
+    let flags = validate_regexp_flags(ctx, flags_str)
+    let prog = @regexp.regexp_compile(pattern_str, flags) catch {
+      _ => ctx.throw_syntax_error("Invalid regular expression: " + pattern_str)
+    }
+    let obj = JSObject::new(prototype=regexp_proto, properties={
+      "lastIndex": JSValue::Number(0.0),
+      "__internal_regexp__": JSValue::Internal(RegExp(prog, pattern_str)),
+      "source": JSValue::String(pattern_str), // Read-only usually, but here as prop
+      "flags": JSValue::String(flags_str),
+    })
+    JSValue::Object(obj)
+  })
+  let regexp_ctor = JSObject::new_function(
+    name="RegExp",
+    params=["pattern", "flags"],
+    body=regexp_ctor_fn,
+    prototype=func_proto,
+    is_constructor=true,
+  )
+
+  // Set RegExp.prototype property on constructor
+  let proto_desc = JSObject::new(properties={
+    "value": regexp_proto,
+    "writable": JSValue::Boolean(false),
+    "enumerable": JSValue::Boolean(false),
+    "configurable": JSValue::Boolean(false),
+  })
+  let ctor_descriptors = match regexp_ctor.properties.get("__descriptors") {
+    Some(Object(d)) => d
+    _ => {
+      let d = JSObject::new(properties={})
+      regexp_ctor["__descriptors"] = JSValue::Object(d)
+      d
+    }
   }
-  res
+  ctor_descriptors["prototype"] = JSValue::Object(proto_desc)
+  regexp_ctor["prototype"] = regexp_proto
+  JSValue::Object(regexp_ctor)
+}
+
+///|
+pub fn init_regexp_prototype(
+  regexp_proto_val : JSValue,
+  func_proto : JSValue,
+) -> Unit {
+  match regexp_proto_val {
+    Object(proto) => {
+      // exec
+      let exec_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        let str_arg = if args.length() > 0 { args[0] } else { Undefined }
+        let str = js_to_string(ctx, str_arg).to_string()
+        match this_val {
+          Object(obj) =>
+            match obj.properties.get("__internal_regexp__") {
+              Some(Internal(RegExp(prog, _src))) => {
+                let last_index = match obj.properties.get("lastIndex") {
+                  Some(Number(n)) => n.to_int()
+                  _ => 0
+                }
+                let global = prog.flags.global
+                let sticky = prog.flags.sticky
+                let start_index = if global || sticky { last_index } else { 0 }
+                let match_res = @regexp.regexp_match_from_program(
+                  prog, str, start_index, sticky,
+                )
+                match match_res {
+                  Some(m) => {
+                    if global || sticky {
+                      obj.properties.set(
+                        "lastIndex",
+                        JSValue::Number(m.end.to_double()),
+                      )
+                    }
+                    let result_arr_props = {}
+                    result_arr_props.set(
+                      "index",
+                      JSValue::Number(m.start.to_double()),
+                    )
+                    result_arr_props.set("input", JSValue::String(str))
+                    result_arr_props.set(
+                      "length",
+                      JSValue::Number(m.groups.length().to_double()),
+                    )
+                    for i in 0..<m.groups.length() {
+                      let val = match m.groups[i] {
+                        Some(s) => JSValue::String(s)
+                        None => Undefined
+                      }
+                      result_arr_props.set(i.to_string(), val)
+                    }
+                    let array_proto = match ctx.resolve("Array") {
+                      Object(f) =>
+                        f.properties.get("prototype").unwrap_or(JSValue::Null)
+                      _ => JSValue::Null
+                    }
+                    let result_obj = JSObject::new(
+                      prototype=array_proto,
+                      properties=result_arr_props,
+                    )
+                    JSValue::Object(result_obj)
+                  }
+                  None => {
+                    if global || sticky {
+                      obj.properties.set("lastIndex", JSValue::Number(0.0))
+                    }
+                    JSValue::Null
+                  }
+                }
+              }
+              _ =>
+                ctx.throw_type_error(
+                  "Method RegExp.prototype.exec called on incompatible receiver",
+                )
+            }
+          _ =>
+            ctx.throw_type_error(
+              "Method RegExp.prototype.exec called on incompatible receiver",
+            )
+        }
+      })
+      let exec_obj = JSObject::new_function(
+        name="exec",
+        params=["string"],
+        body=exec_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set("exec", JSValue::Object(exec_obj))
+
+      // test
+      let test_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        let exec = this_val.get_property("exec")
+        match exec {
+          Object(f) =>
+            if f.is_callable {
+              let result = ctx.invoke(f, this_val, args)
+              JSValue::Boolean(result != JSValue::Null)
+            } else {
+              JSValue::Boolean(false)
+            }
+          _ => JSValue::Boolean(false)
+        }
+      })
+      let test_obj = JSObject::new_function(
+        name="test",
+        params=["string"],
+        body=test_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set("test", JSValue::Object(test_obj))
+
+      // toString
+      let to_string_fn = Native(fn(ctx, this_val, _args) raise EvalError {
+        match this_val {
+          Object(obj) =>
+            match obj.properties.get("__internal_regexp__") {
+              Some(Internal(RegExp(prog, src))) =>
+                JSValue::String("/" + src + "/" + prog.flags.compile)
+              _ =>
+                ctx.throw_type_error(
+                  "Method RegExp.prototype.toString called on incompatible receiver",
+                )
+            }
+          _ =>
+            ctx.throw_type_error(
+              "Method RegExp.prototype.toString called on incompatible receiver",
+            )
+        }
+      })
+      let to_string_obj = JSObject::new_function(
+        name="toString",
+        body=to_string_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set("toString", JSValue::Object(to_string_obj))
+
+      // Accessor properties
+      let accessors = [
+        "global", "ignoreCase", "multiline", "dotAll", "unicode", "sticky", "source",
+        "flags",
+      ]
+      for name in accessors {
+        let getter_fn = Native(fn(ctx, this_val, _args) raise EvalError {
+          match this_val {
+            Object(obj) =>
+              match obj.properties.get("__internal_regexp__") {
+                Some(Internal(RegExp(prog, src))) =>
+                  match name {
+                    "global" => JSValue::Boolean(prog.flags.global)
+                    "ignoreCase" => JSValue::Boolean(prog.flags.ignore_case)
+                    "multiline" => JSValue::Boolean(prog.flags.multiline)
+                    "dotAll" => JSValue::Boolean(prog.flags.dot_all)
+                    "unicode" => JSValue::Boolean(prog.flags.unicode)
+                    "sticky" => JSValue::Boolean(prog.flags.sticky)
+                    "source" => JSValue::String(src)
+                    "flags" => JSValue::String(prog.flags.compile)
+                    _ => JSValue::Undefined
+                  }
+                _ =>
+                  if this_val.strict_equal(regexp_proto_val) {
+                    match name {
+                      "source" => JSValue::String("(?:)")
+                      "flags" => JSValue::String("")
+                      _ => JSValue::Undefined
+                    }
+                  } else {
+                    ctx.throw_type_error(
+                      "RegExp.prototype." +
+                      name +
+                      " getter called on incompatible receiver",
+                    )
+                  }
+              }
+            _ =>
+              ctx.throw_type_error(
+                "RegExp.prototype." +
+                name +
+                " getter called on incompatible receiver",
+              )
+          }
+        })
+        let getter_obj = JSObject::new_function(
+          name="get " + name,
+          body=getter_fn,
+          prototype=func_proto,
+        )
+        proto.properties.set(
+          name,
+          JSValue::Internal(Accessor(Some(getter_obj), None)),
+        )
+      }
+    }
+    _ => ()
+  }
 }

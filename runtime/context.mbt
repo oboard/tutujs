@@ -282,12 +282,20 @@ pub fn Context::create_global() -> Context {
   }
 
   // RegExp Object
-  let syntax_error_val = match ctx.scope.get("SyntaxError") {
-    Some(v) => v
-    None => JSValue::Undefined
-  }
-  let regexp_val = create_regexp_object(object_proto_val, syntax_error_val)
-  ctx.register_builtin("RegExp", regexp_val)
+  let regexp_proto_props = {}
+  let regexp_proto = JSObject::new(
+    properties=regexp_proto_props,
+    prototype=object_proto_val,
+  )
+  let regexp_proto_val = JSValue::Object(regexp_proto)
+  init_regexp_prototype(regexp_proto_val, func_proto_val)
+
+  // RegExp Constructor
+  let regexp_ctor_val = create_regexp_constructor(
+    regexp_proto_val, func_proto_val,
+  )
+  regexp_proto_props.set("constructor", regexp_ctor_val)
+  ctx.register_builtin("RegExp", regexp_ctor_val)
 
   // Reflect Object
   let reflect_val = create_reflect_object(object_proto_val, func_proto_val)

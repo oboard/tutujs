@@ -1,0 +1,80 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/tutujs/regexp"
+
+// Values
+pub fn regexp_compile(String, RegexpFlags) -> RegexpProgram raise
+
+pub fn regexp_match_from_program(RegexpProgram, String, Int, Bool) -> RegexpMatch?
+
+pub fn unicode_is_ident_continue(Int) -> Bool
+
+pub fn unicode_is_ident_start(Int) -> Bool
+
+// Errors
+
+// Types and methods
+pub(all) struct CaptureSpan {
+  start : Int
+  end : Int
+}
+
+pub struct ClassSet {
+  ranges : Array[Range]
+  strings : Array[String]
+}
+
+pub struct Range {
+  start : Int
+  end : Int
+}
+
+pub(all) enum RegexNode {
+  Empty
+  Sequence(Array[RegexNode])
+  Alternation(Array[RegexNode])
+  Literal(Int)
+  Dot
+  CharClass(ClassSet)
+  Capture(Int, RegexNode)
+  BackReference(Array[Int])
+  NamedBackReference(String)
+  NumericBackReference(Int)
+  ScopedFlags(RegexpFlags, RegexNode)
+  LookAhead(RegexNode, Bool)
+  LookBehind(RegexNode, Bool)
+  AnchorStart
+  AnchorEnd
+  WordBoundary(Bool)
+  Repeat(RegexNode, Int, Int, Bool)
+}
+
+pub(all) struct RegexpFlags {
+  compile : String
+  global : Bool
+  sticky : Bool
+  unicode : Bool
+  mut dot_all : Bool
+  mut ignore_case : Bool
+  mut multiline : Bool
+  has_indices : Bool
+  unicode_sets : Bool
+}
+
+pub(all) struct RegexpMatch {
+  start : Int
+  end : Int
+  groups : Array[String?]
+  indices : Array[CaptureSpan?]
+}
+
+pub(all) struct RegexpProgram {
+  root : RegexNode
+  capture_count : Int
+  capture_names : Array[String?]
+  flags : RegexpFlags
+}
+
+// Type aliases
+
+// Traits
+

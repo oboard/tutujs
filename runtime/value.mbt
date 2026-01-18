@@ -66,7 +66,7 @@ pub impl Hash for JSValue with hash_combine(self, hasher) {
 ///|
 pub(all) enum JSInternal {
   Date(Double)
-  RegExp(@regexp.Regexp, String)
+  RegExp(@regexp.RegexpProgram, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String) // map, next_entry, kind
   Set(LinkedMap)

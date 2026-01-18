@@ -63,10 +63,8 @@ test "regexp literal" {
   @json.inspect(ctx.eval("/abc/.test('xyz')"), content=["Boolean", false])
 
   // Literal with flags (ignore case)
-  // Runtime supports passing flags to constructor and storing them as properties.
-  // However, the underlying regex engine does not yet support case-insensitive matching.
   @json.inspect(ctx.eval("var re = /HELLO/i; re.test('hello')"), content=[
-    "Boolean", false,
+    "Boolean", true,
   ])
   @json.inspect(ctx.eval("re.ignoreCase"), content=["Boolean", true])
   @json.inspect(ctx.eval("re.global"), content=["Boolean", false])

@@ -4,8 +4,8 @@ package "oboard/tutujs/runtime"
 import(
   "moonbitlang/core/bigint"
   "moonbitlang/core/json"
-  "moonbitlang/regexp"
   "oboard/tutujs/parser"
+  "oboard/tutujs/regexp"
 )
 
 // Values
@@ -41,7 +41,7 @@ pub fn create_proxy_constructor(JSValue) -> JSValue
 
 pub fn create_reflect_object(JSValue, JSValue) -> JSValue
 
-pub fn create_regexp_object(JSValue, JSValue) -> JSValue
+pub fn create_regexp_constructor(JSValue, JSValue) -> JSValue
 
 pub fn create_set_constructor(JSValue, JSValue) -> JSValue
 
@@ -68,6 +68,8 @@ pub fn init_map_prototype(Context, JSValue, JSValue) -> Unit
 pub fn init_number_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_object_prototype(JSValue, JSValue) -> Unit
+
+pub fn init_regexp_prototype(JSValue, JSValue) -> Unit
 
 pub fn init_set_prototype(Context, JSValue, JSValue) -> Unit
 
@@ -161,7 +163,7 @@ pub impl @json.FromJson for FunctionBody
 
 pub(all) enum JSInternal {
   Date(Double)
-  RegExp(@regexp.Regexp, String)
+  RegExp(@regexp.RegexpProgram, String)
   Map(LinkedMap)
   MapIterator(LinkedMap, Ref[LinkedEntry?], String)
   Set(LinkedMap)

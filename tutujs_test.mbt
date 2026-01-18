@@ -76,3 +76,15 @@ test "type coercion" {
   @json.inspect(eval("-null"), content=["Number", -0])
   @json.inspect(eval("-undefined"), content=["Number", @double.not_a_number])
 }
+
+///|
+test "bench" (b : @bench.T) {
+  let context = @tutujs.Context::new()
+  b.bench(fn() { b.keep(context.eval("1 + 1")) })
+}
+
+///|
+test "oeprator" {
+  let context = @tutujs.Context::new()
+  inspect(context.eval("1 + 1") + context.eval("1 + 1"), content="4")
+}
