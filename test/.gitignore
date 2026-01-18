@@ -1,1 +1,5 @@
 test262_*.mbt
+node_modules
+__pycache__
+test262_results.db
+test262_files.txt

@@ -9,6 +9,7 @@ fn main {
   }
   match args {
     ["repl"] => start_repl()
+    ["test262", path] => run_test262(path)
     [path] => {
       let code = @fs.read_file_to_string(path) catch {
         e => {

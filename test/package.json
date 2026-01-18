@@ -1,0 +1,9 @@
+{
+  "name": "tutujs-test-runner",
+  "version": "1.0.0",
+  "description": "Test runner for TutuJS",
+  "main": "test262_runner.js",
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  }
+}
