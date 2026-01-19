@@ -158,6 +158,57 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
 }
 
 ///|
+fn process_html_comments_in_params(param_str : String) -> String {
+  // Handle HTML comments in function parameters according to Annex B
+  // HTML close comment --> should be treated as a comment
+  // HTML open comment <!-- should be treated as a comment
+
+  let result = StringBuilder::new()
+  let mut i = 0
+  let len = param_str.length()
+  while i < len {
+    let c = param_str[i]
+
+    // Check for HTML close comment -->
+    if c == '-' &&
+      i + 2 < len &&
+      param_str[i + 1] == '-' &&
+      param_str[i + 2] == '>' {
+      // Skip the entire comment
+      i = i + 3
+      // Skip until end of line or end of string
+      while i < len && param_str[i] != '\r' && param_str[i] != '\n' {
+        i = i + 1
+      }
+      continue
+    }
+
+    // Check for HTML open comment <!--
+    if c == '<' &&
+      i + 3 < len &&
+      param_str[i + 1] == '!' &&
+      param_str[i + 2] == '-' &&
+      param_str[i + 3] == '-' {
+      // Skip the entire comment
+      i = i + 4
+      // Skip until end of line or end of string
+      while i < len && param_str[i] != '\r' && param_str[i] != '\n' {
+        i = i + 1
+      }
+      continue
+    }
+
+    // Convert UInt16 to Char
+    match c.to_char() {
+      Some(char) => result.write_char(char)
+      None => () // Skip invalid characters
+    }
+    i = i + 1
+  }
+  result.to_string()
+}
+
+///|
 pub fn create_function_constructor(proto : JSValue) -> JSValue {
   let ctor_fn = Native(fn(ctx, _this_val, args) {
     // new Function(p1, p2, body)
@@ -178,7 +229,10 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
             if params_str != "" {
               params_str = params_str + ","
             }
-            params_str = params_str + last_arg.to_string()
+            // Handle HTML comments in parameters (Annex B)
+            let param_str = last_arg.to_string()
+            let processed_param = process_html_comments_in_params(param_str)
+            params_str = params_str + processed_param
           }
           last_arg = arg
           first = false

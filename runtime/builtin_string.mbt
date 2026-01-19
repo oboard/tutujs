@@ -562,6 +562,38 @@ pub fn create_string_constructor(
     }
   }
   ctor_descriptors["prototype"] = JSValue::Object(proto_desc)
+
+  // String.fromCharCode static method
+  let from_char_code_fn = Native(fn(_ctx, _this_val, args) {
+    let result = StringBuilder::new()
+    for arg in args {
+      let num = js_to_number(_ctx, arg)
+      if num.is_nan() || num.is_inf() {
+        // Convert to 0 for NaN and Infinity
+        result.write_char('\u0000')
+      } else {
+        let code = num.to_int()
+        // Handle modulo 2^16 as per spec
+        let code_uint16 = code % 65536
+        if code_uint16 >= 0 && code_uint16 <= 0xFFFF {
+          match code_uint16.to_char() {
+            Some(c) => result.write_char(c)
+            None => result.write_char('\u0000') // Fallback for invalid codes
+          }
+        } else {
+          result.write_char('\u0000')
+        }
+      }
+    }
+    JSValue::String(result.to_string())
+  })
+  let from_char_code_obj = JSObject::new_function(
+    name="fromCharCode",
+    params=["...codeUnits"],
+    body=from_char_code_fn,
+    prototype=func_proto,
+  )
+  ctor_obj["fromCharCode"] = JSValue::Object(from_char_code_obj)
   ctor_obj["prototype"] = proto
   JSValue::Object(ctor_obj)
 }

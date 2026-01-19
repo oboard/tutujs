@@ -280,6 +280,22 @@ pub fn init_regexp_prototype(
         body=compile_fn,
         prototype=func_proto,
       )
+      // Set compile method as non-enumerable (Annex B requirement)
+      let compile_desc = JSObject::new(properties={
+        "value": JSValue::Object(compile_obj),
+        "writable": JSValue::Boolean(true),
+        "enumerable": JSValue::Boolean(false),
+        "configurable": JSValue::Boolean(true),
+      })
+      let proto_descriptors = match proto.properties.get("__descriptors") {
+        Some(Object(d)) => d
+        _ => {
+          let d = JSObject::new(properties={})
+          proto.properties.set("__descriptors", JSValue::Object(d))
+          d
+        }
+      }
+      proto_descriptors["compile"] = JSValue::Object(compile_desc)
       proto.properties.set("compile", JSValue::Object(compile_obj))
 
       // exec
@@ -465,6 +481,98 @@ pub fn init_regexp_prototype(
           JSValue::Internal(Accessor(Some(getter_obj), None)),
         )
       }
+
+      // Symbol.match
+      let symbol_match_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        match this_val {
+          Object(_) => ()
+          _ =>
+            ctx.throw_type_error(
+              "RegExp.prototype[Symbol.match] called on incompatible receiver",
+            )
+        }
+        let str_arg = if args.length() > 0 { args[0] } else { Undefined }
+        let str = js_to_string(ctx, str_arg).to_string()
+        let exec = this_val.get_property("exec")
+        let global = this_val.get_property("global")
+        let full_unicode = this_val.get_property("unicode")
+        if global != JSValue::Boolean(true) {
+          // Non-global case: just call exec once
+          match exec {
+            Object(f) => return ctx.invoke(f, this_val, [JSValue::String(str)])
+            _ => ctx.throw_type_error("exec not found or not callable")
+          }
+        }
+
+        // Global case: collect all matches
+        this_val.set_property("lastIndex", JSValue::Number(0.0))
+        let array_proto = match ctx.resolve("Array") {
+          Object(f) => JSValue::Object(f).get_property("prototype")
+          _ => JSValue::Undefined
+        }
+        let results_array = JSObject::new(properties={}, prototype=array_proto)
+        let mut n = 0.0
+        let advance_string_index = fn(
+          s : String,
+          index : Double,
+          unicode : Bool,
+        ) -> Double {
+          if !unicode {
+            return index + 1.0
+          }
+          if index >= s.length().to_double() {
+            return index + 1.0
+          }
+          let c = s.code_unit_at(index.to_int())
+          if c >= 0xD800 && c <= 0xDBFF {
+            if index + 1.0 >= s.length().to_double() {
+              return index + 1.0
+            }
+            let c2 = s.code_unit_at((index + 1.0).to_int())
+            if c2 >= 0xDC00 && c2 <= 0xDFFF {
+              return index + 2.0
+            }
+          }
+          index + 1.0
+        }
+        while true {
+          let result = match exec {
+            Object(f) => ctx.invoke(f, this_val, [JSValue::String(str)])
+            _ => ctx.throw_type_error("exec not found or not callable")
+          }
+          if result == JSValue::Null {
+            break
+          }
+          results_array[n.to_string()] = result.get_property("0")
+          n = n + 1.0
+          let match_str = result.get_property("0")
+          if match_str == JSValue::String("") {
+            let this_index = this_val.get_property("lastIndex")
+            let next_index = match this_index {
+              Number(idx) =>
+                advance_string_index(
+                  str,
+                  idx,
+                  full_unicode == JSValue::Boolean(true),
+                )
+              _ => 1.0
+            }
+            this_val.set_property("lastIndex", JSValue::Number(next_index))
+          }
+        }
+        results_array["length"] = JSValue::Number(n)
+        JSValue::Object(results_array)
+      })
+      let symbol_match_obj = JSObject::new_function(
+        name="[Symbol.match]",
+        params=["string"],
+        body=symbol_match_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set(
+        "Symbol(Symbol.match)",
+        JSValue::Object(symbol_match_obj),
+      )
 
       // Symbol.search
       let symbol_search_fn = Native(fn(ctx, this_val, args) raise EvalError {

@@ -146,6 +146,7 @@ pub fn create_date_object(
       name~,
       body=Native(body),
       prototype=func_proto,
+      is_constructor=false,
     )
     match date_proto {
       Object(obj) => define_property(obj, name, JSValue::Object(f), false)
@@ -862,7 +863,7 @@ pub fn create_date_object(
   })
   // toGMTString should be the same function as toUTCString (Annex B)
   let toUTCStringFunc = date_proto_obj.get("toUTCString")
-  date_proto_props.set("toGMTString", toUTCStringFunc)
+  define_property(date_proto_obj, "toGMTString", toUTCStringFunc, false)
   let toPrimitive = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
   define_method(toPrimitive, fn(ctx, this_val, args) raise EvalError {
     let hint = match args {

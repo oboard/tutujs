@@ -22,7 +22,7 @@ if (allLines.length === 0) {
   process.exit(1)
 }
 
-const workers = Number(process.env.WORKERS || "5")
+const workers = Number(process.env.WORKERS || "2")
 const timeoutMs = Number(process.env.TEST_TIMEOUT_MS || "5000")
 const port = Number(process.env.PORT || "3000")
 const total = allLines.length
@@ -91,7 +91,7 @@ function startTest(workerId, relPath) {
     completed++
     running.delete(key)
     child.kill("SIGKILL")
-    console.log("[worker " + workerId + "] " + relPath + " TIMEOUT")
+    // console.log("[worker " + workerId + "] " + relPath + " TIMEOUT")
     logResult(relPath, "TIMEOUT", "Timeout", timeoutMs)
     runNext(workerId)
   }, timeoutMs)
@@ -99,13 +99,13 @@ function startTest(workerId, relPath) {
   child.stdout.on("data", chunk => {
     const text = chunk.toString()
     output += text
-    process.stdout.write("[worker " + workerId + "] " + text)
+    // process.stdout.write("[worker " + workerId + "] " + text)
   })
 
   child.stderr.on("data", chunk => {
     const text = chunk.toString()
     output += text
-    process.stderr.write("[worker " + workerId + "][stderr] " + text)
+    // process.stderr.write("[worker " + workerId + "][stderr] " + text)
   })
 
   child.on("close", code => {
@@ -121,7 +121,7 @@ function startTest(workerId, relPath) {
     const duration = Date.now() - startTime
     if (hasPass && !hasFail) {
       passed++
-      console.log("[worker " + workerId + "] " + relPath + " PASS")
+      // console.log("[worker " + workerId + "] " + relPath + " PASS")
       logResult(relPath, "PASS", "", duration)
     } else {
       failed++
@@ -137,7 +137,7 @@ function startTest(workerId, relPath) {
         }
       }
       
-      console.log("[worker " + workerId + "] " + relPath + " FAIL " + errorMsg)
+      // console.log("[worker " + workerId + "] " + relPath + " FAIL " + errorMsg)
       logResult(relPath, "FAIL", errorMsg, duration)
     }
     runNext(workerId)
