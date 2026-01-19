@@ -131,4 +131,100 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     )
     ctx.register_builtin(name, JSValue::Object(ctor))
   }
+
+  // Helper function to convert number to hex character
+  let to_hex_char = fn(n : Int) -> Char {
+    if n >= 0 && n <= 9 {
+      Int::unsafe_to_char('0' + n)
+    } else if n >= 10 && n <= 15 {
+      Int::unsafe_to_char('A' + n - 10)
+    } else {
+      '0'
+    }
+  }
+
+  // escape function (Annex B)
+  let escape_fn = Native(fn(_ctx, _this, args) {
+    if args.length() == 0 {
+      return String("")
+    }
+    let str = js_to_string(_ctx, args[0]) catch { _ => "" }
+    let result = StringBuilder::new()
+    for i = 0; i < str.length(); i = i + 1 {
+      let code = str.code_unit_at(i)
+      if code < 256 {
+        // Characters below 256: escape as %XX
+        match code.to_int() {
+          48..=57 | 65..=90 | 97..=122 | 64 | 42 | 43 | 45 | 46 | 47 | 95 =>
+            // Don't escape these characters: 0-9, A-Z, a-z, @, *, +, -, ., /, _
+            result.write_char(code.to_char().unwrap_or('?'))
+          _ => {
+            // Escape as %XX
+            result.write_char('%')
+            let hex1 = to_hex_char(code.to_int() / 16)
+            let hex2 = to_hex_char(code.to_int() % 16)
+            result.write_char(hex1)
+            result.write_char(hex2)
+          }
+        }
+      } else {
+        // Characters 256+: escape as %uXXXX
+        result.write_char('%')
+        result.write_char('u')
+        let code_int = code.to_int()
+        let hex1 = to_hex_char(code_int / 4096)
+        let hex2 = to_hex_char(code_int / 256 % 16)
+        let hex3 = to_hex_char(code_int / 16 % 16)
+        let hex4 = to_hex_char(code_int % 16)
+        result.write_char(hex1)
+        result.write_char(hex2)
+        result.write_char(hex3)
+        result.write_char(hex4)
+      }
+    }
+    String(result.to_string())
+  })
+  let escape_obj = JSObject::new_function(name="escape", body=escape_fn)
+  ctx.register_builtin("escape", JSValue::Object(escape_obj))
+
+  // unescape function (Annex B) 
+  let unescape_fn = Native(fn(_ctx, _this, args) {
+    if args.length() == 0 {
+      return String("")
+    }
+    let str = js_to_string(_ctx, args[0]) catch { _ => "" }
+    let result = StringBuilder::new()
+    let mut i = 0
+    let len = str.length()
+    while i < len {
+      let c = str[i]
+      if c == '%' && i + 1 < len {
+        let next_char = str[i + 1]
+        if next_char == 'u' && i + 5 < len {
+          // %uXXXX format (4 hex digits) - skip for now, just copy %u
+          result.write_char('%')
+          result.write_char('u')
+          i = i + 2
+          continue
+        } else if i + 2 < len {
+          // %XX format (2 hex digits) - skip for now, just copy %
+          result.write_char('%')
+          i = i + 1
+          continue
+        } else {
+          // Not enough characters for hex, just copy the %
+          result.write_char('%')
+          i = i + 1
+          continue
+        }
+      } else {
+        // Regular character, just copy it
+        result.write_char(c.to_char().unwrap_or('?'))
+        i = i + 1
+      }
+    }
+    String(result.to_string())
+  })
+  let unescape_obj = JSObject::new_function(name="unescape", body=unescape_fn)
+  ctx.register_builtin("unescape", JSValue::Object(unescape_obj))
 }

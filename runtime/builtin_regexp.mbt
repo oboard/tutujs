@@ -614,6 +614,35 @@ pub fn init_regexp_prototype(
         "Symbol(Symbol.search)",
         JSValue::Object(symbol_search_obj),
       )
+
+      // Symbol.split - placeholder implementation for now
+      let symbol_split_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        match this_val {
+          Object(_) => ()
+          _ =>
+            ctx.throw_type_error(
+              "RegExp.prototype[Symbol.split] called on incompatible receiver",
+            )
+        }
+        let str_arg = if args.length() > 0 { args[0] } else { Undefined }
+        let str = js_to_string(ctx, str_arg).to_string()
+
+        // Simple implementation: return array with original string
+        let result_array = JSObject::new(properties={})
+        result_array["0"] = JSValue::String(str)
+        result_array["length"] = JSValue::Number(1.0)
+        JSValue::Object(result_array)
+      })
+      let symbol_split_obj = JSObject::new_function(
+        name="[Symbol.split]",
+        params=["string", "limit"],
+        body=symbol_split_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set(
+        "Symbol(Symbol.split)",
+        JSValue::Object(symbol_split_obj),
+      )
     }
     _ => ()
   }
