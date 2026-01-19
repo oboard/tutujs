@@ -68,14 +68,30 @@ fn validate_regexp_flags(
     ctx.throw_syntax_error("Invalid regular expression flags")
   }
   let mut res_flags = ""
-  if has_indices { res_flags = res_flags + "d" }
-  if global { res_flags = res_flags + "g" }
-  if ignore_case { res_flags = res_flags + "i" }
-  if multiline { res_flags = res_flags + "m" }
-  if dot_all { res_flags = res_flags + "s" }
-  if unicode { res_flags = res_flags + "u" }
-  if unicode_sets { res_flags = res_flags + "v" }
-  if sticky { res_flags = res_flags + "y" }
+  if has_indices {
+    res_flags = res_flags + "d"
+  }
+  if global {
+    res_flags = res_flags + "g"
+  }
+  if ignore_case {
+    res_flags = res_flags + "i"
+  }
+  if multiline {
+    res_flags = res_flags + "m"
+  }
+  if dot_all {
+    res_flags = res_flags + "s"
+  }
+  if unicode {
+    res_flags = res_flags + "u"
+  }
+  if unicode_sets {
+    res_flags = res_flags + "v"
+  }
+  if sticky {
+    res_flags = res_flags + "y"
+  }
   {
     compile: res_flags,
     global,
@@ -192,51 +208,70 @@ pub fn init_regexp_prototype(
       let compile_fn = Native(fn(ctx, this_val, args) raise EvalError {
         match this_val {
           Object(obj) => {
-            if obj.properties.get("__internal_regexp__").is_empty() {
-               ctx.throw_type_error("Method RegExp.prototype.compile called on incompatible receiver")
+            if obj.properties.get("__internal_regexp__") is None {
+              ctx.throw_type_error(
+                "Method RegExp.prototype.compile called on incompatible receiver",
+              )
             }
-            
-            let pattern_arg = if args.length() > 0 { args[0] } else { Undefined }
+            let pattern_arg = if args.length() > 0 {
+              args[0]
+            } else {
+              Undefined
+            }
             let flags_arg = if args.length() > 1 { args[1] } else { Undefined }
-            
             let mut pattern_str = ""
             let mut flags_str = ""
-            
             match pattern_arg {
-               Object(p_obj) => {
-                  match p_obj.properties.get("__internal_regexp__") {
-                     Some(Internal(RegExp(prog, src))) => {
-                        if flags_arg != Undefined {
-                           ctx.throw_type_error("Cannot supply flags when pattern is a RegExp")
-                        }
-                        pattern_str = src
-                        flags_str = prog.flags.compile
-                     }
-                     _ => {
-                        pattern_str = js_to_string(ctx, pattern_arg).to_string()
-                        flags_str = if flags_arg != Undefined { js_to_string(ctx, flags_arg).to_string() } else { "" }
-                     }
+              Object(p_obj) =>
+                match p_obj.properties.get("__internal_regexp__") {
+                  Some(Internal(RegExp(prog, src))) => {
+                    if flags_arg != Undefined {
+                      ctx.throw_type_error(
+                        "Cannot supply flags when pattern is a RegExp",
+                      )
+                    }
+                    pattern_str = src
+                    flags_str = prog.flags.compile
                   }
-               }
-               _ => {
-                  pattern_str = if pattern_arg == Undefined { "" } else { js_to_string(ctx, pattern_arg).to_string() }
-                  flags_str = if flags_arg != Undefined { js_to_string(ctx, flags_arg).to_string() } else { "" }
-               }
+                  _ => {
+                    pattern_str = js_to_string(ctx, pattern_arg).to_string()
+                    flags_str = if flags_arg != Undefined {
+                      js_to_string(ctx, flags_arg).to_string()
+                    } else {
+                      ""
+                    }
+                  }
+                }
+              _ => {
+                pattern_str = if pattern_arg == Undefined {
+                  ""
+                } else {
+                  js_to_string(ctx, pattern_arg).to_string()
+                }
+                flags_str = if flags_arg != Undefined {
+                  js_to_string(ctx, flags_arg).to_string()
+                } else {
+                  ""
+                }
+              }
             }
-            
             let flags_struct = validate_regexp_flags(ctx, flags_str)
-            let prog = try {
-               @regexp.regexp_compile(pattern_str, flags_struct)
-            } catch {
-               _ => ctx.throw_syntax_error("Invalid regular expression: " + pattern_str)
+            let prog = @regexp.regexp_compile(pattern_str, flags_struct) catch {
+              _ =>
+                ctx.throw_syntax_error(
+                  "Invalid regular expression: " + pattern_str,
+                )
             }
-            
-            obj["__internal_regexp__"] = JSValue::Internal(RegExp(prog, pattern_str))
+            obj["__internal_regexp__"] = JSValue::Internal(
+              RegExp(prog, pattern_str),
+            )
             obj["lastIndex"] = JSValue::Number(0.0)
-            
             this_val
           }
-          _ => ctx.throw_type_error("Method RegExp.prototype.compile called on incompatible receiver")
+          _ =>
+            ctx.throw_type_error(
+              "Method RegExp.prototype.compile called on incompatible receiver",
+            )
         }
       })
       let compile_obj = JSObject::new_function(
@@ -263,10 +298,7 @@ pub fn init_regexp_prototype(
                 let sticky = prog.flags.sticky
                 let start_index = if global || sticky { last_index } else { 0 }
                 let match_res = @regexp.regexp_match_from_program(
-                  prog,
-                  str,
-                  start_index,
-                  sticky,
+                  prog, str, start_index, sticky,
                 )
                 match match_res {
                   Some(m) => {
@@ -433,6 +465,47 @@ pub fn init_regexp_prototype(
           JSValue::Internal(Accessor(Some(getter_obj), None)),
         )
       }
+
+      // Symbol.search
+      let symbol_search_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        match this_val {
+          Object(_) => ()
+          _ =>
+            ctx.throw_type_error(
+              "RegExp.prototype[Symbol.search] called on incompatible receiver",
+            )
+        }
+        let str_arg = if args.length() > 0 { args[0] } else { Undefined }
+        let str = js_to_string(ctx, str_arg).to_string()
+        let previous_last_index = this_val.get_property("lastIndex")
+        if !previous_last_index.strict_equal(JSValue::Number(0.0)) {
+          this_val.set_property("lastIndex", JSValue::Number(0.0))
+        }
+        let exec = this_val.get_property("exec")
+        let result = match exec {
+          Object(f) => ctx.invoke(f, this_val, [JSValue::String(str)])
+          _ => ctx.throw_type_error("exec not found or not callable")
+        }
+        let current_last_index = this_val.get_property("lastIndex")
+        if !current_last_index.strict_equal(previous_last_index) {
+          this_val.set_property("lastIndex", previous_last_index)
+        }
+        if result == JSValue::Null {
+          JSValue::Number(-1.0)
+        } else {
+          result.get_property("index")
+        }
+      })
+      let symbol_search_obj = JSObject::new_function(
+        name="[Symbol.search]",
+        params=["string"],
+        body=symbol_search_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set(
+        "Symbol(Symbol.search)",
+        JSValue::Object(symbol_search_obj),
+      )
     }
     _ => ()
   }

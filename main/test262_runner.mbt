@@ -1,7 +1,9 @@
 ///|
 fn load_harness_file(harness_dir : String, name : String) -> String {
   let path = harness_dir + name
-  @fs.read_file_to_string(path) catch { _ => "" }
+  @fs.read_file_to_string(path) catch {
+    _ => ""
+  }
 }
 
 ///|
@@ -68,4 +70,3 @@ fn run_test262(path : String) -> Unit {
       }
   }
 }
-

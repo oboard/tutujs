@@ -21,10 +21,29 @@ fn Parser::parse_primary(self : Parser) -> Expression {
         let val = parse_bigint(val_str)
         Expression::BigIntLiteral({ value: val })
       } else {
-        let mut val = @strconv.parse_double(s) catch {
-          _ => @double.not_a_number
+        let s_lower = s.to_lower()
+        let val = if s_lower.has_prefix("0x") {
+          let hex = s[2:] catch { _ => "" }
+          @strconv.parse_int(hex, base=16).to_double() catch {
+            _ => @double.not_a_number
+          }
+        } else if s_lower.has_prefix("0o") {
+          let oct = s[2:] catch { _ => "" }
+          @strconv.parse_int(oct, base=8).to_double() catch {
+            _ => @double.not_a_number
+          }
+        } else if s_lower.has_prefix("0b") {
+          let bin = s[2:] catch { _ => "" }
+          @strconv.parse_int(bin, base=2).to_double() catch {
+            _ => @double.not_a_number
+          }
+        } else {
+          @strconv.parse_double(s) catch {
+            _ => @double.not_a_number
+          }
         }
-        if val.is_nan() && s.to_lower().contains("e") {
+        let mut final_val = val
+        if val.is_nan() && s_lower.contains("e") && !s_lower.has_prefix("0x") {
           let mut e_idx = -1
           for i = 0; i < s.length(); i = i + 1 {
             let c = s[i].to_int()
@@ -44,11 +63,15 @@ fn Parser::parse_primary(self : Parser) -> Expression {
               if s.length() > 0 && s[0].to_int() == 0x2D {
                 is_neg = true
               }
-              val = if is_neg { -@double.infinity } else { @double.infinity }
+              final_val = if is_neg {
+                -@double.infinity
+              } else {
+                @double.infinity
+              }
             }
           }
         }
-        Expression::NumericLiteral({ value: val })
+        Expression::NumericLiteral({ value: final_val })
       }
     }
     TokenKind::StringLiteral => {

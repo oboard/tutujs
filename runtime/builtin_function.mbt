@@ -198,11 +198,9 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
     let tokens = source |> @lexer.parse
     let parser = @parser.Parser::new(tokens)
     let program = parser.parse_program()
-
     if parser.errors.length() > 0 {
       ctx.throw_syntax_error("Invalid function body: " + parser.errors[0])
     }
-    
     if program.body.length() > 0 {
       match program.body[0] {
         @parser.Statement::ExpressionStatement(

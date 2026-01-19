@@ -628,7 +628,9 @@ fn parse_escape_char(p : RegexpParser, allow_utf16 : Bool) -> Int? {
                         let len = parser_len(p)
                         if pos + 5 < len {
                           let c0 = UInt16::to_int(p.pattern.code_unit_at(pos))
-                          let c1 = UInt16::to_int(p.pattern.code_unit_at(pos + 1))
+                          let c1 = UInt16::to_int(
+                            p.pattern.code_unit_at(pos + 1),
+                          )
                           if c0 == 92 && c1 == 117 { // '\u'
                             let mut low = 0
                             let mut ok = true

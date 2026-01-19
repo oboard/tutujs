@@ -104,9 +104,11 @@ pub fn create_date_object(
   )
   let date_ctor_val = JSValue::Object(date_ctor)
   let date_proto_props = { "constructor": date_ctor_val }
-  let date_proto = JSValue::Object(
-    JSObject::new(properties=date_proto_props, prototype=object_proto),
+  let date_proto_obj = JSObject::new(
+    properties=date_proto_props,
+    prototype=object_proto,
   )
+  let date_proto = JSValue::Object(date_proto_obj)
   // Set the prototype of the Date constructor
   date_ctor["prototype"] = date_proto
   let define_property = fn(
@@ -858,12 +860,9 @@ pub fn create_date_object(
       _ => JSValue::String("Invalid Date")
     }
   })
-  define_method("toGMTString", fn(_ctx, this_val, _args) {
-    match get_zdt(this_val) {
-      Some(zdt) => JSValue::String(format_to_string(zdt))
-      _ => JSValue::String("Invalid Date")
-    }
-  })
+  // toGMTString should be the same function as toUTCString (Annex B)
+  let toUTCStringFunc = date_proto_obj.get("toUTCString")
+  date_proto_props.set("toGMTString", toUTCStringFunc)
   let toPrimitive = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
   define_method(toPrimitive, fn(ctx, this_val, args) raise EvalError {
     let hint = match args {

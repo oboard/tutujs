@@ -66,17 +66,48 @@ pub fn Lexer::tokenize(self : Lexer) -> Array[LexToken] {
 }
 
 ///|
-fn is_start_of_line(lexer : Lexer) -> Bool {
+fn is_valid_html_close_prefix(lexer : Lexer) -> Bool {
+  // Check if any tokens have been emitted on the current line
+  let no_tokens_on_line = match lexer.tokens.last() {
+    None => true
+    Some(t) => t.line < lexer.line
+  }
+  if not(no_tokens_on_line) {
+    return false
+  }
+
+  // Check if the skipped characters on the current line form a valid prefix
+  // (whitespace and/or single-line block comments)
   let start = lexer.line_start
   let end = lexer.position
-  if start >= end {
-    return true
-  }
-  for i = start; i < end; i = i + 1 {
-    let c = lexer.input[i]
-    if c != ' ' && c != '\t' {
-      return false
+  let input = lexer.input
+  let mut i = start
+  while i < end {
+    let c = input[i]
+    if c == ' ' || c == '\t' {
+      i = i + 1
+      continue
     }
+    // Check for block comment /* ... */
+    if c == '/' && i + 1 < end && input[i + 1] == '*' {
+      i = i + 2
+      let mut found_end = false
+      while i + 1 < end {
+        if input[i] == '*' && input[i + 1] == '/' {
+          i = i + 2
+          found_end = true
+          break
+        }
+        i = i + 1
+      }
+      if not(found_end) {
+        // Unterminated comment or comment extends past position (impossible if lexer logic is correct)
+        return false
+      }
+      continue
+    }
+    // Invalid character
+    return false
   }
   true
 }
@@ -109,21 +140,16 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
     }
 
     // HTML Close Comment -->
-    ("-->[^\r\n]*" as raw, rest) => {
-      if is_start_of_line(lexer) {
+    ("-->[^\r\n]*" as raw, rest) =>
+      if is_valid_html_close_prefix(lexer) {
         lexer.position += raw.length()
         lex_tokens(rest, lexer)
       } else {
         // Treat as -- and >
         lexer.add_token(@tokens.TokenKind::MinusMinus, "--")
-        let remaining = try {
-          lexer.input[lexer.position:]
-        } catch {
-          _ => ""
-        }
+        let remaining = lexer.input[lexer.position:] catch { _ => "" }
         lex_tokens(remaining, lexer)
       }
-    }
 
     // HTML Open Comment <!--
     ("<!--[^\r\n]*" as raw, rest) => {
@@ -489,7 +515,9 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
       if is_regex_start(lexer) {
         lexmatch rest {
           (
-            ("([^/\\\\\n\r\x5B]|[\\\\].|\x5B([^\x5D\\\n\r]|[\\\\].)*\x5D)*" as body)
+            (
+              "([^/\\\\\n\r\x5B]|[\\\\].|\x5B([^\x5D\\\n\r]|[\\\\].)*\x5D)*" as body
+            )
             "/"
             ("[a-zA-Z]*" as flags),
             rest2
