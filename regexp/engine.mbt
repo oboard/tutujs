@@ -571,79 +571,89 @@ fn parse_escape_char(p : RegexpParser, allow_utf16 : Bool) -> Int? {
           } else {
             Some(code - 48)
           }
-        120 =>
+        120 => {
+          let saved = p.pos
           match parse_hex(p, 2) {
             Some(value) => Some(value)
-            None => None
+            None => {
+              p.pos = saved
+              None
+            }
           }
-        117 =>
-          match parser_peek(p) {
-            Some(next) =>
-              if next == 123 {
-                if !allow_utf16 {
-                  return None
-                }
-                let _ = parser_next(p)
-                let mut value = 0L
-                let mut found = false
-                while true {
-                  match parser_peek(p) {
-                    Some(ch) =>
-                      if ch == 125 {
-                        let _ = parser_next(p)
-                        break
-                      } else {
-                        match hex_digit_value(ch) {
-                          Some(digit) => {
-                            let _ = parser_next(p)
-                            value = value * 16L + Int64::from_int(digit)
-                            found = true
-                            if value > 0x10ffffL {
-                              return None
-                            }
-                          }
-                          None => return None
-                        }
-                      }
-                    None => return None
+        }
+        117 => {
+          let saved = p.pos
+          let run = fn() {
+            match parser_peek(p) {
+              Some(next) =>
+                if next == 123 {
+                  if !allow_utf16 {
+                    return None
                   }
-                }
-                if !found {
-                  None
-                } else {
-                  Some(Int64::to_int(value))
-                }
-              } else {
-                match parse_hex(p, 4) {
-                  Some(value) =>
-                    if allow_utf16 && is_lead_surrogate(value) {
-                      let pos = p.pos
-                      let len = parser_len(p)
-                      if pos + 5 < len {
-                        let c0 = UInt16::to_int(p.pattern.code_unit_at(pos))
-                        let c1 = UInt16::to_int(p.pattern.code_unit_at(pos + 1))
-                        if c0 == 92 && c1 == 117 { // '\u'
-                          let mut low = 0
-                          let mut ok = true
-                          let mut i = 0
-                          while i < 4 {
-                            let code = UInt16::to_int(
-                              p.pattern.code_unit_at(pos + 2 + i),
-                            )
-                            match hex_digit_value(code) {
-                              Some(digit) => low = low * 16 + digit
-                              None => {
-                                ok = false
-                                break
+                  let _ = parser_next(p)
+                  let mut value = 0L
+                  let mut found = false
+                  while true {
+                    match parser_peek(p) {
+                      Some(ch) =>
+                        if ch == 125 {
+                          let _ = parser_next(p)
+                          break
+                        } else {
+                          match hex_digit_value(ch) {
+                            Some(digit) => {
+                              let _ = parser_next(p)
+                              value = value * 16L + Int64::from_int(digit)
+                              found = true
+                              if value > 0x10ffffL {
+                                return None
                               }
                             }
-                            i = i + 1
+                            None => return None
                           }
-                          if ok && is_trail_surrogate(low) {
-                            let high = value - 0xD800
-                            let low_part = low - 0xDC00
-                            p.pos = pos + 6
-                            Some(0x10000 + (high << 10) + low_part)
+                        }
+                      None => return None
+                    }
+                  }
+                  if !found {
+                    None
+                  } else {
+                    Some(Int64::to_int(value))
+                  }
+                } else {
+                  match parse_hex(p, 4) {
+                    Some(value) =>
+                      if allow_utf16 && is_lead_surrogate(value) {
+                        let pos = p.pos
+                        let len = parser_len(p)
+                        if pos + 5 < len {
+                          let c0 = UInt16::to_int(p.pattern.code_unit_at(pos))
+                          let c1 = UInt16::to_int(p.pattern.code_unit_at(pos + 1))
+                          if c0 == 92 && c1 == 117 { // '\u'
+                            let mut low = 0
+                            let mut ok = true
+                            let mut i = 0
+                            while i < 4 {
+                              let code = UInt16::to_int(
+                                p.pattern.code_unit_at(pos + 2 + i),
+                              )
+                              match hex_digit_value(code) {
+                                Some(digit) => low = low * 16 + digit
+                                None => {
+                                  ok = false
+                                  break
+                                }
+                              }
+                              i = i + 1
+                            }
+                            if ok && is_trail_surrogate(low) {
+                              let high = value - 0xD800
+                              let low_part = low - 0xDC00
+                              p.pos = pos + 6
+                              Some(0x10000 + (high << 10) + low_part)
+                            } else {
+                              Some(value)
+                            }
                           } else {
                             Some(value)
                           }
@@ -653,14 +663,18 @@ fn parse_escape_char(p : RegexpParser, allow_utf16 : Bool) -> Int? {
                       } else {
                         Some(value)
                       }
-                    } else {
-                      Some(value)
-                    }
-                  None => None
+                    None => None
+                  }
                 }
-              }
-            None => None
+              None => None
+            }
           }
+          let res = run()
+          if res.is_empty() {
+            p.pos = saved
+          }
+          res
+        }
         _ => None
       }
     None => None

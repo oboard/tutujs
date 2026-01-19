@@ -66,6 +66,22 @@ pub fn Lexer::tokenize(self : Lexer) -> Array[LexToken] {
 }
 
 ///|
+fn is_start_of_line(lexer : Lexer) -> Bool {
+  let start = lexer.line_start
+  let end = lexer.position
+  if start >= end {
+    return true
+  }
+  for i = start; i < end; i = i + 1 {
+    let c = lexer.input[i]
+    if c != ' ' && c != '\t' {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
   lexmatch input with longest {
     ("`" ("([^`\\\\]|\\\\.)*" as raw) "`", rest) => {
@@ -89,6 +105,29 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
       lexer.line += 1
       lexer.position += raw.length()
       lexer.line_start = lexer.position
+      lex_tokens(rest, lexer)
+    }
+
+    // HTML Close Comment -->
+    ("-->[^\r\n]*" as raw, rest) => {
+      if is_start_of_line(lexer) {
+        lexer.position += raw.length()
+        lex_tokens(rest, lexer)
+      } else {
+        // Treat as -- and >
+        lexer.add_token(@tokens.TokenKind::MinusMinus, "--")
+        let remaining = try {
+          lexer.input[lexer.position:]
+        } catch {
+          _ => ""
+        }
+        lex_tokens(remaining, lexer)
+      }
+    }
+
+    // HTML Open Comment <!--
+    ("<!--[^\r\n]*" as raw, rest) => {
+      lexer.position += raw.length()
       lex_tokens(rest, lexer)
     }
 
@@ -450,7 +489,7 @@ fn lex_tokens(input : StringView, lexer : Lexer) -> Unit {
       if is_regex_start(lexer) {
         lexmatch rest {
           (
-            ("([^/\\\\\n\r\x5B]|\\\\.|\x5B([^\x5D\\\n\r]|\\\\.)*\x5D)*" as body)
+            ("([^/\\\\\n\r\x5B]|[\\\\].|\x5B([^\x5D\\\n\r]|[\\\\].)*\x5D)*" as body)
             "/"
             ("[a-zA-Z]*" as flags),
             rest2

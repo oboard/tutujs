@@ -1,4 +1,41 @@
 ///|
+fn escape_html_attribute(s : String) -> String {
+  let mut res = ""
+  for c in s {
+    if c == '"' {
+      res = res + "&quot;"
+    } else {
+      res = res + c.to_string()
+    }
+  }
+  res
+}
+
+fn create_html_helper(
+  ctx : Context,
+  this_val : JSValue,
+  tag : String,
+  attribute : String,
+  value : JSValue,
+) -> JSValue raise EvalError {
+  let s = js_to_string(ctx, this_val).to_string()
+  let mut p1 = "<" + tag
+  if attribute != "" {
+    // println("DEBUG: create_html tag=" + tag + " attr=" + attribute + " val=" + value.to_string())
+    println("DEBUG: create_html tag=" + tag + " attr=" + attribute + " val=" + value.to_string())
+    let v = js_to_string(ctx, value).to_string()
+    println("DEBUG: create_html v=" + v)
+    // println("DEBUG: create_html v=" + v)
+    let escaped_v = escape_html_attribute(v)
+    p1 = p1 + " " + attribute + "=\"" + escaped_v + "\""
+  }
+  let p2 = p1 + ">"
+  let p3 = p2 + s
+  let p4 = p3 + "</" + tag + ">"
+  JSValue::String(p4)
+}
+
+///|
 pub fn init_string_prototype(
   string_proto_val : JSValue,
   func_proto : JSValue,
@@ -116,6 +153,46 @@ pub fn init_string_prototype(
         prototype=func_proto,
       )
       obj["split"] = JSValue::Object(split_obj)
+
+      // Annex B HTML methods
+      let html_methods = [
+        ("anchor", "a", "name"),
+        ("big", "big", ""),
+        ("blink", "blink", ""),
+        ("bold", "b", ""),
+        ("fixed", "tt", ""),
+        ("fontcolor", "font", "color"),
+        ("fontsize", "font", "size"),
+        ("italics", "i", ""),
+        ("link", "a", "href"),
+        ("small", "small", ""),
+        ("strike", "strike", ""),
+        ("sub", "sub", ""),
+        ("sup", "sup", ""),
+      ]
+
+      for m in html_methods {
+        let (name, tag, attr) = m
+        let func = Native(fn(ctx, this_val, args) raise EvalError {
+          let val = if attr != "" {
+            if args.length() > 0 {
+              args[0]
+            } else {
+              Undefined
+            }
+          } else {
+            Undefined
+          }
+          create_html_helper(ctx, this_val, tag, attr, val)
+        })
+        let func_obj = JSObject::new_function(
+          name=name,
+          params=if attr != "" { [attr] } else { [] },
+          body=func,
+          prototype=func_proto,
+        )
+        obj[name] = JSValue::Object(func_obj)
+      }
     }
     _ => ()
   }

@@ -192,11 +192,17 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
     // But our parser parses Programs or Expressions.
     // "function ..." is a FunctionDeclaration (Statement) or FunctionExpression.
 
-    let source = "(function anonymous(\{params_str}) { \{body_str} })"
+    let source = "(function anonymous(\{params_str}) {\n\{body_str}\n})"
 
     // We need to invoke parser.
     let tokens = source |> @lexer.parse
-    let program = tokens |> @parser.parse
+    let parser = @parser.Parser::new(tokens)
+    let program = parser.parse_program()
+
+    if parser.errors.length() > 0 {
+      ctx.throw_syntax_error("Invalid function body: " + parser.errors[0])
+    }
+    
     if program.body.length() > 0 {
       match program.body[0] {
         @parser.Statement::ExpressionStatement(
@@ -214,10 +220,10 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
             _ => JSValue::Undefined
           }
         }
-        _ => JSValue::Undefined
+        _ => ctx.throw_syntax_error("Invalid function body")
       }
     } else {
-      JSValue::Undefined
+      ctx.throw_syntax_error("Invalid function body")
     }
   })
   let ctor_obj = JSObject::new_function(

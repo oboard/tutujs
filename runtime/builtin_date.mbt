@@ -858,6 +858,12 @@ pub fn create_date_object(
       _ => JSValue::String("Invalid Date")
     }
   })
+  define_method("toGMTString", fn(_ctx, this_val, _args) {
+    match get_zdt(this_val) {
+      Some(zdt) => JSValue::String(format_to_string(zdt))
+      _ => JSValue::String("Invalid Date")
+    }
+  })
   let toPrimitive = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
   define_method(toPrimitive, fn(ctx, this_val, args) raise EvalError {
     let hint = match args {

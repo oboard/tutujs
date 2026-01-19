@@ -67,8 +67,17 @@ fn validate_regexp_flags(
   if unicode && unicode_sets {
     ctx.throw_syntax_error("Invalid regular expression flags")
   }
+  let mut res_flags = ""
+  if has_indices { res_flags = res_flags + "d" }
+  if global { res_flags = res_flags + "g" }
+  if ignore_case { res_flags = res_flags + "i" }
+  if multiline { res_flags = res_flags + "m" }
+  if dot_all { res_flags = res_flags + "s" }
+  if unicode { res_flags = res_flags + "u" }
+  if unicode_sets { res_flags = res_flags + "v" }
+  if sticky { res_flags = res_flags + "y" }
   {
-    compile: flags,
+    compile: res_flags,
     global,
     ignore_case,
     multiline,
@@ -141,8 +150,6 @@ pub fn create_regexp_constructor(
     let obj = JSObject::new(prototype=regexp_proto, properties={
       "lastIndex": JSValue::Number(0.0),
       "__internal_regexp__": JSValue::Internal(RegExp(prog, pattern_str)),
-      "source": JSValue::String(pattern_str), // Read-only usually, but here as prop
-      "flags": JSValue::String(flags_str),
     })
     JSValue::Object(obj)
   })
@@ -181,6 +188,65 @@ pub fn init_regexp_prototype(
 ) -> Unit {
   match regexp_proto_val {
     Object(proto) => {
+      // compile (Annex B)
+      let compile_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        match this_val {
+          Object(obj) => {
+            if obj.properties.get("__internal_regexp__").is_empty() {
+               ctx.throw_type_error("Method RegExp.prototype.compile called on incompatible receiver")
+            }
+            
+            let pattern_arg = if args.length() > 0 { args[0] } else { Undefined }
+            let flags_arg = if args.length() > 1 { args[1] } else { Undefined }
+            
+            let mut pattern_str = ""
+            let mut flags_str = ""
+            
+            match pattern_arg {
+               Object(p_obj) => {
+                  match p_obj.properties.get("__internal_regexp__") {
+                     Some(Internal(RegExp(prog, src))) => {
+                        if flags_arg != Undefined {
+                           ctx.throw_type_error("Cannot supply flags when pattern is a RegExp")
+                        }
+                        pattern_str = src
+                        flags_str = prog.flags.compile
+                     }
+                     _ => {
+                        pattern_str = js_to_string(ctx, pattern_arg).to_string()
+                        flags_str = if flags_arg != Undefined { js_to_string(ctx, flags_arg).to_string() } else { "" }
+                     }
+                  }
+               }
+               _ => {
+                  pattern_str = if pattern_arg == Undefined { "" } else { js_to_string(ctx, pattern_arg).to_string() }
+                  flags_str = if flags_arg != Undefined { js_to_string(ctx, flags_arg).to_string() } else { "" }
+               }
+            }
+            
+            let flags_struct = validate_regexp_flags(ctx, flags_str)
+            let prog = try {
+               @regexp.regexp_compile(pattern_str, flags_struct)
+            } catch {
+               _ => ctx.throw_syntax_error("Invalid regular expression: " + pattern_str)
+            }
+            
+            obj["__internal_regexp__"] = JSValue::Internal(RegExp(prog, pattern_str))
+            obj["lastIndex"] = JSValue::Number(0.0)
+            
+            this_val
+          }
+          _ => ctx.throw_type_error("Method RegExp.prototype.compile called on incompatible receiver")
+        }
+      })
+      let compile_obj = JSObject::new_function(
+        name="compile",
+        params=["pattern", "flags"],
+        body=compile_fn,
+        prototype=func_proto,
+      )
+      proto.properties.set("compile", JSValue::Object(compile_obj))
+
       // exec
       let exec_fn = Native(fn(ctx, this_val, args) raise EvalError {
         let str_arg = if args.length() > 0 { args[0] } else { Undefined }
@@ -197,7 +263,10 @@ pub fn init_regexp_prototype(
                 let sticky = prog.flags.sticky
                 let start_index = if global || sticky { last_index } else { 0 }
                 let match_res = @regexp.regexp_match_from_program(
-                  prog, str, start_index, sticky,
+                  prog,
+                  str,
+                  start_index,
+                  sticky,
                 )
                 match match_res {
                   Some(m) => {
