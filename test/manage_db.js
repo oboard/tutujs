@@ -18,37 +18,37 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 db.serialize(() => {
-    // 1. Select top 10 rows
-    db.all("SELECT * FROM results LIMIT 10", [], (err, rows) => {
+    // 1. Select top 10 failed rows
+    db.all("SELECT * FROM results WHERE status = 'FAIL' LIMIT 10", [], (err, rows) => {
         if (err) {
             if (err.message.includes("no such table")) {
                 console.error("Table 'results' does not exist. The database might be empty or uninitialized.");
                 return;
             }
-            console.error('Error selecting rows:', err.message);
+            console.error('Error selecting failed rows:', err.message);
             return;
         }
 
         if (rows.length === 0) {
-            console.log("No rows found to delete.");
+            console.log("No failed rows found to delete.");
             return;
         }
 
-        console.log(`Found ${rows.length} rows. Printing top 10:`);
+        console.log(`Found ${rows.length} failed rows. Printing top 10:`);
         rows.forEach((row) => {
             console.log(JSON.stringify(row));
         });
 
-        // 2. Delete these rows
-        const ids = rows.map(row => row.id);
-        const placeholders = ids.map(() => '?').join(',');
-        const sql = `DELETE FROM results WHERE id IN (${placeholders})`;
+        // 2. Delete these rows by path
+        const paths = rows.map(row => row.path);
+        const placeholders = paths.map(() => '?').join(',');
+        const sql = `DELETE FROM results WHERE path IN (${placeholders})`;
 
-        db.run(sql, ids, function(err) {
+        db.run(sql, paths, function(err) {
             if (err) {
                 console.error('Error deleting rows:', err.message);
             } else {
-                console.log(`Successfully deleted ${this.changes} rows.`);
+                console.log(`Successfully deleted ${this.changes} failed rows.`);
             }
             db.close((err) => {
                 if (err) {

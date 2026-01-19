@@ -38,8 +38,7 @@ let nextIndex = 0
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS results (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    path TEXT,
+    path TEXT PRIMARY KEY,
     status TEXT,
     error TEXT,
     duration_ms INTEGER,
@@ -51,12 +50,17 @@ db.serialize(() => {
   for (let i = 0; i < workers && i < lines.length; i++) {
     runNext(i)
   }
+  
+  // Check for missing tests on startup
+  runMissingTests()
 })
 
 function logResult(relPath, status, error, duration) {
+  const timestamp = Date.now()
+  // Use INSERT OR REPLACE to handle duplicate paths
   db.run(
-    "INSERT INTO results (path, status, error, duration_ms, timestamp) VALUES (?, ?, ?, ?, ?)",
-    [relPath, status, error, duration, Date.now()],
+    "INSERT OR REPLACE INTO results (path, status, error, duration_ms, timestamp) VALUES (?, ?, ?, ?, ?)",
+    [relPath, status, error, duration, timestamp],
     (err) => {
       if (err) console.error("DB Error:", err.message)
     }
@@ -146,7 +150,7 @@ function runNext(workerId) {
   }
   const relPath = lines[nextIndex++]
   db.get(
-    "SELECT status FROM results WHERE id = (SELECT MAX(id) FROM results WHERE path = ?)",
+    "SELECT status FROM results WHERE path = ?",
     [relPath],
     (err, row) => {
       if (err) {
@@ -169,6 +173,55 @@ function runNext(workerId) {
     }
   )
 }
+
+function getMissingTests(callback) {
+  // Get all tests from the file
+  const allTests = new Set(allLines)
+  
+  // Get all tests that have been run from the database
+  db.all("SELECT DISTINCT path FROM results", [], (err, rows) => {
+    if (err) {
+      console.error("Error getting existing tests:", err.message)
+      callback([])
+      return
+    }
+    
+    const existingTests = new Set(rows.map(row => row.path))
+    const missingTests = []
+    
+    // Find tests that exist in file but not in database
+    for (const test of allTests) {
+      if (!existingTests.has(test)) {
+        missingTests.push(test)
+      }
+    }
+    
+    callback(missingTests)
+  })
+}
+
+function runMissingTests() {
+  getMissingTests((missingTests) => {
+    if (missingTests.length === 0) {
+      console.log("No missing tests found.")
+      return
+    }
+    
+    console.log(`Found ${missingTests.length} missing tests. Starting to run them...`)
+    
+    // Add missing tests to the beginning of the queue
+    lines = [...missingTests, ...lines]
+    
+    // Start additional workers if needed
+    const availableWorkers = workers - running.size
+    for (let i = 0; i < availableWorkers && i < missingTests.length; i++) {
+      runNext(i)
+    }
+  })
+}
+
+// Check for missing tests every 60 seconds
+setInterval(runMissingTests, 60000)
 
 const indexPath = path.join(__dirname, "test262_dashboard.html")
 
@@ -194,20 +247,43 @@ const server = http.createServer((req, res) => {
       workerId: r.workerId,
       elapsedMs: now - r.startTime,
     }))
-    const remaining = total - completed - runningList.length
-    const payload = {
-      total,
-      completed,
-      passed,
-      failed,
-      timedOut,
-      running: runningList,
-      remaining: remaining < 0 ? 0 : remaining,
-      workers,
-      timeoutMs,
-    }
-    res.setHeader("Content-Type", "application/json; charset=utf-8")
-    res.end(JSON.stringify(payload))
+    
+    // Get real stats from database instead of memory counters
+    db.get(
+      `SELECT 
+        COUNT(DISTINCT path) as total_tests,
+        COUNT(CASE WHEN status = 'PASS' THEN 1 END) as passed,
+        COUNT(CASE WHEN status = 'FAIL' THEN 1 END) as failed,
+        COUNT(CASE WHEN status = 'TIMEOUT' THEN 1 END) as timedOut
+       FROM results`,
+      [],
+      (err, row) => {
+        if (err) {
+          console.error("DB stats error:", err.message)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: "Database error" }))
+          return
+        }
+        
+        const dbStats = row || { total_tests: 0, passed: 0, failed: 0, timedOut: 0 }
+        const completed = dbStats.passed + dbStats.failed + dbStats.timedOut
+        const remaining = Math.max(0, total - completed - runningList.length)
+        
+        const payload = {
+          total: total,
+          completed: completed,
+          passed: dbStats.passed,
+          failed: dbStats.failed,
+          timedOut: dbStats.timedOut,
+          running: runningList,
+          remaining: remaining,
+          workers: workers,
+          timeoutMs: timeoutMs,
+        }
+        res.setHeader("Content-Type", "application/json; charset=utf-8")
+        res.end(JSON.stringify(payload))
+      }
+    )
     return
   }
   res.statusCode = 404
