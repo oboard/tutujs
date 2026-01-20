@@ -1,6 +1,3 @@
 {
-  "import": [
-    "oboard/tutujs/runtime",
-    "moonbitlang/x/fs"
-  ]
+  "import": []
 }

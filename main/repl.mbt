@@ -9,7 +9,7 @@ fn start_repl() -> Unit {
   println("Welcome to Tutu.js REPL \{@config.Version}")
   println("Type 'exit' to quit")
   let rl = @readline.new()
-  let vm = @runtime.create_global()
+  let vm = @runtime.Context::new()
   fn next_with_input(accumulated_input : String, brace_counter : Int) {
     let prompt = if brace_counter > 0 { "| " } else { "> " }
     rl.question(prompt, fn(input : String) {
@@ -29,7 +29,7 @@ fn start_repl() -> Unit {
         next_with_input(new_input, new_counter)
       } else {
         // 括号已平衡，执行代码
-        let result = vm.eval(new_input).to_string()
+        let result = vm.eval(new_input).to_string() catch { _ => "" }
         println(result)
         next_with_input("", 0)
       }

@@ -1,0 +1,36 @@
+///|
+pub impl Add for JSValue with add(self, other) -> JSValue {
+  eval_add(self, other) catch {
+    _ => value_undefined()
+  }
+}
+
+///|
+pub impl Sub for JSValue with sub(self, other) -> JSValue {
+  eval_binary(@engine.BinaryOp::Sub, self, other) catch {
+    _ => value_undefined()
+  }
+}
+
+
+///|
+pub impl Mul for JSValue with mul(self, other) -> JSValue {
+  eval_binary(@engine.BinaryOp::Mul, self, other) catch {
+    _ => value_undefined()
+  }
+}
+
+///|
+pub impl Div for JSValue with div(self, other) -> JSValue {
+  eval_binary(@engine.BinaryOp::Div, self, other) catch {
+    _ => value_undefined()
+  }
+}
+
+
+///|
+pub impl Mod for JSValue with mod(self, other) -> JSValue {
+  eval_binary(@engine.BinaryOp::Mod, self, other) catch {
+    _ => value_undefined()
+  }
+}

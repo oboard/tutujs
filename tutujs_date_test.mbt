@@ -1,6 +1,6 @@
 ///|
 test "date constructor" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Test Date() - returns string
   let date_str = ctx.eval("Date()")
@@ -43,7 +43,7 @@ test "date constructor" {
 
 ///|
 test "date methods" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // getTime()
   @json.inspect(ctx.eval("new Date(1000).getTime()"), content=["Number", 1000])

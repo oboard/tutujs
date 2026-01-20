@@ -3,303 +3,1014 @@ package "oboard/tutujs/runtime"
 
 import(
   "moonbitlang/core/bigint"
-  "moonbitlang/core/json"
-  "oboard/tutujs/parser"
-  "oboard/tutujs/regexp"
+  "moonbitlang/core/hashmap"
+  "oboard/tutujs/engine"
 )
 
 // Values
-pub fn create_array_from_values(Context, JSArgs) -> JSValue
+pub fn async_done_count() -> Int
 
-pub fn create_bigint_constructor(JSValue, JSValue) -> JSValue
+pub fn error_name(JSValue) -> String?
 
-pub fn create_boolean_constructor(JSValue, JSValue) -> JSValue
+pub fn format_error(JSValue) -> String
 
-pub fn create_console_object(JSValue) -> JSValue
+pub fn reset_runtime_state() -> Unit
 
-pub fn create_date_object(JSValue, JSValue) -> JSValue
+pub fn run_gc() -> Unit
 
-pub fn create_error_constructor(String, JSValue, JSValue) -> JSValue
+pub fn set_can_block(Bool) -> Unit
 
-pub fn create_error_prototype(JSValue) -> JSValue
+pub fn set_gc_debug(Bool) -> Unit
 
-pub fn create_function_constructor(JSValue) -> JSValue
+pub fn set_gc_threshold(Int) -> Unit
 
-pub fn create_json_object(Context, JSValue, JSValue) -> JSValue
+pub fn take_print_log() -> Array[String]
 
-pub fn create_map_constructor(JSValue, JSValue) -> JSValue
+pub fn value_arguments(ArgumentsValue) -> JSValue
 
-pub fn create_math_object(JSValue) -> JSValue
+pub fn value_array(ArrayValue) -> JSValue
 
-pub fn create_native_error_constructor(String, JSValue, JSValue) -> JSValue
+pub fn value_bigint(@bigint.BigInt) -> JSValue
 
-pub fn create_number_constructor(Context, JSValue, JSValue) -> JSValue
+pub fn value_bool(Bool) -> JSValue
 
-pub fn create_object_constructor(JSValue, JSValue) -> JSValue
+pub fn value_bound_function(BoundFunctionValue) -> JSValue
 
-pub fn create_proxy_constructor(JSValue) -> JSValue
+pub fn value_builtin(BuiltinValue) -> JSValue
 
-pub fn create_reflect_object(JSValue, JSValue) -> JSValue
+pub fn value_function(FunctionValue) -> JSValue
 
-pub fn create_regexp_constructor(JSValue, JSValue) -> JSValue
+pub fn value_null() -> JSValue
 
-pub fn create_set_constructor(JSValue, JSValue) -> JSValue
+pub fn value_number(Double) -> JSValue
 
-pub fn create_string_constructor(JSValue, JSValue) -> JSValue
+pub fn value_object(ObjectValue) -> JSValue
 
-pub fn create_symbol_constructor(JSValue, JSValue) -> JSValue
+pub fn value_string(String) -> JSValue
 
-pub fn format_js_error(JSValue) -> String
+pub fn value_symbol(SymbolValue) -> JSValue
 
-pub fn init_array_constructor(JSValue) -> Unit
+pub fn value_to_string(JSValue) -> String
 
-pub fn init_array_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_bigint_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_boolean_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_function_prototype(JSValue) -> Unit
-
-pub fn init_global_functions(Context) -> Unit
-
-pub fn init_map_prototype(Context, JSValue, JSValue) -> Unit
-
-pub fn init_number_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_object_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_regexp_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_set_prototype(Context, JSValue, JSValue) -> Unit
-
-pub fn init_string_prototype(JSValue, JSValue) -> Unit
-
-pub fn init_symbol_prototype(JSValue, JSValue) -> Unit
-
-pub fn iterator_close(Context, JSValue) -> Unit
-
-pub fn js_to_number(Context, JSValue) -> Double raise EvalError
-
-pub fn js_to_string(Context, JSValue) -> String raise EvalError
-
-pub fn parse_js_number(String) -> Double
-
-pub fn populate_builtin(JSObject, Array[BuiltinProperty]) -> Unit
-
-pub fn prop_data(String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
-
-pub fn prop_method(String, (Context, JSValue, JSArgs) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool, prototype? : JSValue) -> BuiltinProperty
-
-pub fn to_primitive(Context, JSValue, hint? : String) -> JSValue raise EvalError
+pub fn value_undefined() -> JSValue
 
 // Errors
-pub suberror EvalError {
-  Return(JSValue)
-  Break(String?)
-  Continue(String?)
-  Throw(JSValue)
-}
-pub impl Show for EvalError
 
 // Types and methods
-pub(all) struct BuiltinProperty {
-  name : String
-  value : JSValue
-  enumerable : Bool
-  configurable : Bool
-  writable : Bool
-}
-
-pub(all) struct CallInfo {
-  mut name : String?
+pub struct ArgumentsValue {
+  id : Int
+  env : Env
   params : Array[String]
-  body : FunctionBody
-  context : Context
-  strict : Bool
-  is_constructor : Bool
-  is_arrow : Bool
-}
-pub impl Eq for CallInfo
-pub impl Show for CallInfo
-pub impl ToJson for CallInfo
-
-pub(all) struct Context {
-  scope : Map[String, JSValue]
-  parent : Context?
-  mut pending_labels : Array[String]
-  mut strict : Bool
-}
-#as_free_fn(create_global)
-pub fn Context::create_global() -> Self
-pub fn Context::eval(Self, &Show) -> JSValue
-pub fn Context::eval_safe(Self, &Show) -> Result[JSValue, JSValue]
-pub fn Context::eval_safe_annex_b(Self, &Show) -> Result[JSValue, JSValue]
-pub fn Context::get_property(Self, JSValue, String) -> JSValue
-pub fn Context::invoke(Self, JSObject, JSValue, JSArgs) -> JSValue raise EvalError
-#as_free_fn(new)
-pub fn Context::new(parent? : Self, strict? : Bool) -> Self
-pub fn Context::register_builtin(Self, String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> Unit
-pub fn Context::resolve(Self, String) -> JSValue
-pub fn Context::resolve_strict(Self, String) -> JSValue raise EvalError
-pub fn[T] Context::throw_error(Self, String, String) -> T raise EvalError
-pub fn[T] Context::throw_range_error(Self, String) -> T raise EvalError
-pub fn[T] Context::throw_reference_error(Self, String) -> T raise EvalError
-pub fn[T] Context::throw_syntax_error(Self, String) -> T raise EvalError
-pub fn[T] Context::throw_type_error(Self, String) -> T raise EvalError
-pub impl Compare for Context
-pub impl Eq for Context
-pub impl Hash for Context
-pub impl Show for Context
-pub impl ToJson for Context
-pub impl @json.FromJson for Context
-
-pub(all) enum FunctionBody {
-  User(@parser.BlockStatement)
-  Native((Context, JSValue, JSArgs) -> JSValue raise EvalError)
-}
-pub impl Eq for FunctionBody
-pub impl Show for FunctionBody
-pub impl ToJson for FunctionBody
-pub impl @json.FromJson for FunctionBody
-
-pub struct JSArgs(Array[JSValue])
-pub fn JSArgs::empty() -> Self
-#alias("_[_]")
-pub fn JSArgs::get(Self, Int) -> JSValue
-#deprecated
-pub fn JSArgs::inner(Self) -> Array[JSValue]
-pub fn JSArgs::iter(Self) -> Iter[JSValue]
-pub fn JSArgs::iter2(Self) -> Iter2[Int, JSValue]
-pub fn JSArgs::length(Self) -> Int
-pub fn JSArgs::new(Array[JSValue]) -> Self
-
-pub(all) enum JSInternal {
-  Date(Double)
-  RegExp(@regexp.RegexpProgram, String)
-  Map(LinkedMap)
-  MapIterator(LinkedMap, Ref[LinkedEntry?], String)
-  Set(LinkedMap)
-  SetIterator(LinkedMap, Ref[LinkedEntry?], String)
-  Accessor(JSObject?, JSObject?)
-}
-pub impl Compare for JSInternal
-pub impl Eq for JSInternal
-pub impl Hash for JSInternal
-pub impl Show for JSInternal
-pub impl ToJson for JSInternal
-pub impl @json.FromJson for JSInternal
-
-pub(all) struct JSObject {
-  _id : Int
-  properties : Map[String, JSValue]
-  mut prototype : JSValue?
+  mapped : Array[Bool]
+  elements : Array[JSValue?]
+  props : Map[String, Property]
+  mut proto : JSValue?
   mut extensible : Bool
-  mut is_sealed : Bool
-  mut is_frozen : Bool
-  mut is_proxy : Bool
-  mut proxy_target : JSValue?
-  mut proxy_handler : JSValue?
-  is_callable : Bool
-  mut call_info : CallInfo?
 }
-#alias("_[_]")
-pub fn JSObject::get(Self, String) -> JSValue
-pub fn JSObject::new(properties? : Map[String, JSValue], prototype? : JSValue) -> Self
-pub fn JSObject::new_function(name? : String, params? : Array[String], body~ : FunctionBody, context? : Context, properties? : Map[String, JSValue], prototype? : JSValue, strict? : Bool, is_constructor? : Bool, is_arrow? : Bool) -> Self
-pub fn JSObject::own_keys(Self, Context) -> Array[String] raise EvalError
-#alias("_[_]=_")
-pub fn JSObject::set(Self, String, JSValue) -> Unit
-pub impl Compare for JSObject
-pub impl Eq for JSObject
-pub impl Hash for JSObject
-pub impl Show for JSObject
-pub impl ToJson for JSObject
-pub impl @json.FromJson for JSObject
+pub impl Show for ArgumentsValue
+pub impl ToJson for ArgumentsValue
 
-pub(all) enum JSValue {
-  String(StringView)
-  Number(Double)
-  Boolean(Bool)
-  BigInt(@bigint.BigInt)
-  Symbol(Int, String)
-  Object(JSObject)
-  Null
-  Undefined
-  Internal(JSInternal)
+type ArrayBufferData
+
+pub struct ArrayValue {
+  id : Int
+  elements : Array[JSValue?]
+  mut proto : JSValue?
+  props : Map[String, Property]
+  mut typed_array_data : TypedArrayData?
+  mut extensible : Bool
 }
-pub fn JSValue::bitwise_and(Self, Self) -> Self
-pub fn JSValue::bitwise_not(Self) -> Self
-pub fn JSValue::bitwise_or(Self, Self) -> Self
-pub fn JSValue::bitwise_xor(Self, Self) -> Self
-pub fn JSValue::delete_property(Self, Context, String, strict? : Bool) -> Bool raise EvalError
-#alias("_[_]")
-pub fn JSValue::get_property(Self, String) -> Self
-pub fn JSValue::get_property_internal(Self, String, Self) -> Self
-pub fn JSValue::get_property_internal_throwing(Self, String, Self) -> Self raise EvalError
-pub fn JSValue::get_property_throwing(Self, String) -> Self raise EvalError
-pub fn JSValue::get_prototype(Self) -> Self?
-pub fn JSValue::instanceof(Self, Self) -> Bool
-pub fn JSValue::is_object(Self) -> Bool
-pub fn JSValue::is_truthy(Self) -> Bool
-pub fn JSValue::left_shift(Self, Self) -> Self
-pub fn JSValue::op_in(Self, Self) -> Bool
-pub fn JSValue::pow(Self, Self) -> Self
-pub fn JSValue::right_shift(Self, Self) -> Self
-pub fn JSValue::set_property(Self, String, Self, strict? : Bool) -> Unit raise EvalError
-pub fn JSValue::strict_equal(Self, Self) -> Bool
-pub fn JSValue::to_int32(Self) -> Int
-pub fn JSValue::to_number(Self) -> Double
-pub fn JSValue::to_property_key(Self) -> String
-pub fn JSValue::unsigned_right_shift(Self, Self) -> Self
-pub fn JSValue::unstrict_equal(Self, Self, Context) -> Bool raise EvalError
+pub impl Show for ArrayValue
+pub impl ToJson for ArrayValue
+
+type AsyncGeneratorData
+
+type AtomicsOpKind
+pub impl Eq for AtomicsOpKind
+
+type AtomicsWaitStatus
+pub impl Eq for AtomicsWaitStatus
+
+pub struct BoundFunctionValue {
+  id : Int
+  mut target : JSValue
+  mut bound_this : JSValue
+  bound_args : Array[JSValue]
+  props : Map[String, Property]
+  mut proto : JSValue?
+  is_constructor : Bool
+  mut extensible : Bool
+}
+pub impl Show for BoundFunctionValue
+pub impl ToJson for BoundFunctionValue
+
+pub enum BuiltinFunction {
+  JsonStringify
+  JsonParse
+  BjsonRead
+  BjsonWrite
+  ObjectConstructor
+  ObjectDefineProperty
+  ObjectDefineProperties
+  ObjectGetOwnPropertyDescriptor
+  ObjectGetOwnPropertyNames
+  ObjectGetOwnPropertySymbols
+  ObjectGetPrototypeOf
+  ObjectSetPrototypeOf
+  ObjectCreate
+  ObjectKeys
+  ObjectValues
+  ObjectEntries
+  ObjectIs
+  ObjectIsExtensible
+  ObjectPreventExtensions
+  ObjectSeal
+  ObjectIsSealed
+  ObjectIsFrozen
+  ObjectFreeze
+  ObjectGetOwnPropertyDescriptors
+  ObjectFromEntries
+  ObjectGroupBy
+  ObjectAssign
+  ObjectHasOwn
+  ObjectToString
+  ObjectToLocaleString
+  ObjectValueOf
+  ObjectHasOwnProperty
+  ObjectPropertyIsEnumerable
+  ObjectIsPrototypeOf
+  ObjectProtoGet
+  ObjectProtoSet
+  ObjectDefineGetter
+  ObjectDefineSetter
+  ObjectLookupGetter
+  ObjectLookupSetter
+  ProxyConstructor
+  ProxyRevocable
+  ProxyRevoke
+  ArrayToString
+  ArrayToLocaleString
+  ArrayConstructor
+  ArrayIsArray
+  ArrayFrom
+  ArrayOf
+  ArrayAt
+  ArrayPush
+  ArrayPop
+  ArrayShift
+  ArrayUnshift
+  ArraySplice
+  ArraySlice
+  ArrayReverse
+  ArrayConcat
+  ArrayJoin
+  ArrayIndexOf
+  ArrayLastIndexOf
+  ArrayIncludes
+  ArrayCopyWithin
+  ArrayFill
+  ArrayFind
+  ArrayFindIndex
+  ArrayFindLast
+  ArrayFindLastIndex
+  ArrayFlat
+  ArrayFlatMap
+  ArrayToReversed
+  ArrayToSorted
+  ArrayToSpliced
+  ArrayWith
+  ArrayMap
+  ArrayForEach
+  ArrayFilter
+  ArrayEvery
+  ArraySome
+  ArrayReduce
+  ArrayReduceRight
+  ArraySort
+  ArrayValues
+  ArrayKeys
+  ArrayEntries
+  ArrayIteratorNext
+  IteratorReturnSelf
+  AsyncIteratorReturnSelf
+  AsyncFromSyncIteratorNext
+  AsyncFromSyncIteratorReturn
+  AsyncFromSyncIteratorThrow
+  AsyncFromSyncIteratorUnwrap
+  AsyncFromSyncIteratorCloseWrap
+  IteratorConstructor
+  IteratorFrom
+  IteratorConcat
+  IteratorConcatNext
+  IteratorConcatReturn
+  IteratorWrapNext
+  IteratorWrapReturn
+  IteratorHelperNext
+  IteratorHelperReturn
+  IteratorDrop
+  IteratorFilter
+  IteratorFlatMap
+  IteratorMap
+  IteratorTake
+  IteratorEvery
+  IteratorFind
+  IteratorForEach
+  IteratorSome
+  IteratorReduce
+  IteratorToArray
+  IteratorConstructorGetter
+  IteratorConstructorSetter
+  IteratorToStringTagGetter
+  IteratorToStringTagSetter
+  FunctionCall
+  FunctionApply
+  FunctionBind
+  FunctionToString
+  FunctionProtoLineNumber
+  FunctionProtoColumnNumber
+  FunctionSymbolHasInstance
+  FunctionConstructor
+  GeneratorFunctionConstructor
+  AsyncFunctionConstructor
+  AsyncGeneratorFunctionConstructor
+  BooleanConstructor
+  BooleanToString
+  BooleanValueOf
+  StringConstructor
+  StringFromCharCode
+  StringFromCodePoint
+  StringRaw
+  StringCharCodeAt
+  StringCharAt
+  StringCodePointAt
+  StringConcat
+  StringSubstring
+  StringSubstr
+  StringSlice
+  StringIndexOf
+  StringLastIndexOf
+  StringSplit
+  StringPadStart
+  StringReplace
+  StringReplaceAll
+  StringToString
+  StringValueOf
+  StringAt
+  StringIncludes
+  StringEndsWith
+  StringStartsWith
+  StringRepeat
+  StringPadEnd
+  StringTrim
+  StringTrimStart
+  StringTrimEnd
+  StringToLowerCase
+  StringToUpperCase
+  StringToLocaleLowerCase
+  StringToLocaleUpperCase
+  StringLocaleCompare
+  StringNormalize
+  StringIsWellFormed
+  StringToWellFormed
+  StringMatch
+  StringMatchAll
+  StringSearch
+  StringIterator
+  StringIteratorNext
+  StringAnchor
+  StringBig
+  StringBlink
+  StringBold
+  StringFixed
+  StringFontcolor
+  StringFontsize
+  StringItalics
+  StringLink
+  StringSmall
+  StringStrike
+  StringSub
+  StringSup
+  NumberConstructor
+  NumberIsNaN
+  NumberIsFinite
+  NumberIsInteger
+  NumberIsSafeInteger
+  NumberToString
+  NumberToLocaleString
+  NumberToFixed
+  NumberToExponential
+  NumberToPrecision
+  NumberValueOf
+  BigIntConstructor
+  BigIntToString
+  BigIntValueOf
+  BigIntAsIntN
+  BigIntAsUintN
+  SymbolConstructor
+  SymbolFor
+  SymbolKeyFor
+  SymbolToString
+  SymbolValueOf
+  SymbolToPrimitive
+  SymbolDescription
+  ParseInt
+  ParseFloat
+  DecodeURI
+  DecodeURIComponent
+  EncodeURI
+  EncodeURIComponent
+  Escape
+  Unescape
+  MathAbs
+  MathAcos
+  MathAcosh
+  MathAsin
+  MathAsinh
+  MathAtan
+  MathAtan2
+  MathAtanh
+  MathCbrt
+  MathCeil
+  MathClz32
+  MathCos
+  MathCosh
+  MathExp
+  MathExpm1
+  MathFloor
+  MathFround
+  MathF16Round
+  MathHypot
+  MathImul
+  MathLog
+  MathLog1p
+  MathLog2
+  MathLog10
+  MathMax
+  MathMin
+  MathPow
+  MathRandom
+  MathRound
+  MathSign
+  MathSin
+  MathSinh
+  MathSqrt
+  MathTan
+  MathTanh
+  MathTrunc
+  MathSumPrecise
+  RegExpConstructor
+  RegExpExec
+  RegExpTest
+  RegExpToString
+  RegExpCompile
+  RegExpEscape
+  RegExpGetFlags
+  RegExpGetSource
+  RegExpGetGlobal
+  RegExpGetIgnoreCase
+  RegExpGetMultiline
+  RegExpGetDotAll
+  RegExpGetUnicode
+  RegExpGetUnicodeSets
+  RegExpGetSticky
+  RegExpGetHasIndices
+  RegExpSymbolMatch
+  RegExpSymbolMatchAll
+  RegExpSymbolReplace
+  RegExpSymbolSearch
+  RegExpSymbolSplit
+  RegExpStringIteratorNext
+  SpeciesGetter
+  DateConstructor
+  DateParse
+  DateUTC
+  DateNow
+  DateToISOString
+  DateToString
+  DateSymbolToPrimitive
+  DateValueOf
+  DateToUTCString
+  DateToDateString
+  DateToTimeString
+  DateToLocaleString
+  DateToLocaleDateString
+  DateToLocaleTimeString
+  DateToJSON
+  DateGetTimezoneOffset
+  DateGetTime
+  DateGetYear
+  DateGetFullYear
+  DateGetUTCFullYear
+  DateGetMonth
+  DateGetUTCMonth
+  DateGetDate
+  DateGetUTCDate
+  DateGetDay
+  DateGetUTCDay
+  DateGetHours
+  DateGetUTCHours
+  DateGetMinutes
+  DateGetUTCMinutes
+  DateGetSeconds
+  DateGetUTCSeconds
+  DateGetMilliseconds
+  DateGetUTCMilliseconds
+  DateSetTime
+  DateSetMilliseconds
+  DateSetUTCMilliseconds
+  DateSetSeconds
+  DateSetUTCSeconds
+  DateSetMinutes
+  DateSetUTCMinutes
+  DateSetHours
+  DateSetUTCHours
+  DateSetDate
+  DateSetUTCDate
+  DateSetMonth
+  DateSetUTCMonth
+  DateSetYear
+  DateSetFullYear
+  DateSetUTCFullYear
+  PromiseConstructor
+  PromiseResolve
+  PromiseReject
+  PromiseThen
+  PromiseCatch
+  PromiseFinally
+  PromiseAll
+  PromiseAllSettled
+  PromiseAny
+  PromiseRace
+  PromiseTry
+  PromiseWithResolvers
+  PromiseReactionJob
+  PromiseResolveFunction
+  PromiseRejectFunction
+  PromiseResolveThenableJob
+  PromiseAllResolveElement
+  PromiseThenFinally
+  PromiseFinallyValueThunk
+  PromiseFinallyThrower
+  PromiseCapabilityExecutor
+  ReflectApply
+  ReflectConstruct
+  ReflectGet
+  ReflectGetOwnPropertyDescriptor
+  ReflectGetPrototypeOf
+  ReflectDefineProperty
+  ReflectHas
+  ReflectIsExtensible
+  ReflectSet
+  ReflectSetPrototypeOf
+  ReflectDeleteProperty
+  ReflectPreventExtensions
+  ReflectOwnKeys
+  Eval
+  IsNaN
+  IsFinite
+  UriErrorConstructor
+  ModuleImport
+  ModuleImportDynamic
+  ModuleImportDynamicJob
+  ModuleImportBinding
+  ModuleBinding
+  ModuleExport
+  ModuleExportStar
+  ModuleAsyncFulfilled
+  ModuleAsyncRejected
+  GeneratorNext
+  GeneratorReturn
+  GeneratorThrow
+  AsyncGeneratorNext
+  AsyncGeneratorReturn
+  AsyncGeneratorThrow
+  AsyncFunctionResolveFunction
+  AsyncGeneratorResolveFunction
+  MapConstructor
+  MapGroupBy
+  MapGet
+  MapGetOrInsert
+  MapGetOrInsertComputed
+  MapSet
+  MapHas
+  MapDelete
+  MapClear
+  MapForEach
+  MapSize
+  MapKeys
+  MapValues
+  MapEntries
+  MapIteratorNext
+  SetConstructor
+  SetAdd
+  SetHas
+  SetDelete
+  SetClear
+  SetForEach
+  SetSize
+  SetValues
+  SetEntries
+  SetIsDisjointFrom
+  SetIsSubsetOf
+  SetIsSupersetOf
+  SetIntersection
+  SetDifference
+  SetSymmetricDifference
+  SetUnion
+  SetIteratorNext
+  WeakMapConstructor
+  WeakMapGet
+  WeakMapGetOrInsert
+  WeakMapGetOrInsertComputed
+  WeakMapSet
+  WeakMapHas
+  WeakMapDelete
+  WeakSetConstructor
+  WeakSetAdd
+  WeakSetHas
+  WeakSetDelete
+  WeakRefConstructor
+  WeakRefDeref
+  FinalizationRegistryConstructor
+  FinalizationRegistryRegister
+  FinalizationRegistryUnregister
+  ArrayBufferIsView
+  ArrayBufferByteLength
+  ArrayBufferMaxByteLength
+  ArrayBufferResizable
+  ArrayBufferDetached
+  ArrayBufferConstructor
+  SharedArrayBufferConstructor
+  ArrayBufferSlice
+  ArrayBufferTransfer
+  ArrayBufferTransferToFixedLength
+  ArrayBufferResize
+  SharedArrayBufferByteLength
+  SharedArrayBufferMaxByteLength
+  SharedArrayBufferGrowable
+  SharedArrayBufferGrow
+  SharedArrayBufferSlice
+  AtomicsAdd
+  AtomicsAnd
+  AtomicsOr
+  AtomicsSub
+  AtomicsXor
+  AtomicsExchange
+  AtomicsCompareExchange
+  AtomicsLoad
+  AtomicsStore
+  AtomicsIsLockFree
+  AtomicsPause
+  AtomicsWait
+  AtomicsNotify
+  DataViewConstructor
+  DataViewGetBuffer
+  DataViewGetByteLength
+  DataViewGetByteOffset
+  DataViewGetInt8
+  DataViewGetUint8
+  DataViewGetInt16
+  DataViewGetUint16
+  DataViewGetInt32
+  DataViewGetUint32
+  DataViewGetBigInt64
+  DataViewGetBigUint64
+  DataViewGetFloat16
+  DataViewGetFloat32
+  DataViewGetFloat64
+  DataViewSetInt8
+  DataViewSetUint8
+  DataViewSetInt16
+  DataViewSetUint16
+  DataViewSetInt32
+  DataViewSetUint32
+  DataViewSetBigInt64
+  DataViewSetBigUint64
+  DataViewSetFloat16
+  DataViewSetFloat32
+  DataViewSetFloat64
+  TypedArrayConstructor
+  TypedArrayFrom
+  TypedArrayOf
+  TypedArrayGetLength
+  TypedArrayGetBuffer
+  TypedArrayGetByteLength
+  TypedArrayGetByteOffset
+  TypedArrayGetToStringTag
+  TypedArrayAt
+  TypedArrayWith
+  TypedArrayValues
+  TypedArrayKeys
+  TypedArrayEntries
+  TypedArrayCopyWithin
+  TypedArrayEvery
+  TypedArraySome
+  TypedArrayForEach
+  TypedArrayMap
+  TypedArrayFilter
+  TypedArrayReduce
+  TypedArrayReduceRight
+  TypedArrayFind
+  TypedArrayFindIndex
+  TypedArrayFindLast
+  TypedArrayFindLastIndex
+  TypedArrayReverse
+  TypedArrayToReversed
+  TypedArraySlice
+  TypedArraySubarray
+  TypedArraySort
+  TypedArrayToSorted
+  TypedArrayJoin
+  TypedArrayToLocaleString
+  TypedArrayIndexOf
+  TypedArrayLastIndexOf
+  TypedArrayIncludes
+  Uint8ArrayConstructor
+  Int8ArrayConstructor
+  Uint8ClampedArrayConstructor
+  Uint16ArrayConstructor
+  Int16ArrayConstructor
+  Uint32ArrayConstructor
+  Int32ArrayConstructor
+  BigInt64ArrayConstructor
+  BigUint64ArrayConstructor
+  Float16ArrayConstructor
+  Float32ArrayConstructor
+  Float64ArrayConstructor
+  WorkerConstructor
+  WorkerPostMessage
+  TypedArraySet
+  TypedArrayFill
+  StdSprintf
+  StdLoadScript
+  StdTmpfile
+  StdOpen
+  StdLoadFile
+  StdPopen
+  StdParseExtJSON
+  StdFdopen
+  FilePuts
+  FilePutByte
+  FileSeek
+  FileTell
+  FileRead
+  FileReadAsString
+  FileGetByte
+  FileGetline
+  FileEof
+  FileClose
+  StdGc
+  Print
+  Test262DetachArrayBuffer
+  Test262EvalScript
+  Test262CodePointRange
+  Test262CreateRealm
+  Test262Gc
+  Test262IsHTMLDDA
+  Test262AgentStart
+  Test262AgentGetReport
+  Test262AgentBroadcast
+  Test262AgentReport
+  Test262AgentLeaving
+  Test262AgentReceiveBroadcast
+  Test262AgentSleep
+  Test262AgentMonotonicNow
+  OsSetTimeout
+  OsClearTimeout
+  OsOpen
+  OsClose
+  OsRead
+  OsWrite
+  OsSeek
+  OsReaddir
+  OsStat
+  OsLstat
+  OsReadlink
+  OsSymlink
+  OsMkdir
+  OsRemove
+  OsUtimes
+  OsGetcwd
+  OsRealpath
+  OsIsatty
+  OsExec
+  OsPipe
+  OsWaitpid
+  OsKill
+  ErrorToString
+  ErrorIsError
+  ErrorConstructor
+  AggregateErrorConstructor
+  EvalErrorConstructor
+  SyntaxErrorConstructor
+  RangeErrorConstructor
+  TypeErrorConstructor
+  ReferenceErrorConstructor
+  ThrowTypeError
+}
+pub impl Eq for BuiltinFunction
+pub impl Show for BuiltinFunction
+pub impl ToJson for BuiltinFunction
+
+pub struct BuiltinValue {
+  kind : BuiltinFunction
+  id : Int
+  props : Map[String, Property]
+  mut this_value : JSValue?
+  mut proto : JSValue?
+  mut extensible : Bool
+  mut is_html_dda : Bool
+  mut realm_env : Env?
+}
+pub impl Show for BuiltinValue
+pub impl ToJson for BuiltinValue
+
+pub struct ClassFieldRecord {
+  is_private : Bool
+  name : String
+  display_name : String
+  init : @engine.Expr?
+}
+
+type CompareOp
+pub impl Show for CompareOp
+
+pub struct Context {
+  env : Env
+  runtime : RuntimeState
+}
+pub fn Context::async_done_count(Self) -> Int
+pub fn Context::eval(Self, String) -> JSValue raise
+pub fn Context::eval_result(Self, String) -> Result[JSValue, JSValue] raise
+pub fn Context::eval_result_with_path(Self, String, String) -> Result[JSValue, JSValue] raise
+pub fn Context::eval_result_with_path_mode(Self, String, String, Bool, Bool) -> Result[JSValue, JSValue] raise
+pub fn Context::eval_with_path(Self, String, String) -> JSValue raise
+pub fn Context::eval_with_path_mode(Self, String, String, Bool, Bool) -> JSValue raise
+pub fn Context::new() -> Self
+pub fn Context::reset_runtime_state(Self) -> Unit
+pub fn Context::run_gc(Self) -> Unit
+pub fn Context::set_can_block(Self, Bool) -> Unit
+pub fn Context::set_gc_debug(Self, Bool) -> Unit
+pub fn Context::set_gc_threshold(Self, Int) -> Unit
+pub fn Context::take_print_log(Self) -> Array[String]
+pub impl Show for Context
+
+type DataViewData
+
+pub struct Env {
+  id : Int
+  parent : Env?
+  bindings : @hashmap.HashMap[String, JSValue]
+  readonly_bindings : @hashmap.HashMap[String, Bool]
+  deletable_bindings : @hashmap.HashMap[String, Bool]
+  private_bindings : @hashmap.HashMap[String, String]
+  mut strict : Bool
+  mut with_object : JSValue?
+  mut var_object : JSValue?
+  mut new_target : JSValue
+  mut allow_new_target : Bool
+  mut allow_super : Bool
+  mut allow_super_call : Bool
+  mut this_uninitialized : Bool
+  mut is_param_env : Bool
+  mut is_catch_env : Bool
+  param_binding_names : @hashmap.HashMap[String, Bool]
+  uninitialized_bindings : @hashmap.HashMap[String, Bool]
+  mut var_env : Env?
+}
+pub fn Env::new(Self?) -> Self
+pub impl Show for Env
+
+pub struct FinalizationEntry {
+  target : JSValue
+  held_value : JSValue
+  mut token : JSValue
+}
+
+pub struct FinalizationRegistryData {
+  callback : JSValue
+  entries : Array[FinalizationEntry]
+  realm_env : Env
+}
+
+pub struct FunctionValue {
+  name : String?
+  mut source : String?
+  source_root : String?
+  source_path : String?
+  line_number : Int?
+  column_number : Int?
+  local_name_binding : Bool
+  params : Array[@engine.ParamBinding]
+  param_inits : Array[@engine.Expr?]
+  body : Array[@engine.Stmt]
+  env : Env
+  id : Int
+  props : Map[String, Property]
+  mut proto : JSValue?
+  mut home_object : JSValue?
+  mut super_constructor : JSValue?
+  mut instance_fields : Array[ClassFieldRecord]
+  private_instance_fields : Array[(String, @engine.Expr?)]
+  mut private_instance_props : Map[String, Property]
+  mut is_constructor : Bool
+  mut is_class_constructor : Bool
+  mut is_default_constructor : Bool
+  mut extensible : Bool
+  is_strict : Bool
+  is_generator : Bool
+  is_async : Bool
+  is_arrow : Bool
+  mut in_class_field_init : Bool
+}
+pub impl Show for FunctionValue
+pub impl ToJson for FunctionValue
+
+pub struct GcRegistry {
+  envs : Map[Int, Env]
+  values : Map[Int, JSValue]
+}
+
+type GeneratorData
+
+pub struct IteratorConcatData {
+  mut index : Int
+  count : Int
+  mut running : Bool
+  mut iter : JSValue
+  mut next : JSValue
+  values : Array[(JSValue, JSValue)]
+}
+
+pub struct IteratorHelperData {
+  obj : JSValue
+  next : JSValue
+  func : JSValue
+  mut inner : JSValue
+  mut inner_next : JSValue
+  mut count : Int64
+  kind : Int
+  mut executing : Bool
+  mut done : Bool
+}
+
+pub struct IteratorWrapData {
+  wrapped_iter : JSValue
+  wrapped_next : JSValue
+}
+
+pub enum JSValue {
+  Undefined
+  Null
+  Bool(Bool)
+  Number(Double)
+  String(String)
+  BigInt(@bigint.BigInt)
+  Symbol(SymbolValue)
+  Builtin(BuiltinValue)
+  Function(FunctionValue)
+  BoundFunction(BoundFunctionValue)
+  Object(ObjectValue)
+  Array(ArrayValue)
+  Arguments(ArgumentsValue)
+}
+pub fn JSValue::undefined() -> Self
 pub impl Add for JSValue
-pub impl Compare for JSValue
 pub impl Div for JSValue
-pub impl Eq for JSValue
-pub impl Hash for JSValue
 pub impl Mod for JSValue
 pub impl Mul for JSValue
-pub impl Neg for JSValue
 pub impl Show for JSValue
 pub impl Sub for JSValue
 pub impl ToJson for JSValue
-pub impl @json.FromJson for JSValue
-pub impl ToJSValue for JSValue
 
-pub(all) struct LinkedEntry {
-  key : JSValue
-  mut value : JSValue
-  mut prev : LinkedEntry?
-  mut next : LinkedEntry?
-  mut removed : Bool
+pub struct MapData {
+  entries : Array[(JSValue, JSValue)?]
 }
-pub impl Eq for LinkedEntry
-pub impl Show for LinkedEntry
-pub impl ToJson for LinkedEntry
 
-pub(all) struct LinkedMap {
-  entries : Map[JSValue, LinkedEntry]
-  mut head : LinkedEntry?
-  mut tail : LinkedEntry?
+pub struct MapIteratorData {
+  entries : Array[(JSValue, JSValue)?]
+  mut index : Int
+  kind : Int
+  mut done : Bool
 }
-pub fn LinkedMap::clear(Self) -> Unit
-pub fn LinkedMap::contains(Self, JSValue) -> Bool
-pub fn LinkedMap::each(Self, ((JSValue, JSValue)) -> Unit) -> Unit
-pub fn LinkedMap::get(Self, JSValue) -> JSValue?
-pub fn LinkedMap::length(Self) -> Int
-pub fn LinkedMap::new() -> Self
-pub fn LinkedMap::remove(Self, JSValue) -> Unit
-pub fn LinkedMap::set(Self, JSValue, JSValue) -> Unit
+
+pub struct ObjectValue {
+  id : Int
+  props : Map[String, Property]
+  mut proto : JSValue?
+  string_data : String?
+  number_data : Double?
+  bool_data : Bool?
+  bigint_data : @bigint.BigInt?
+  symbol_data : SymbolValue?
+  mut regexp_data : RegexpData?
+  mut generator_data : GeneratorData?
+  mut async_generator_data : AsyncGeneratorData?
+  mut proxy_data : ProxyData?
+  mut map_data : MapData?
+  mut set_data : SetData?
+  mut map_iter_data : MapIteratorData?
+  mut set_iter_data : SetIteratorData?
+  mut iterator_wrap_data : IteratorWrapData?
+  mut iterator_concat_data : IteratorConcatData?
+  mut iterator_helper_data : IteratorHelperData?
+  mut weakmap_data : WeakMapData?
+  mut weakset_data : WeakSetData?
+  mut weakref_data : WeakRefData?
+  mut finreg_data : FinalizationRegistryData?
+  mut date_data : Double?
+  mut array_buffer_data : ArrayBufferData?
+  mut dataview_data : DataViewData?
+  is_html_dda : Bool
+  mut is_error : Bool
+  mut is_module_namespace : Bool
+  mut realm_env : Env?
+  mut immutable_proto : Bool
+  mut extensible : Bool
+}
+pub impl Show for ObjectValue
+pub impl ToJson for ObjectValue
+
+pub struct Property {
+  value : JSValue
+  writable : Bool
+  configurable : Bool
+  enumerable : Bool
+  getter : JSValue?
+  setter : JSValue?
+}
+
+type ProxyData
+
+pub struct RegexpData {
+  source : String
+  flags : String
+  regex : RegexpProgram
+  global : Bool
+  sticky : Bool
+  unicode : Bool
+  dot_all : Bool
+  ignore_case : Bool
+  multiline : Bool
+  has_indices : Bool
+  unicode_sets : Bool
+}
+
+type RegexpProgram
+
+pub struct RuntimeState {
+  gc_registry_ref : Ref[GcRegistry]
+  gc_alloc_count_ref : Ref[Int]
+  gc_threshold_ref : Ref[Int]
+  gc_debug_ref : Ref[Bool]
+  gc_value_root_ref : Ref[Array[JSValue]]
+  gc_pending_ref : Ref[Bool]
+  print_log_ref : Ref[Array[String]]
+  async_done_ref : Ref[Int]
+  can_block_ref : Ref[Bool]
+}
+pub impl Show for RuntimeState
+
+pub struct SetData {
+  entries : Array[JSValue?]
+}
+
+pub struct SetIteratorData {
+  entries : Array[JSValue?]
+  mut index : Int
+  kind : Int
+  mut done : Bool
+}
+
+pub struct SymbolValue {
+  id : Int
+  description : String?
+  key : String?
+}
+pub impl Eq for SymbolValue
+pub impl Show for SymbolValue
+pub impl ToJson for SymbolValue
+
+type TypedArrayData
+
+type TypedArrayKind
+pub impl Eq for TypedArrayKind
+pub impl Show for TypedArrayKind
+pub impl ToJson for TypedArrayKind
+
+pub struct WeakMapData {
+  entries : Array[(JSValue, JSValue)]
+}
+
+pub struct WeakRefData {
+  target : JSValue
+}
+
+pub struct WeakSetData {
+  entries : Array[JSValue]
+}
 
 // Type aliases
 
 // Traits
-pub trait Builtin {
-  to_js_value(Self) -> JSValue
-}
-
-pub(open) trait ToJSValue {
-  to_js_value(Self) -> JSValue
-}
 

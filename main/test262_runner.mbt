@@ -52,21 +52,22 @@ fn run_test262(path : String) -> Unit {
     "  $262.createRealm = function() { return { global: globalThis }; };\n"
   harness_code = harness_code + "}\n"
   let full_code = harness_code + code
-  let ctx = @runtime.create_global()
+  let ctx = @runtime.Context::new()
   let is_negative = code.contains("negative:")
-  match ctx.eval_safe(full_code) {
-    Ok(_) =>
-      if is_negative {
-        println("FAIL \{path} Expected error but got success")
-      } else {
-        println("PASS \{path}")
-      }
-    Err(msg) =>
+  let _ = ctx.eval(full_code) catch {
+    e => {
       if is_negative {
         println("PASS \{path}")
       } else {
-        let formatted = @runtime.format_js_error(msg)
-        println("FAIL \{path} \{formatted}")
+        // let formatted = @runtime.format_js_error(msg)
+        println("FAIL \{path} \{e}")
       }
+      @runtime.value_undefined()
+    }
+  }
+  if is_negative {
+    println("FAIL \{path} Expected error but got success")
+  } else {
+    println("PASS \{path}")
   }
 }

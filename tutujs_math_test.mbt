@@ -1,6 +1,6 @@
 ///|
 test "Math object" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Math constants
   inspect(ctx.eval("Math.PI"), content="3.141592653589793")
@@ -17,7 +17,7 @@ test "Math object" {
 
 ///|
 test "Number constructor" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Number() call
   inspect(ctx.eval("Number(123)"), content="123")
@@ -34,7 +34,7 @@ test "Number constructor" {
 
 ///|
 test "Boolean constructor" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Boolean() call
   inspect(ctx.eval("Boolean(1)"), content="true")
@@ -48,7 +48,7 @@ test "Boolean constructor" {
 
 ///|
 test "String constructor fixes" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // String() call
   inspect(ctx.eval("String('abc')"), content="abc")

@@ -17,8 +17,8 @@ fn main {
           return
         }
       }
-      let ctx = @runtime.create_global()
-      let _ = ctx.eval(code)
+      let ctx = @runtime.Context::new()
+      let _ = ctx.eval(code) catch { _ => @runtime.value_undefined() }
 
     }
     _ =>

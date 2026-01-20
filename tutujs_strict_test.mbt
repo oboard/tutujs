@@ -1,6 +1,8 @@
 ///|
 fn parse_and_eval(code : String) -> @runtime.JSValue {
-  @runtime.Context::create_global().eval(code)
+  @runtime.Context::new().eval(code) catch {
+    _ => @runtime.value_undefined()
+  }
 }
 
 ///|

@@ -17,7 +17,9 @@ test "arithmetic" {
 test "type coercion" {
   let context = @tutujs.Context::new()
   fn eval(s : String) {
-    context.eval(s)
+    context.eval(s) catch {
+      _ => @runtime.value_undefined()
+    }
   }
 
   @json.inspect(eval("true || false"), content=["Boolean", true])

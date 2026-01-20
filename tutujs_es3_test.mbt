@@ -151,7 +151,7 @@ test "instanceof operator" {
     #| var isStr = arr instanceof String;
     #| isArr ? (isObj ? (isStr ? "all" : "arr+obj") : "arr") : "none";
     #|
-  @json.inspect(@runtime.Context::create_global().eval(code), content=[
+  @json.inspect(@runtime.Context::new().eval(code), content=[
     "String", "arr+obj",
   ])
 }
@@ -202,9 +202,7 @@ test "array push and pop" {
     #| var last = arr.pop();
     #| arr.length + last; // 3 + 4 = 7
     #|
-  @json.inspect(@runtime.Context::create_global().eval(code), content=[
-    "Number", 7,
-  ])
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 7])
 }
 
 ///|
@@ -215,9 +213,7 @@ test "array constructor" {
     #| arr[0] = 10;
     #| arr.length + arr[0]; // 3 + 10 = 13
     #|
-  @json.inspect(@runtime.Context::create_global().eval(code), content=[
-    "Number", 13,
-  ])
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 13])
 }
 
 ///|
@@ -228,7 +224,5 @@ test "array literal prototype" {
     #| arr.push(1);
     #| arr[0];
     #|
-  @json.inspect(@runtime.Context::create_global().eval(code), content=[
-    "Number", 1,
-  ])
+  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 1])
 }

@@ -34,7 +34,7 @@ test "arrow function closure" {
 
 ///|
 test "new Function constructor" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
   @json.inspect(ctx.eval("(new Function('return 1'))()"), content=["Number", 1])
   @json.inspect(ctx.eval("(new Function('a', 'b', 'return a + b'))(1, 2)"), content=[
     "Number", 3,
@@ -43,7 +43,7 @@ test "new Function constructor" {
 
 ///|
 test "function prototype chain" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Identity checks
   @json.inspect(ctx.eval("Function === Function"), content=["Boolean", true])
@@ -73,7 +73,7 @@ test "function prototype chain" {
 
 ///|
 test "function call" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
   ctx.eval("function add(a, b) { return a + b; }") |> ignore
   @json.inspect(ctx.eval("add.call(null, 1, 2)"), content=["Number", 3])
   ctx.eval("function getThis() { return this; }") |> ignore
@@ -85,7 +85,7 @@ test "function call" {
 
 ///|
 test "function apply" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
   ctx.eval("function add(a, b) { return a + b; }") |> ignore
   @json.inspect(ctx.eval("add.apply(null, [1, 2])"), content=["Number", 3])
   ctx.eval("var obj = { val: 100 };") |> ignore

@@ -1,6 +1,6 @@
 ///|
 test "regexp constructor" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Test new RegExp(pattern)
   let _ = ctx.eval("new RegExp('abc')")
@@ -15,7 +15,7 @@ test "regexp constructor" {
 
 ///|
 test "regexp test method" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Simple match
   @json.inspect(ctx.eval("new RegExp('abc').test('abcdef')"), content=[
@@ -35,7 +35,7 @@ test "regexp test method" {
 
 ///|
 test "regexp exec method" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // exec match
   let res = ctx.eval("new RegExp('abc').exec('abcdef')")
@@ -56,7 +56,7 @@ test "regexp exec method" {
 
 ///|
 test "regexp literal" {
-  let ctx = @tutujs.Context::create_global()
+  let ctx = @tutujs.Context::new()
 
   // Simple literal
   @json.inspect(ctx.eval("/abc/.test('abcdef')"), content=["Boolean", true])
