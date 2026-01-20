@@ -49,25 +49,25 @@ test "function prototype chain" {
   @json.inspect(ctx.eval("Function === Function"), content=["Bool", true])
   @json.inspect(ctx.eval("Object === Object"), content=["Bool", true])
   @json.inspect(ctx.eval("Function.prototype === Function.prototype"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
 
   // Constructor check
   @json.inspect(ctx.eval("Function.prototype.constructor === Function"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
   @json.inspect(ctx.eval("(new Function()).constructor === Function"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
 
   // Instanceof check
   @json.inspect(ctx.eval("(new Function()) instanceof Function"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
   ctx.eval("function f() {}") |> ignore
   @json.inspect(ctx.eval("f instanceof Function"), content=["Bool", true])
   @json.inspect(ctx.eval("f.prototype.constructor === f"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
 }
 

@@ -38,7 +38,7 @@ pub impl Show for JSValue with output(self, logger) -> Unit {
   match self {
     Number(n) => n.output(logger)
     String(s) => logger.write_string(s)
-    Bool(b)=> b.output(logger)
+    Bool(b) => b.output(logger)
     _ => ()
   }
 }

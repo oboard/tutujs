@@ -8,13 +8,6 @@ OUTPUT_PREFIX = 'test/test262_'
 MAX_TESTS_PER_FILE = 100
 OUTPUT_LIST = 'test/test262_files.txt'
 
-class TestMode:
-    DefaultNoStrict = 0
-    DefaultStrict = 1
-    NoStrict = 2
-    Strict = 3
-    All = 4
-
 class Test262Config:
     def __init__(self):
         self.testdir = ''
@@ -22,7 +15,8 @@ class Test262Config:
         self.excludes = set()
         self.features = {} # feature -> bool (True=include, False=skip)
         self.style = 'new'
-        self.test_mode = TestMode.DefaultNoStrict
+        self.run_strict = False
+        self.run_nostrict = True # Default mode is usually default-nostrict
         self.skip_async = False
         self.skip_module = False
         self.verbose = False
@@ -95,21 +89,30 @@ def parse_config(config_path):
                          config.features[f.strip()] = False
                 elif key == 'mode':
                     if value in ['default', 'default-nostrict']:
-                        config.test_mode = TestMode.DefaultNoStrict
+                        config.run_strict = False
+                        config.run_nostrict = True
                     elif value == 'default-strict':
-                        config.test_mode = TestMode.DefaultStrict
+                        config.run_strict = True
+                        config.run_nostrict = False
                     elif value == 'nostrict':
-                        config.test_mode = TestMode.NoStrict
+                        config.run_strict = False
+                        config.run_nostrict = True
                     elif value == 'strict':
-                        config.test_mode = TestMode.Strict
+                        config.run_strict = True
+                        config.run_nostrict = False
                     elif value in ['all', 'both']:
-                        config.test_mode = TestMode.All
+                        config.run_strict = True
+                        config.run_nostrict = True
                 elif key == 'strict':
-                    if value in ['skip', 'no']:
-                        config.test_mode = TestMode.NoStrict
+                    if value == 'yes':
+                        config.run_strict = True
+                    elif value in ['skip', 'no']:
+                        config.run_strict = False
                 elif key == 'nostrict':
-                    if value in ['skip', 'no']:
-                        config.test_mode = TestMode.Strict
+                    if value == 'yes':
+                        config.run_nostrict = True
+                    elif value in ['skip', 'no']:
+                        config.run_nostrict = False
                 elif key == 'async':
                     config.skip_async = (value != 'yes')
                 elif key == 'module':
@@ -261,6 +264,7 @@ def generate_tests():
     
     groups = {}
     all_tests = []
+    skipped_stats = {}
     
     for root, dirs, files in os.walk(config.testdir):
         for file in files:
@@ -291,15 +295,22 @@ def generate_tests():
         print(f"Processing group {group_name}: {len(filepaths)} files")
         valid_tests = []
         for fp in filepaths:
-             keep, meta = process_file(fp, config)
+             keep, meta, reason = process_file(fp, config)
              if keep:
                  test_path = os.path.relpath(fp, os.getcwd())
                  valid_tests.append(test_path)
                  all_tests.append(test_path)
+             else:
+                 skipped_stats[reason] = skipped_stats.get(reason, 0) + 1
                  
         if not valid_tests:
             continue
         print(f"Group {group_name} valid tests: {len(valid_tests)}")
+
+    print("\nSkipped statistics:")
+    for reason, count in sorted(skipped_stats.items()):
+        print(f"  {reason}: {count}")
+
     if not all_tests:
         print("No valid tests found.")
         return

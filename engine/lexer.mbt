@@ -312,10 +312,7 @@ fn tokenize_from(lexer : Lexer, allow_html_comments : Bool) -> Array[Token] {
           let kind = if has_escape {
             TokenKind::Ident
           } else {
-            match keyword_kind(lexeme) {
-              Some(kind) => kind
-              None => TokenKind::Ident
-            }
+            keyword_kind(lexeme)
           }
           let raw_lexeme = if has_escape {
             Some(slice_string(chars, offset, next_offset))
@@ -1276,13 +1273,13 @@ fn is_line_break(ch : Char) -> Bool {
 
 ///|
 fn is_string_line_break(ch : Char) -> Bool {
-  ch == '\n' || ch == '\r'
+  ch is ('\n' | '\r')
 }
 
 ///|
 fn is_ident_start(ch : Char) -> Bool {
   if ch.is_ascii() {
-    ch.is_ascii_alphabetic() || ch == '_' || ch == '$'
+    ch.is_ascii_alphabetic() || ch is ('_' | '$')
   } else {
     unicode_is_ident_start(ch.to_int())
   }
@@ -1290,7 +1287,7 @@ fn is_ident_start(ch : Char) -> Bool {
 
 ///|
 fn is_ident_continue(ch : Char) -> Bool {
-  if ch == '\u200C' || ch == '\u200D' {
+  if ch is ('\u200C' | '\u200D') {
     return true
   }
   if ch.is_ascii() {
@@ -1945,57 +1942,57 @@ fn is_hex_digit(ch : Char) -> Bool {
 
 ///|
 fn is_oct_digit(ch : Char) -> Bool {
-  ch >= '0' && ch <= '7'
+  ch is ('0'..<'8')
 }
 
 ///|
 fn is_bin_digit(ch : Char) -> Bool {
-  ch == '0' || ch == '1'
+  ch is ('0' | '1')
 }
 
 ///|
-fn keyword_kind(ident : String) -> TokenKind? {
+fn keyword_kind(ident : String) -> TokenKind {
   match ident {
-    "null" => Some(KeywordNull)
-    "false" => Some(KeywordFalse)
-    "true" => Some(KeywordTrue)
-    "if" => Some(KeywordIf)
-    "else" => Some(KeywordElse)
-    "return" => Some(KeywordReturn)
-    "var" => Some(KeywordVar)
-    "this" => Some(KeywordThis)
-    "delete" => Some(KeywordDelete)
-    "void" => Some(KeywordVoid)
-    "typeof" => Some(KeywordTypeof)
-    "new" => Some(KeywordNew)
-    "in" => Some(KeywordIn)
-    "instanceof" => Some(KeywordInstanceof)
-    "do" => Some(KeywordDo)
-    "while" => Some(KeywordWhile)
-    "for" => Some(KeywordFor)
-    "break" => Some(KeywordBreak)
-    "continue" => Some(KeywordContinue)
-    "switch" => Some(KeywordSwitch)
-    "case" => Some(KeywordCase)
-    "default" => Some(KeywordDefault)
-    "throw" => Some(KeywordThrow)
-    "try" => Some(KeywordTry)
-    "catch" => Some(KeywordCatch)
-    "finally" => Some(KeywordFinally)
-    "function" => Some(KeywordFunction)
-    "debugger" => Some(KeywordDebugger)
-    "with" => Some(KeywordWith)
-    "class" => Some(KeywordClass)
-    "const" => Some(KeywordConst)
-    "enum" => Some(KeywordEnum)
-    "export" => Some(KeywordExport)
-    "extends" => Some(KeywordExtends)
-    "import" => Some(KeywordImport)
-    "super" => Some(KeywordSuper)
-    "let" => Some(KeywordLet)
-    "static" => Some(KeywordStatic)
-    "yield" => Some(KeywordYield)
-    "await" => Some(KeywordAwait)
-    _ => None
+    "null" => KeywordNull
+    "false" => KeywordFalse
+    "true" => KeywordTrue
+    "if" => KeywordIf
+    "else" => KeywordElse
+    "return" => KeywordReturn
+    "var" => KeywordVar
+    "this" => KeywordThis
+    "delete" => KeywordDelete
+    "void" => KeywordVoid
+    "typeof" => KeywordTypeof
+    "new" => KeywordNew
+    "in" => KeywordIn
+    "instanceof" => KeywordInstanceof
+    "do" => KeywordDo
+    "while" => KeywordWhile
+    "for" => KeywordFor
+    "break" => KeywordBreak
+    "continue" => KeywordContinue
+    "switch" => KeywordSwitch
+    "case" => KeywordCase
+    "default" => KeywordDefault
+    "throw" => KeywordThrow
+    "try" => KeywordTry
+    "catch" => KeywordCatch
+    "finally" => KeywordFinally
+    "function" => KeywordFunction
+    "debugger" => KeywordDebugger
+    "with" => KeywordWith
+    "class" => KeywordClass
+    "const" => KeywordConst
+    "enum" => KeywordEnum
+    "export" => KeywordExport
+    "extends" => KeywordExtends
+    "import" => KeywordImport
+    "super" => KeywordSuper
+    "let" => KeywordLet
+    "static" => KeywordStatic
+    "yield" => KeywordYield
+    "await" => KeywordAwait
+    _ => Ident
   }
 }

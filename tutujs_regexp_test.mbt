@@ -6,7 +6,7 @@ test "regexp constructor" {
   let _ = ctx.eval("new RegExp('abc')")
   @json.inspect(ctx.eval("typeof re"), content=["String", "undefined"]) // 're' is not defined in eval context, just testing invocation
   @json.inspect(ctx.eval("new RegExp('abc') instanceof RegExp"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
   @json.inspect(ctx.eval("typeof new RegExp('abc')"), content=[
     "String", "object",
@@ -19,20 +19,19 @@ test "regexp test method" {
 
   // Simple match
   @json.inspect(ctx.eval("new RegExp('abc').test('abcdef')"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
 
   // No match
   @json.inspect(ctx.eval("new RegExp('abc').test('xyz')"), content=[
-    "Bool",false,
+    "Bool", false,
   ])
 
   // Case sensitivity (default is sensitive)
   @json.inspect(ctx.eval("new RegExp('abc').test('ABC')"), content=[
-    "Bool",false,
+    "Bool", false,
   ])
 }
-
 
 ///|
 test "regexp literal" {
@@ -44,7 +43,7 @@ test "regexp literal" {
 
   // Literal with flags (ignore case)
   @json.inspect(ctx.eval("var re = /HELLO/i; re.test('hello')"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
   @json.inspect(ctx.eval("re.ignoreCase"), content=["Bool", true])
   @json.inspect(ctx.eval("re.global"), content=["Bool", false])
@@ -71,7 +70,7 @@ test "regexp literal" {
   // Complex pattern
   // Matches 3 digits
   @json.inspect(ctx.eval("var re_digits = /[0-9]{3}/; re_digits.test('123')"), content=[
-    "Bool",true,
+    "Bool", true,
   ])
   @json.inspect(ctx.eval("re_digits.test('abc')"), content=["Bool", false])
 

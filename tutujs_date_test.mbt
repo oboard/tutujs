@@ -9,9 +9,7 @@ test "date constructor" {
 
   // Test new Date()
   @json.inspect(ctx.eval("typeof new Date()"), content=["String", "object"])
-  @json.inspect(ctx.eval("new Date() instanceof Date"), content=[
-    "Bool",true,
-  ])
+  @json.inspect(ctx.eval("new Date() instanceof Date"), content=["Bool", true])
 
   // Test new Date(number)
   // 1600000000000 is 2020-09-13T12:26:40.000Z
