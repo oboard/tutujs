@@ -162,7 +162,7 @@ pub fn Context::create_global() -> Context {
   let array_fn_body = Native(fn(_ctx, _this_val, args) {
     let arr_props = {}
     let mut len = 0.0
-    match args {
+    match args.0 {
       [Number(n)] => len = n
       [arg] => {
         arr_props.set("0", arg)

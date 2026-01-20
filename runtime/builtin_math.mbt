@@ -15,8 +15,7 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
   let wrap_unary = fn(op : (Double) -> Double) {
     Native(fn(_ctx, _this_val, args) {
       JSValue::Number(
-        if args is [n, ..] {
-          let n = n.to_number()
+        if args[0] is Number(n) {
           op(n)
         } else {
           @double.not_a_number
@@ -26,16 +25,8 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
   }
   let wrap_binary = fn(op : (Double, Double) -> Double) {
     Native(fn(_ctx, _this_val, args) {
-      let x = if args is [arg0, ..] {
-        arg0.to_number()
-      } else {
-        @double.not_a_number
-      }
-      let y = if args is [_, arg1, ..] {
-        arg1.to_number()
-      } else {
-        @double.not_a_number
-      }
+      let x = if args[0] is Number(n) { n } else { @double.not_a_number }
+      let y = if args[1] is Number(n) { n } else { @double.not_a_number }
       JSValue::Number(op(x, y))
     })
   }
@@ -149,8 +140,7 @@ pub fn create_math_object(object_proto : JSValue) -> JSValue {
   // sign
   let sign_fn = Native(fn(_ctx, _this_val, args) {
     JSValue::Number(
-      if args is [arg0, ..] {
-        let n = arg0.to_number()
+      if args[0] is Number(n) {
         if n.is_nan() {
           @double.not_a_number
         } else if n == 0.0 {

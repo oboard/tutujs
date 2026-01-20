@@ -28,10 +28,7 @@ pub fn create_symbol_constructor(
   func_proto_val : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(_ctx, _this_val, args) {
-    let desc = match args {
-      [String(s), ..] => s.to_string()
-      _ => ""
-    }
+    let desc = if args[0] is String(s) { s.to_string() } else { "" }
     // Note: This does not guarantee uniqueness, which is not spec compliant.
     // TODO: Implement unique symbols
     JSValue::Symbol(next_object_id(), desc)

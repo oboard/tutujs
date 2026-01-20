@@ -59,7 +59,7 @@ pub fn create_boolean_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(_ctx, this_val, args) {
-    let val = if args is [arg0, ..] { arg0.is_truthy() } else { false }
+    let val = if args.0 is [arg0, ..] { arg0.is_truthy() } else { false }
     let is_constructor = match (this_val, proto) {
       (
         Object({ prototype: Some(Object({ properties: p1, .. })), .. }),

@@ -9,7 +9,7 @@ import(
 )
 
 // Values
-pub fn create_array_from_values(Context, Array[JSValue]) -> JSValue
+pub fn create_array_from_values(Context, JSArgs) -> JSValue
 
 pub fn create_bigint_constructor(JSValue, JSValue) -> JSValue
 
@@ -89,7 +89,7 @@ pub fn populate_builtin(JSObject, Array[BuiltinProperty]) -> Unit
 
 pub fn prop_data(String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> BuiltinProperty
 
-pub fn prop_method(String, (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool, prototype? : JSValue) -> BuiltinProperty
+pub fn prop_method(String, (Context, JSValue, JSArgs) -> JSValue raise EvalError, length? : Int, enumerable? : Bool, configurable? : Bool, writable? : Bool, prototype? : JSValue) -> BuiltinProperty
 
 pub fn to_primitive(Context, JSValue, hint? : String) -> JSValue raise EvalError
 
@@ -136,7 +136,7 @@ pub fn Context::eval(Self, &Show) -> JSValue
 pub fn Context::eval_safe(Self, &Show) -> Result[JSValue, JSValue]
 pub fn Context::eval_safe_annex_b(Self, &Show) -> Result[JSValue, JSValue]
 pub fn Context::get_property(Self, JSValue, String) -> JSValue
-pub fn Context::invoke(Self, JSObject, JSValue, Array[JSValue]) -> JSValue raise EvalError
+pub fn Context::invoke(Self, JSObject, JSValue, JSArgs) -> JSValue raise EvalError
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
 pub fn Context::register_builtin(Self, String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> Unit
@@ -156,12 +156,23 @@ pub impl @json.FromJson for Context
 
 pub(all) enum FunctionBody {
   User(@parser.BlockStatement)
-  Native((Context, JSValue, Array[JSValue]) -> JSValue raise EvalError)
+  Native((Context, JSValue, JSArgs) -> JSValue raise EvalError)
 }
 pub impl Eq for FunctionBody
 pub impl Show for FunctionBody
 pub impl ToJson for FunctionBody
 pub impl @json.FromJson for FunctionBody
+
+pub struct JSArgs(Array[JSValue])
+pub fn JSArgs::empty() -> Self
+#alias("_[_]")
+pub fn JSArgs::get(Self, Int) -> JSValue
+#deprecated
+pub fn JSArgs::inner(Self) -> Array[JSValue]
+pub fn JSArgs::iter(Self) -> Iter[JSValue]
+pub fn JSArgs::iter2(Self) -> Iter2[Int, JSValue]
+pub fn JSArgs::length(Self) -> Int
+pub fn JSArgs::new(Array[JSValue]) -> Self
 
 pub(all) enum JSInternal {
   Date(Double)

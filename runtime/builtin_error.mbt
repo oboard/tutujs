@@ -43,7 +43,7 @@ pub fn create_error_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(_ctx, _this_val, args) {
-    let message = if args is [JSValue::String(msg), ..] { msg } else { "" }
+    let message = if args.0 is [JSValue::String(msg), ..] { msg } else { "" }
     let obj_props = {
       "message": JSValue::String(message),
       "name": JSValue::String(name),

@@ -37,7 +37,7 @@ pub fn create_proxy_constructor(func_proto : JSValue) -> JSValue {
 fn ProxyBuiltin::builtin_constructor(
   ctx : Context,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : JSArgs,
 ) -> JSValue raise EvalError {
   let is_constructor = match this_val {
     Object(_) => true
@@ -46,7 +46,7 @@ fn ProxyBuiltin::builtin_constructor(
   if not(is_constructor) {
     ctx.throw_type_error("Constructor Proxy requires 'new'")
   }
-  if args is [target, handler, ..] {
+  if args.0 is [target, handler, ..] {
     if not(target.is_object()) || not(handler.is_object()) {
       ctx.throw_type_error(
         "Cannot create proxy with a non-object target or handler",
@@ -205,9 +205,9 @@ fn ProxyBuiltin::revocable(
   _self : ProxyBuiltin,
   ctx : Context,
   _this : JSValue,
-  args : Array[JSValue],
+  args : JSArgs,
 ) -> JSValue raise EvalError {
-  if args is [target, handler, ..] {
+  if args.0 is [target, handler, ..] {
     if not(target.is_object()) || not(handler.is_object()) {
       ctx.throw_type_error(
         "Cannot create proxy with a non-object target or handler",

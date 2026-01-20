@@ -54,12 +54,11 @@ pub fn init_number_prototype(
           Object({ properties: { "PrimitiveValue": Number(n), .. }, .. }) => n
           _ => 0.0
         }
-        let f = if args is [arg0, ..] {
-          let n = arg0.to_number().to_int()
+        let f = if args[0] is Number(n) {
           if n < 0 || n > 100 {
             -1
           } else {
-            n
+            n.to_int()
           }
         } else {
           0
@@ -150,7 +149,7 @@ pub fn create_number_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(ctx, this_val, args) raise EvalError {
-    let val = if args is [arg0, ..] { js_to_number(ctx, arg0) } else { 0.0 }
+    let val = js_to_number(ctx, args[0])
     match this_val {
       Object(obj) => {
         // Check if called as constructor (this_val has Number.prototype)

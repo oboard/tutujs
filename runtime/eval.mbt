@@ -221,7 +221,7 @@ pub fn Context::invoke(
   self : Context,
   f : JSObject,
   this_val : JSValue,
-  args : Array[JSValue],
+  args : JSArgs,
 ) -> JSValue raise EvalError {
   if f.is_callable {
     let call_info = f.call_info.unwrap()

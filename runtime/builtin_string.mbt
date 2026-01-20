@@ -133,7 +133,7 @@ pub fn init_string_prototype(
             }
           _ => ""
         }
-        let pos = if args is [Number(n), ..] { n.to_int() } else { 0 }
+        let pos = if args[0] is Number(num) { num.to_int() } else { 0 }
         if pos >= 0 && pos < s.length() {
           let char_code = s[pos].to_int()
           let c = match char_code.to_char() {
@@ -324,16 +324,16 @@ pub fn init_string_prototype(
             0.0
           }
         } else if start < 0.0 {
-          @math.maximum(len + start, 0.0)
+          @cmp.maximum(len + start, 0.0)
         } else {
-          @math.minimum(start, len)
+          @cmp.minimum(start, len)
         }
         let int_length = if length <= 0.0 {
           0.0
         } else if length.is_inf() {
           len - int_start
         } else {
-          @math.minimum(length, len - int_start)
+          @cmp.minimum(length, len - int_start)
         }
         if int_length <= 0.0 {
           JSValue::String("")
@@ -364,16 +364,8 @@ pub fn init_string_prototype(
             }
           _ => ""
         }
-        let _separator = if args.length() > 0 {
-          args[0]
-        } else {
-          JSValue::Undefined
-        }
-        let _limit = if args.length() > 1 {
-          args[1]
-        } else {
-          JSValue::Undefined
-        }
+        let _separator = args[0]
+        let _limit = args[1]
         let array_proto = match ctx.resolve("Array") {
           Object(f) => f.properties.get("prototype")
           _ => None
@@ -460,13 +452,9 @@ pub fn create_string_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let ctor_fn = Native(fn(ctx, this_val, args) {
-    let (val_str, is_symbol) = if args is [arg, ..] {
-      match arg {
-        Symbol(_, s) => ("Symbol(" + s + ")", true)
-        _ => (js_to_string(ctx, arg) catch { e => raise e }, false)
-      }
-    } else {
-      ("", false)
+    let (val_str, is_symbol) = match args[0] {
+      Symbol(_, s) => ("Symbol(" + s + ")", true)
+      arg => (js_to_string(ctx, arg) catch { e => raise e }, false)
     }
     let is_constructor = match this_val {
       Object({ prototype: Some(Object({ properties: p_props, .. })), .. }) =>

@@ -78,7 +78,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -127,7 +127,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -180,7 +180,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -239,7 +239,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -311,7 +311,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -366,7 +366,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -418,7 +418,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) => {
-            let separator = if args is [String(sep), ..] {
+            let separator = if args.0 is [String(sep), ..] {
               sep.to_string()
             } else {
               ","
@@ -473,12 +473,12 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) => {
-            let search_element = if args is [val, ..] {
+            let search_element = if args.0 is [val, ..] {
               val
             } else {
               JSValue::Undefined
             }
-            let from_index = if args is [_, Number(n), ..] {
+            let from_index = if args.0 is [_, Number(n), ..] {
               n.to_int()
             } else {
               0
@@ -523,7 +523,7 @@ pub fn init_array_prototype(
           Object(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) =>
-            if args is [Object(callback), .. rest] {
+            if args.0 is [Object(callback), .. rest] {
               if not(callback.is_callable) {
                 raise EvalError::Throw(
                   String(
@@ -696,8 +696,8 @@ pub fn init_array_prototype(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) => {
             let len_int = len.to_int()
-            let start = if args is [Number(n), ..] { n.to_int() } else { 0 }
-            let end = if args is [_, Number(n), ..] {
+            let start = if args.0 is [Number(n), ..] { n.to_int() } else { 0 }
+            let end = if args.0 is [_, Number(n), ..] {
               n.to_int()
             } else {
               len_int
@@ -802,12 +802,9 @@ pub fn init_array_prototype(
                 None => arr.push(JSValue::Undefined)
               }
             }
-            let compare_fn = if args is [Object(f), ..] {
-              if f.is_callable {
-                Some(f)
-              } else {
-                None
-              }
+            let compare_fn = if args[0]
+              is Object({ is_callable: true, .. } as f) {
+              Some(f)
             } else {
               None
             }
@@ -871,7 +868,7 @@ pub fn init_array_prototype(
             { properties: { "length": Number(len), .. } as properties, .. }
           ) => {
             let len_int = len.to_int()
-            let start = if args is [Number(n), ..] { n.to_int() } else { 0 }
+            let start = if args.0 is [Number(n), ..] { n.to_int() } else { 0 }
             let mut actual_start = start
             if actual_start < 0 {
               actual_start = len_int + actual_start
@@ -882,7 +879,7 @@ pub fn init_array_prototype(
             if actual_start > len_int {
               actual_start = len_int
             }
-            let delete_count = if args is [_, Number(n), ..] {
+            let delete_count = if args.0 is [_, Number(n), ..] {
               n.to_int()
             } else if args.length() >= 2 {
               0 // Should handle non-number
@@ -1140,7 +1137,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
       // isArray
       let is_array_fn = Native(fn(_ctx, _this_val, args) {
         JSValue::Boolean(
-          match args {
+          match args.0 {
             [Object({ properties: { "length": Number(_), .. }, .. }), ..] =>
               true
             _ => false
@@ -1156,8 +1153,8 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
 
       // from
       let from_fn = Native(fn(ctx, this_val, args) raise EvalError {
-        let items = if args is [items, ..] { items } else { JSValue::Undefined }
-        let map_fn : JSObject? = if args is [_, arg_map_fn, ..] {
+        let items = args[0]
+        let map_fn : JSObject? = if args.0 is [_, arg_map_fn, ..] {
           match arg_map_fn {
             Object(f) =>
               if f.is_callable {
@@ -1197,11 +1194,7 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         } else {
           None
         }
-        let this_arg = if args is [_, _, this_arg, ..] {
-          this_arg
-        } else {
-          JSValue::Undefined
-        }
+        let this_arg = args[2]
         match items {
           Null | Undefined =>
             raise EvalError::Throw(
@@ -1223,6 +1216,14 @@ pub fn init_array_constructor(array_ctor : JSValue) -> Unit {
         }
         if iterator_method is Object(iter_fn) && iter_fn.is_callable {
           let iterator = ctx.invoke(iter_fn, items, []) catch { e => raise e }
+          // Check if iterator is an object as required by spec
+          match iterator {
+            Object(_) => ()
+            _ =>
+              raise EvalError::Throw(
+                JSValue::String("TypeError: Iterator result must be an object"),
+              )
+          }
           let new_array_val = match this_val {
             Object(ctor) => {
               let is_ctor = match ctor.call_info {

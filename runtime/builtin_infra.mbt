@@ -12,7 +12,7 @@ pub(all) struct BuiltinProperty {
 /// 辅助函数：快速创建内置方法描述
 pub fn prop_method(
   name : String,
-  f : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
+  f : NativeFunction,
   length? : Int = 0,
   enumerable? : Bool = false,
   configurable? : Bool = true,
@@ -99,7 +99,7 @@ pub fn populate_builtin(obj : JSObject, props : Array[BuiltinProperty]) -> Unit 
 /// 从 Array[JSValue] 创建 JS Array 对象
 pub fn create_array_from_values(
   ctx : Context,
-  values : Array[JSValue],
+  values : JSArgs,
 ) -> JSValue {
   let array_proto = match ctx.resolve("Array") {
     Object(f) => f.get("prototype")
@@ -120,7 +120,9 @@ pub fn iterator_close(ctx : Context, iterator : JSValue) -> Unit {
   match return_val {
     Object(f) =>
       if f.is_callable {
-        let _ = ctx.invoke(f, iterator, []) catch { _ => Undefined }
+        let _ = ctx.invoke(f, iterator, JSArgs::empty()) catch {
+          _ => Undefined
+        }
         ()
       }
     _ => ()

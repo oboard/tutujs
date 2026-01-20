@@ -4,13 +4,10 @@ pub fn create_bigint_constructor(
   func_proto : JSValue,
 ) -> JSValue {
   let bigint_fn_body = Native(fn(_ctx, _this_val, args) {
-    if args is [val, ..] {
-      match val {
-        BigInt(_) => val
-        _ => JSValue::BigInt(BigInt::from_int(0)) // TODO: ToBigInt conversion
-      }
-    } else {
-      JSValue::BigInt(BigInt::from_int(0))
+    let val = args[0]
+    match val {
+      BigInt(_) => val
+      _ => JSValue::BigInt(BigInt::from_int(0)) // TODO: ToBigInt conversion
     }
   })
   let bigint_fn = JSObject::new_function(

@@ -179,7 +179,7 @@ pub fn JSObject::own_keys(
       let trap = handler.get_property("ownKeys")
       match trap {
         Object({ is_callable: true, .. } as f) => {
-          let keys_list = ctx.invoke(f, handler, [target])
+          let keys_list = ctx.invoke(f, handler, JSArgs::new([target]))
           let len = keys_list.get_property("length").to_number().to_int()
           let keys = []
           for i = 0; i < len; i = i + 1 {
@@ -251,7 +251,7 @@ pub fn JSValue::bitwise_not(self : JSValue) -> JSValue {
 ///|
 pub(all) enum FunctionBody {
   User(@parser.BlockStatement)
-  Native((Context, JSValue, Array[JSValue]) -> JSValue raise EvalError)
+  Native((Context, JSValue, JSArgs) -> JSValue raise EvalError)
 } derive(Show)
 
 ///|
@@ -491,11 +491,11 @@ pub fn JSValue::get_property_internal_throwing(
             Object(f) =>
               if f.is_callable {
                 let ctx = f.call_info.unwrap().context
-                return ctx.invoke(f, handler, [
-                  target,
-                  JSValue::String(name),
-                  receiver,
-                ])
+                return ctx.invoke(
+                  f,
+                  handler,
+                  JSArgs::new([target, JSValue::String(name), receiver]),
+                )
               } else {
                 return target.get_property_internal_throwing(name, receiver)
               }
@@ -535,7 +535,7 @@ pub fn JSValue::get_property_internal_throwing(
           match v {
             Internal(Accessor(Some(getter), _)) => {
               let ctx = getter.call_info.unwrap().context
-              return ctx.invoke(getter, receiver, [])
+              return ctx.invoke(getter, receiver, JSArgs::empty())
             }
             Internal(Accessor(None, _)) => return Undefined
             _ => return v
@@ -580,12 +580,16 @@ pub fn JSValue::set_property(
             Object(f) =>
               if f.is_callable {
                 let ctx = f.call_info.unwrap().context
-                let res = ctx.invoke(f, handler, [
-                  target,
-                  JSValue::String(name),
-                  value,
-                  self,
-                ])
+                let res = ctx.invoke(
+                  f,
+                  handler,
+                  JSArgs::new([
+                    target,
+                    JSValue::String(name),
+                    value,
+                    self,
+                  ]),
+                )
                 if not(res.is_truthy()) && strict {
                   raise EvalError::Throw(
                     JSValue::String("TypeError: Proxy set trap returned false"),
@@ -604,7 +608,9 @@ pub fn JSValue::set_property(
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let ctx = setter.call_info.unwrap().context
-          let _ = ctx.invoke(setter, self, [value]) catch { e => raise e }
+          let _ = ctx.invoke(setter, self, JSArgs::new([value])) catch {
+            e => raise e
+          }
           return
         }
         Some(Internal(Accessor(_, None))) => {
@@ -716,7 +722,9 @@ pub fn JSValue::set_property(
       match properties.get(name) {
         Some(Internal(Accessor(_, Some(setter)))) => {
           let ctx = setter.call_info.unwrap().context
-          let _ = ctx.invoke(setter, self, [value]) catch { _ => Undefined }
+          let _ = ctx.invoke(setter, self, JSArgs::new([value])) catch {
+            _ => Undefined
+          }
 
         }
         Some(Internal(Accessor(_, None))) =>
@@ -775,10 +783,11 @@ pub fn JSValue::delete_property(
             match trap {
               Object(f) =>
                 if f.is_callable {
-                  let res = ctx.invoke(f, handler, [
-                    target,
-                    JSValue::String(name),
-                  ])
+                  let res = ctx.invoke(
+                    f,
+                    handler,
+                    JSArgs::new([target, JSValue::String(name)]),
+                  )
                   let is_truthy = res.is_truthy()
                   if not(is_truthy) && strict {
                     ctx.throw_type_error(
@@ -794,10 +803,11 @@ pub fn JSValue::delete_property(
                     }
                     match get_own_desc {
                       Object(get_desc_fn) if get_desc_fn.is_callable => {
-                        let desc = ctx.invoke(get_desc_fn, Undefined, [
-                          target,
-                          JSValue::String(name),
-                        ]) catch {
+                        let desc = ctx.invoke(
+                          get_desc_fn,
+                          Undefined,
+                          JSArgs::new([target, JSValue::String(name)]),
+                        ) catch {
                           _ => Undefined
                         }
                         match desc {
@@ -817,7 +827,11 @@ pub fn JSValue::delete_property(
                                 match ctor.get("isExtensible") {
                                   Object(ie) if ie.is_callable =>
                                     ctx
-                                    .invoke(ie, Undefined, [target])
+                                    .invoke(
+                                      ie,
+                                      Undefined,
+                                      JSArgs::new([target]),
+                                    )
                                     .is_truthy()
                                   _ => true
                                 }

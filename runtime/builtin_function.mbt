@@ -31,23 +31,9 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
       let call_fn = Native(fn(ctx, this_val, args) {
         match this_val {
           Object(f) =>
-            if f.is_callable {
-              let this_arg = if args is [arg0, ..] {
-                arg0
-              } else {
-                JSValue::Undefined
-              }
-              let call_args = []
-              match args {
-                [_, .. rest] =>
-                  for arg in rest {
-                    call_args.push(arg)
-                  }
-                _ => ()
-              }
-
+            if f.is_callable && args.0 is [this_arg, .. call_args] {
               // println("call_fn invoke: this_arg=\{this_arg}, args=\{call_args}")
-              ctx.invoke(f, this_arg, call_args) catch {
+              ctx.invoke(f, this_arg, JSArgs(call_args.to_array())) catch {
                 EvalError::Return(v) => v
                 e => raise e
               }
@@ -69,13 +55,9 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
         match this_val {
           Object(f) =>
             if f.is_callable {
-              let this_arg = if args is [arg0, ..] {
-                arg0
-              } else {
-                JSValue::Undefined
-              }
+              let this_arg = args[0]
               let call_args = []
-              if args is [_, arg1, ..] {
+              if args.0 is [_, arg1, ..] {
                 match arg1 {
                   Object({ properties, .. }) => {
                     let len = match properties.get("length") {
@@ -113,13 +95,9 @@ pub fn init_function_prototype(func_proto_val : JSValue) -> Unit {
         match this_val {
           Object(f) =>
             if f.is_callable {
-              let this_arg = if args is [arg0, ..] {
-                arg0
-              } else {
-                JSValue::Undefined
-              }
+              let this_arg = args[0]
               let bound_args = []
-              if args is [_, .. rest] {
+              if args.0 is [_, .. rest] {
                 for arg in rest {
                   bound_args.push(arg)
                 }
@@ -219,7 +197,7 @@ pub fn create_function_constructor(proto : JSValue) -> JSValue {
     // Argument handling
     let mut params_str = ""
     let mut body_str = ""
-    match args {
+    match args.0 {
       [] => ()
       _ => {
         let mut last_arg = JSValue::Undefined

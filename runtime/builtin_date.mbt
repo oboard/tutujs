@@ -138,10 +138,7 @@ pub fn create_date_object(
       desc_map[name] = JSValue::Object(d)
     }
   }
-  let define_method = fn(
-    name : String,
-    body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
-  ) {
+  let define_method = fn(name : String, body : NativeFunction) {
     let f = JSObject::new_function(
       name~,
       body=Native(body),
@@ -153,11 +150,7 @@ pub fn create_date_object(
       _ => ()
     }
   }
-  let define_static = fn(
-    name : String,
-    body : (Context, JSValue, Array[JSValue]) -> JSValue raise EvalError,
-    len : Int,
-  ) {
+  let define_static = fn(name : String, body : NativeFunction, len : Int) {
     let params = []
     for i = 0; i < len; i = i + 1 {
       params.push("arg" + i.to_string())
@@ -255,7 +248,7 @@ pub fn create_date_object(
   }
   let define_setter = fn(
     name : String,
-    f : (Context, @time.ZonedDateTime, Array[JSValue]) -> Double? raise EvalError,
+    f : (Context, @time.ZonedDateTime, JSArgs) -> Double? raise EvalError,
   ) {
     define_method(name, fn(ctx, this_val, args) {
       match this_val {
@@ -276,7 +269,7 @@ pub fn create_date_object(
                   }
                 None => JSValue::Number(@double.not_a_number)
               }
-            _ => JSValue::Number(@double.not_a_number)
+            _ => ctx.throw_type_error("Method called on non-Date object")
           }
         _ => ctx.throw_type_error("Method called on non-Date object")
       }
@@ -305,26 +298,6 @@ pub fn create_date_object(
       y,
       m,
       d,
-      zdt.hour(),
-      zdt.minute(),
-      zdt.second(),
-      zdt.nanosecond() / 1000000,
-    )
-  })
-  define_setter("setYear", fn(ctx, zdt, args) raise EvalError {
-    if args.length() == 0 {
-      return None
-    }
-    let n = js_to_number(ctx, args[0])
-    if n.is_nan() {
-      return None
-    }
-    let y_v = n.to_int()
-    let y = if y_v >= 0 && y_v <= 99 { 1900 + y_v } else { y_v }
-    make_date(
-      y,
-      zdt.month(),
-      zdt.day(),
       zdt.hour(),
       zdt.minute(),
       zdt.second(),
@@ -675,43 +648,116 @@ pub fn create_date_object(
       _ => JSValue::Number(@double.not_a_number)
     }
   })
-  define_getter("getFullYear", fn(zdt) { zdt.year() })
-  define_getter("getUTCFullYear", fn(zdt) { zdt.year() })
-  define_getter("getMonth", fn(zdt) { zdt.month() - 1 })
-  define_getter("getUTCMonth", fn(zdt) { zdt.month() - 1 })
-  define_getter("getDate", fn(zdt) { zdt.day() })
-  define_getter("getUTCDate", fn(zdt) { zdt.day() })
-  define_getter("getHours", fn(zdt) { zdt.hour() })
-  define_getter("getUTCHours", fn(zdt) { zdt.hour() })
-  define_getter("getMinutes", fn(zdt) { zdt.minute() })
-  define_getter("getUTCMinutes", fn(zdt) { zdt.minute() })
-  define_getter("getSeconds", fn(zdt) { zdt.second() })
-  define_getter("getUTCSeconds", fn(zdt) { zdt.second() })
-  define_getter("getMilliseconds", fn(zdt) { zdt.nanosecond() / 1000000 })
-  define_getter("getUTCMilliseconds", fn(zdt) { zdt.nanosecond() / 1000000 })
-  define_getter("getDay", fn(zdt) {
-    match zdt.weekday() {
-      @time.Sunday => 0
-      @time.Monday => 1
-      @time.Tuesday => 2
-      @time.Wednesday => 3
-      @time.Thursday => 4
-      @time.Friday => 5
-      @time.Saturday => 6
+  define_getter("getFullYear", zdt => zdt.year())
+  define_getter("getUTCFullYear", zdt => zdt.year())
+  define_getter("getMonth", zdt => zdt.month() - 1)
+  define_getter("getUTCMonth", zdt => zdt.month() - 1)
+  define_getter("getDate", zdt => zdt.day())
+  define_getter("getUTCDate", zdt => zdt.day())
+  define_getter("getHours", zdt => zdt.hour())
+  define_getter("getUTCHours", zdt => zdt.hour())
+  define_getter("getMinutes", zdt => zdt.minute())
+  define_getter("getUTCMinutes", zdt => zdt.minute())
+  define_getter("getSeconds", zdt => zdt.second())
+  define_getter("getUTCSeconds", zdt => zdt.second())
+  define_getter("getMilliseconds", zdt => zdt.nanosecond() / 1000000)
+  define_getter("getUTCMilliseconds", zdt => zdt.nanosecond() / 1000000)
+  define_getter("getDay", zdt => zdt.weekday().value())
+  define_getter("getUTCDay", zdt => zdt.weekday().value())
+  // Special handling for getYear to account for 400-year cycles
+  define_method("getYear", fn(ctx, this_val, _args) {
+    JSValue::Number(
+      match this_val {
+        Object({ properties, .. }) =>
+          match properties.get("__internal_date__") {
+            Some(Internal(Date(ms))) =>
+              if ms.is_nan() || ms.is_inf() || ms.abs() > 8.64e15 {
+                @double.not_a_number
+              } else {
+                let ms_per_400_years : Double = 146097.0 *
+                  24.0 *
+                  3600.0 *
+                  1000.0
+                let cycle = (ms / ms_per_400_years).floor().to_int()
+                let shifted_ms = ms - cycle.to_double() * ms_per_400_years
+                match ms_to_zdt(shifted_ms) {
+                  Some(zdt) => {
+                    let actual_year = zdt.year() + cycle * 400
+                    (actual_year - 1900).to_double()
+                  }
+                  None => @double.not_a_number
+                }
+              }
+            _ =>
+              ctx.throw_type_error(
+                "Method getYear called on incompatible receiver",
+              )
+          }
+        _ =>
+          ctx.throw_type_error("Method getYear called on incompatible receiver")
+      },
+    )
+  })
+  // Special handling for setYear to handle NaN dates correctly
+  define_method("setYear", fn(ctx, this_val, args) raise EvalError {
+    if args.length() == 0 {
+      return JSValue::Number(@double.not_a_number)
+    }
+    match this_val {
+      Object({ properties, .. }) =>
+        match properties.get("__internal_date__") {
+          Some(Internal(Date(ms))) => {
+            let n = js_to_number(ctx, args[0])
+            if n.is_nan() {
+              properties.remove("__internal_date__")
+              return JSValue::Number(@double.not_a_number)
+            }
+            let y_v = n.to_int()
+            let y = if y_v >= 0 && y_v <= 99 { 1900 + y_v } else { y_v }
+
+            // Handle NaN dates by using 1970-01-01 as base
+            let base_zdt = if ms.is_nan() || ms.is_inf() || ms.abs() > 8.64e15 {
+              @time.unix(0, zone=@time.utc_zone) catch {
+                _ => return JSValue::Number(@double.not_a_number)
+              }
+            } else {
+              match ms_to_zdt(ms) {
+                Some(zdt) => zdt
+                None =>
+                  @time.unix(0, zone=@time.utc_zone) catch {
+                    _ => return JSValue::Number(@double.not_a_number)
+                  }
+              }
+            }
+            match
+              make_date(
+                y,
+                base_zdt.month(),
+                base_zdt.day(),
+                base_zdt.hour(),
+                base_zdt.minute(),
+                base_zdt.second(),
+                base_zdt.nanosecond() / 1000000,
+              ) {
+              Some(new_ms) => {
+                properties["__internal_date__"] = Internal(Date(new_ms))
+                JSValue::Number(new_ms)
+              }
+              None => {
+                properties.remove("__internal_date__")
+                JSValue::Number(@double.not_a_number)
+              }
+            }
+          }
+          _ =>
+            ctx.throw_type_error(
+              "Method setYear called on incompatible receiver",
+            )
+        }
+      _ =>
+        ctx.throw_type_error("Method setYear called on incompatible receiver")
     }
   })
-  define_getter("getUTCDay", fn(zdt) {
-    match zdt.weekday() {
-      @time.Sunday => 0
-      @time.Monday => 1
-      @time.Tuesday => 2
-      @time.Wednesday => 3
-      @time.Thursday => 4
-      @time.Friday => 5
-      @time.Saturday => 6
-    }
-  })
-  define_getter("getYear", fn(zdt) { zdt.year() - 1900 })
   define_method("getTime", fn(_ctx, this_val, _args) {
     match this_val {
       Object({ properties, .. }) =>
@@ -866,7 +912,7 @@ pub fn create_date_object(
   define_property(date_proto_obj, "toGMTString", toUTCStringFunc, false)
   let toPrimitive = JSValue::Symbol(1010, "Symbol.toPrimitive").to_property_key()
   define_method(toPrimitive, fn(ctx, this_val, args) raise EvalError {
-    let hint = match args {
+    let hint = match args.0 {
       [String(s)] => s.to_string()
       _ => "default"
     }

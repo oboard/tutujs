@@ -672,7 +672,7 @@ fn parse_escape_char(p : RegexpParser, allow_utf16 : Bool) -> Int? {
             }
           }
           let res = run()
-          if res.is_empty() {
+          if res is None {
             p.pos = saved
           }
           res

@@ -44,10 +44,7 @@ pub fn create_json_object(
 
   // JSON.parse
   let parse_fn = Native(fn(ctx, _this_val, args) {
-    let text = match args.get(0) {
-      Some(v) => js_to_string(ctx, v)
-      None => "undefined"
-    }
+    let text = js_to_string(ctx, args[0])
     let lexer = @lexer.Lexer::new(text)
     lexer.set_json_mode(true)
     let tokens = lexer.tokenize()
@@ -73,7 +70,7 @@ pub fn create_json_object(
     let val = ctx.evaluate(Expression(expr)) catch {
       _ => ctx.throw_syntax_error("Invalid JSON")
     }
-    match args {
+    match args.0 {
       [_, reviver_arg, ..] =>
         match reviver_arg {
           Object(reviver) =>
@@ -135,9 +132,9 @@ pub fn create_json_object(
 
   // JSON.stringify
   let stringify_fn = Native(fn(ctx, _this_val, args) {
-    if args is [value, ..] {
-      let replacer = args.get(1).unwrap_or(JSValue::Undefined)
-      let space = args.get(2).unwrap_or(JSValue::Undefined)
+    if args.0 is [value, ..] {
+      let replacer = args[1]
+      let space = args[2]
 
       // Process space
       let mut gap : StringView = ""

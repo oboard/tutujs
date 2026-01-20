@@ -74,7 +74,7 @@ pub fn init_object_prototype(
       obj["toLocaleString"] = JSValue::Object(to_locale_string_obj)
 
       // hasOwnProperty
-      let has_own_property_fn = Native((_ctx, this_val, args) => if args
+      let has_own_property_fn = Native((_ctx, this_val, args) => if args.0
         is [prop, ..] {
         let key = prop.to_property_key()
         match this_val {
@@ -112,7 +112,7 @@ pub fn init_object_prototype(
       obj["hasOwnProperty"] = JSValue::Object(has_own_property_obj)
 
       // isPrototypeOf
-      let is_prototype_of_fn = Native((_ctx, this_val, args) => if args
+      let is_prototype_of_fn = Native((_ctx, this_val, args) => if args.0
         is [arg, ..] {
         match arg {
           Object(o) => {
@@ -147,7 +147,7 @@ pub fn init_object_prototype(
       obj["isPrototypeOf"] = JSValue::Object(is_prototype_of_obj)
 
       // propertyIsEnumerable
-      let property_is_enumerable_fn = Native((ctx, this_val, args) => if args
+      let property_is_enumerable_fn = Native((ctx, this_val, args) => if args.0
         is [prop, ..] {
         let key = prop.to_property_key()
         match this_val {
@@ -165,31 +165,30 @@ pub fn init_object_prototype(
               None => false
             }
             if is_global &&
-              (
-                key == "Map" ||
-                key == "Set" ||
-                key == "WeakMap" ||
-                key == "WeakSet" ||
-                key == "Promise" ||
-                key == "Symbol" ||
-                key == "Reflect" ||
-                key == "JSON" ||
-                key == "Math" ||
-                key == "Date" ||
-                key == "RegExp" ||
-                key == "Error" ||
-                key == "eval" ||
-                key == "parseInt" ||
-                key == "parseFloat" ||
-                key == "isNaN" ||
-                key == "isFinite" ||
-                key == "Object" ||
-                key == "Function" ||
-                key == "Array" ||
-                key == "String" ||
-                key == "Number" ||
-                key == "Boolean"
-              ) {
+              key
+              is ("Map"
+              | "Set"
+              | "WeakMap"
+              | "WeakSet"
+              | "Promise"
+              | "Symbol"
+              | "Reflect"
+              | "JSON"
+              | "Math"
+              | "Date"
+              | "RegExp"
+              | "Error"
+              | "eval"
+              | "parseInt"
+              | "parseFloat"
+              | "isNaN"
+              | "isFinite"
+              | "Object"
+              | "Function"
+              | "Array"
+              | "String"
+              | "Number"
+              | "Boolean") {
               return Boolean(false)
             }
 
@@ -338,7 +337,7 @@ pub fn create_object_constructor(
     }
   }
   let object_fn_body = Native(fn(ctx, this_val, args) {
-    if args is [val, ..] {
+    if args.0 is [val, ..] {
       let is_subclass_this = match this_val {
         Object({ prototype: Some(p), .. }) => not(p.strict_equal(proto))
         _ => false
@@ -471,7 +470,7 @@ pub fn create_object_constructor(
 
   // Object.keys
   let keys_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       // Proxy trap
       match obj_arg {
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
@@ -624,7 +623,7 @@ pub fn create_object_constructor(
 
   // Object.create
   let create_fn = Native(fn(ctx, _this_val, args) {
-    if args is [proto_arg, ..] {
+    if args.0 is [proto_arg, ..] {
       match proto_arg {
         Object(_) | Null =>
           JSValue::Object(JSObject::new(properties={}, prototype=proto_arg))
@@ -650,7 +649,7 @@ pub fn create_object_constructor(
 
   // Object.is
   let is_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [v1, v2, ..] {
+    if args.0 is [v1, v2, ..] {
       JSValue::Boolean(v1.strict_equal(v2))
     } else {
       JSValue::Boolean(false)
@@ -666,7 +665,7 @@ pub fn create_object_constructor(
 
   // Object.assign
   let assign_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [target_arg, ..] {
+    if args.0 is [target_arg, ..] {
       let properties = match target_arg {
         Object({ properties, .. }) => properties
         _ => return target_arg
@@ -697,7 +696,7 @@ pub fn create_object_constructor(
 
   // Object.defineProperty (Simplified but handles accessors)
   let define_property_fn = Native(fn(ctx, _this_val, args) {
-    if args
+    if args.0
       is [
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) as proxy,
         prop_arg,
@@ -719,7 +718,7 @@ pub fn create_object_constructor(
         _ => ()
       }
     }
-    if args
+    if args.0
       is [
         Object({ properties, .. } as o),
         prop_arg,
@@ -939,7 +938,7 @@ pub fn create_object_constructor(
 
   // Object.defineProperties
   let define_properties_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, props_arg, ..] {
+    if args.0 is [obj_arg, props_arg, ..] {
       if not(obj_arg.is_object()) {
         ctx.throw_type_error("Object.defineProperties called on non-object")
       }
@@ -993,7 +992,7 @@ pub fn create_object_constructor(
 
   // Object.freeze
   let freeze_fn = Native(fn(ctx, _this_val, args) raise EvalError {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       match obj_arg {
         Object(o) => {
           // 1. Prevent Extensions
@@ -1136,13 +1135,10 @@ pub fn create_object_constructor(
 
   // Object.isFrozen
   let is_frozen_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
-      match obj_arg {
-        Object(o) => JSValue::Boolean(o.is_frozen)
-        _ => JSValue::Boolean(true) // Primitives are always frozen in ES6+
-      }
-    } else {
-      JSValue::Boolean(true)
+    let obj_arg = args[0]
+    match obj_arg {
+      Object(o) => JSValue::Boolean(o.is_frozen)
+      _ => JSValue::Boolean(true) // Primitives are always frozen in ES6+
     }
   })
   let is_frozen_obj = JSObject::new_function(
@@ -1155,7 +1151,7 @@ pub fn create_object_constructor(
 
   // Object.seal
   let seal_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       match obj_arg {
         Object(o) => {
           o.extensible = false
@@ -1178,13 +1174,13 @@ pub fn create_object_constructor(
 
   // Object.isSealed
   let is_sealed_fn = Native(fn(_ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
-      match obj_arg {
-        Object(o) => JSValue::Boolean(o.is_sealed)
-        _ => JSValue::Boolean(true)
-      }
-    } else {
-      JSValue::Boolean(true)
+    let obj_arg = args[0]
+    if obj_arg == Undefined {
+      return JSValue::Boolean(true)
+    }
+    match obj_arg {
+      Object(o) => JSValue::Boolean(o.is_sealed)
+      _ => JSValue::Boolean(true)
     }
   })
   let is_sealed_obj = JSObject::new_function(
@@ -1197,7 +1193,7 @@ pub fn create_object_constructor(
 
   // Object.preventExtensions
   let prevent_extensions_fn = Native(fn(ctx, _this_val, args) {
-    if args
+    if args.0
       is [
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) as proxy,
         ..,
@@ -1215,17 +1211,11 @@ pub fn create_object_constructor(
         _ => ()
       }
     }
-    if args is [obj_arg, ..] {
-      match obj_arg {
-        Object(o) => {
-          o.extensible = false
-          obj_arg
-        }
-        _ => obj_arg
-      }
-    } else {
-      JSValue::Undefined
+    let obj_arg = args[0]
+    if obj_arg is Object(o) {
+      o.extensible = false
     }
+    obj_arg
   })
   let prevent_extensions_obj = JSObject::new_function(
     name="preventExtensions",
@@ -1236,7 +1226,7 @@ pub fn create_object_constructor(
 
   // Object.isExtensible
   let is_extensible_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       // Proxy trap
       match obj_arg {
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
@@ -1289,7 +1279,7 @@ pub fn create_object_constructor(
 
   // Object.getOwnPropertySymbols
   let get_own_property_symbols_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       // Proxy trap
       match obj_arg {
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
@@ -1479,465 +1469,459 @@ pub fn create_object_constructor(
 
   // Object.getOwnPropertyDescriptor
   let get_own_property_descriptor_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
-      let prop_arg = if args.length() > 1 {
-        args[1]
-      } else {
-        JSValue::Undefined
-      }
-      // Proxy trap
-      match obj_arg {
-        Object(o) if o.is_proxy => {
-          let (target, handler) = match (o.proxy_target, o.proxy_handler) {
-            (Some(t), Some(h)) => (t, h)
-            _ =>
+    let obj_arg = args[0]
+    if obj_arg == Undefined {
+      return Undefined
+    }
+    let prop_arg = if args.length() > 1 { args[1] } else { JSValue::Undefined }
+    // Proxy trap
+    match obj_arg {
+      Object(o) if o.is_proxy => {
+        let (target, handler) = match (o.proxy_target, o.proxy_handler) {
+          (Some(t), Some(h)) => (t, h)
+          _ =>
+            ctx.throw_type_error(
+              "Cannot perform 'getOwnPropertyDescriptor' on a revoked proxy",
+            )
+        }
+        let trap = handler.get_property("getOwnPropertyDescriptor")
+        match trap {
+          Object(f) if f.is_callable => {
+            let trap_res = ctx.invoke(f, handler, [target, prop_arg]) catch {
+              e => raise e
+            }
+            if not(trap_res.is_object()) && trap_res != Undefined {
               ctx.throw_type_error(
-                "Cannot perform 'getOwnPropertyDescriptor' on a revoked proxy",
+                "Proxy getOwnPropertyDescriptor trap must return an object or undefined",
               )
-          }
-          let trap = handler.get_property("getOwnPropertyDescriptor")
-          match trap {
-            Object(f) if f.is_callable => {
-              let trap_res = ctx.invoke(f, handler, [target, prop_arg]) catch {
-                e => raise e
+            }
+            // Invariant checks
+            let target_desc = match ctx.resolve("Object") {
+              Object(ctor) =>
+                match ctor.get("getOwnPropertyDescriptor") {
+                  Object(gopd) if gopd.is_callable =>
+                    ctx.invoke(gopd, Undefined, [target, prop_arg]) catch {
+                      _ => Undefined
+                    }
+                  _ => Undefined
+                }
+              _ => Undefined
+            }
+            if trap_res == Undefined {
+              match target_desc {
+                Object(d) => {
+                  let configurable = match d.get("configurable") {
+                    Boolean(b) => b
+                    _ => true
+                  }
+                  if not(configurable) {
+                    ctx.throw_type_error(
+                      "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for non-configurable property",
+                    )
+                  }
+                }
+                _ => ()
               }
-              if not(trap_res.is_object()) && trap_res != Undefined {
+              // Check if target is non-extensible
+              let is_ext = match ctx.resolve("Object") {
+                Object(ctor) =>
+                  match ctor.get("isExtensible") {
+                    Object(ie) if ie.is_callable =>
+                      ctx.invoke(ie, Undefined, [target]).is_truthy()
+                    _ => true
+                  }
+                _ => true
+              }
+              if not(is_ext) && target_desc != Undefined {
                 ctx.throw_type_error(
-                  "Proxy getOwnPropertyDescriptor trap must return an object or undefined",
+                  "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for existing property on non-extensible target",
                 )
               }
-              // Invariant checks
-              let target_desc = match ctx.resolve("Object") {
-                Object(ctor) =>
-                  match ctor.get("getOwnPropertyDescriptor") {
-                    Object(gopd) if gopd.is_callable =>
-                      ctx.invoke(gopd, Undefined, [target, prop_arg]) catch {
-                        _ => Undefined
-                      }
-                    _ => Undefined
+              return Undefined
+            }
+            // Normalize trap_res
+            match trap_res {
+              Object(tr_obj) => {
+                let res_desc = JSObject::new(
+                  prototype=ctx.resolve("Object").get_property("prototype"),
+                )
+                // Copy properties and complete them
+                let keys = [
+                  "value", "writable", "get", "set", "enumerable", "configurable",
+                ]
+                let is_accessor = tr_obj.get("get") != Undefined ||
+                  tr_obj.get("set") != Undefined
+                for k in keys {
+                  let v = tr_obj.get(k)
+                  if v != Undefined {
+                    res_desc[k] = v
+                    // CompletePropertyDescriptor
+                  } else if k == "enumerable" ||
+                    k == "configurable" ||
+                    k == "writable" {
+                    if k == "writable" && is_accessor {
+                      () // writable is not for accessors
+                    } else {
+                      res_desc[k] = JSValue::Boolean(false)
+                    }
+                  } else if k == "value" || k == "get" || k == "set" {
+                    res_desc[k] = Undefined
                   }
-                _ => Undefined
-              }
-              if trap_res == Undefined {
+                }
+                // Invariant: non-configurable property
                 match target_desc {
-                  Object(d) => {
-                    let configurable = match d.get("configurable") {
+                  Object(td) => {
+                    let t_conf = match td.get("configurable") {
                       Boolean(b) => b
                       _ => true
                     }
-                    if not(configurable) {
+                    let r_conf = match res_desc.get("configurable") {
+                      Boolean(b) => b
+                      _ => false
+                    }
+                    if t_conf && not(r_conf) {
                       ctx.throw_type_error(
-                        "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for non-configurable property",
+                        "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for configurable property",
                       )
                     }
-                  }
-                  _ => ()
-                }
-                // Check if target is non-extensible
-                let is_ext = match ctx.resolve("Object") {
-                  Object(ctor) =>
-                    match ctor.get("isExtensible") {
-                      Object(ie) if ie.is_callable =>
-                        ctx.invoke(ie, Undefined, [target]).is_truthy()
-                      _ => true
-                    }
-                  _ => true
-                }
-                if not(is_ext) && target_desc != Undefined {
-                  ctx.throw_type_error(
-                    "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report undefined for existing property on non-extensible target",
-                  )
-                }
-                return Undefined
-              }
-              // Normalize trap_res
-              match trap_res {
-                Object(tr_obj) => {
-                  let res_desc = JSObject::new(
-                    prototype=ctx.resolve("Object").get_property("prototype"),
-                  )
-                  // Copy properties and complete them
-                  let keys = [
-                    "value", "writable", "get", "set", "enumerable", "configurable",
-                  ]
-                  let is_accessor = tr_obj.get("get") != Undefined ||
-                    tr_obj.get("set") != Undefined
-                  for k in keys {
-                    let v = tr_obj.get(k)
-                    if v != Undefined {
-                      res_desc[k] = v
-                      // CompletePropertyDescriptor
-                    } else if k == "enumerable" ||
-                      k == "configurable" ||
-                      k == "writable" {
-                      if k == "writable" && is_accessor {
-                        () // writable is not for accessors
-                      } else {
-                        res_desc[k] = JSValue::Boolean(false)
+                    if not(t_conf) {
+                      if r_conf {
+                        ctx.throw_type_error(
+                          "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report configurable for non-configurable property",
+                        )
                       }
-                    } else if k == "value" || k == "get" || k == "set" {
-                      res_desc[k] = Undefined
-                    }
-                  }
-                  // Invariant: non-configurable property
-                  match target_desc {
-                    Object(td) => {
-                      let t_conf = match td.get("configurable") {
-                        Boolean(b) => b
-                        _ => true
-                      }
-                      let r_conf = match res_desc.get("configurable") {
+                      // Check compatibility
+                      let t_writable = match td.get("writable") {
                         Boolean(b) => b
                         _ => false
                       }
-                      if t_conf && not(r_conf) {
-                        ctx.throw_type_error(
-                          "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for configurable property",
-                        )
-                      }
-                      if not(t_conf) {
-                        if r_conf {
-                          ctx.throw_type_error(
-                            "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report configurable for non-configurable property",
-                          )
-                        }
-                        // Check compatibility
-                        let t_writable = match td.get("writable") {
+                      if not(t_writable) {
+                        let r_writable = match res_desc.get("writable") {
                           Boolean(b) => b
                           _ => false
                         }
-                        if not(t_writable) {
-                          let r_writable = match res_desc.get("writable") {
-                            Boolean(b) => b
-                            _ => false
-                          }
-                          if r_writable {
-                            ctx.throw_type_error(
-                              "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report writable for non-writable property",
-                            )
-                          }
+                        if r_writable {
+                          ctx.throw_type_error(
+                            "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report writable for non-writable property",
+                          )
                         }
                       }
                     }
-                    _ => {
-                      // target_desc is undefined
-                      let is_ext = match ctx.resolve("Object") {
-                        Object(ctor) =>
-                          match ctor.get("isExtensible") {
-                            Object(ie) if ie.is_callable =>
-                              ctx.invoke(ie, Undefined, [target]).is_truthy()
-                            _ => true
-                          }
-                        _ => true
-                      }
-                      if not(is_ext) {
-                        ctx.throw_type_error(
-                          "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report new property on non-extensible target",
-                        )
-                      }
-                      let r_conf = match res_desc.get("configurable") {
-                        Boolean(b) => b
-                        _ => false
-                      }
-                      if not(r_conf) {
-                        ctx.throw_type_error(
-                          "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for non-existent property",
-                        )
-                      }
+                  }
+                  _ => {
+                    // target_desc is undefined
+                    let is_ext = match ctx.resolve("Object") {
+                      Object(ctor) =>
+                        match ctor.get("isExtensible") {
+                          Object(ie) if ie.is_callable =>
+                            ctx.invoke(ie, Undefined, [target]).is_truthy()
+                          _ => true
+                        }
+                      _ => true
+                    }
+                    if not(is_ext) {
+                      ctx.throw_type_error(
+                        "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report new property on non-extensible target",
+                      )
+                    }
+                    let r_conf = match res_desc.get("configurable") {
+                      Boolean(b) => b
+                      _ => false
+                    }
+                    if not(r_conf) {
+                      ctx.throw_type_error(
+                        "Proxy getOwnPropertyDescriptor trap invariant violated: cannot report non-configurable for non-existent property",
+                      )
                     }
                   }
-                  return JSValue::Object(res_desc)
                 }
-                _ => return Undefined // Should be unreachable
+                return JSValue::Object(res_desc)
               }
+              _ => return Undefined // Should be unreachable
             }
-            Undefined | Null => {
-              let gopd = match ctx.resolve("Object") {
-                Object(ctor) => ctor.get("getOwnPropertyDescriptor")
-                _ => Undefined
-              }
-              match gopd {
-                Object(f) if f.is_callable =>
-                  return ctx.invoke(f, Undefined, [target, prop_arg])
-                _ => ()
-              }
+          }
+          Undefined | Null => {
+            let gopd = match ctx.resolve("Object") {
+              Object(ctor) => ctor.get("getOwnPropertyDescriptor")
+              _ => Undefined
             }
-            _ =>
-              ctx.throw_type_error(
-                "Proxy getOwnPropertyDescriptor trap is not a function",
-              )
-          }
-        }
-        _ => ()
-      }
-
-      // Check if obj_arg is global object
-      let is_global = match ctx.resolve("globalThis") {
-        Object(g) => {
-          let g_val = JSValue::Object(g)
-          g_val.strict_equal(obj_arg) ||
-          (match obj_arg {
-            Object(o) if o.is_proxy =>
-              match o.proxy_target {
-                Some(t) => t.strict_equal(g_val)
-                _ => false
-              }
-            _ => false
-          })
-        }
-        _ => false
-      }
-      let (
-        obj_props,
-        is_func,
-        is_native_func,
-        is_string_obj,
-        is_frozen,
-        is_sealed,
-        is_array,
-      ) = match obj_arg {
-        Object(o) => {
-          let properties = o.properties
-          let is_frozen = o.is_frozen
-          let is_sealed = o.is_sealed
-          let is_func = o.is_callable
-          let is_native = match o.call_info {
-            Some({ body: Native(_), .. }) => true
-            _ => false
-          }
-          let is_str = match properties.get("PrimitiveValue") {
-            Some(String(_)) => true
-            _ => false
-          }
-          let is_array = not(is_func) &&
-            not(is_str) &&
-            properties.contains("length")
-          (
-            properties, is_func, is_native, is_str, is_frozen, is_sealed, is_array,
-          )
-        }
-        _ => {
-          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
-            ctx.throw_type_error("Cannot convert undefined or null to object")
-          }
-          return JSValue::Undefined
-        }
-      }
-      let prop = match prop_arg {
-        _ => prop_arg.to_property_key()
-      }
-      if prop == "length" && not(is_string_obj) {
-        // Force check PrimitiveValue
-        let has_prim = obj_props.contains("PrimitiveValue")
-        if has_prim {
-          // If it has PrimitiveValue but is_string_obj is false, it must be that match failed.
-          match obj_props.get("PrimitiveValue") {
-            Some(String(_)) => () // Should be true
-            Some(_) => () // Not a string?
-            None => ()
-          }
-        }
-      }
-      if is_string_obj {
-        let (len, str_val) = match obj_arg {
-          Object({ proxy_target: Some(Object(t)), .. }) => {
-            let l = match t.properties.get("length") {
-              Some(Number(n)) => n.to_int()
-              _ => 0
-            }
-            let s = match t.properties.get("PrimitiveValue") {
-              Some(String(s)) => s
-              _ => ""
-            }
-            (l, s)
-          }
-          Object(o) => {
-            let l = match o.properties.get("length") {
-              Some(Number(n)) => n.to_int()
-              _ => 0
-            }
-            let s = match o.properties.get("PrimitiveValue") {
-              Some(String(s)) => s
-              _ => ""
-            }
-            (l, s)
-          }
-          _ => (0, "")
-        }
-        let idx = @strconv.parse_int(prop) catch { _ => -1 }
-        if idx >= 0 && idx < len {
-          let char_code = str_val[idx].to_int()
-          let c = match char_code.to_char() {
-            Some(c) => c
-            None => ' '
-          }
-          let char_str = String::make(1, c)
-          let desc = JSObject::new(properties={}, prototype=proto)
-          desc["value"] = JSValue::String(char_str)
-          desc["writable"] = JSValue::Boolean(false)
-          desc["enumerable"] = JSValue::Boolean(true)
-          desc["configurable"] = JSValue::Boolean(false)
-          return JSValue::Object(desc)
-        }
-      }
-      match obj_props.get(prop) {
-        Some(val) => {
-          let desc = JSObject::new(properties={}, prototype=proto)
-          // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
-
-          // Check for custom descriptors
-          let custom_desc = match obj_props.get("__descriptors") {
-            Some(Object(d)) => d.properties.get(prop)
-            _ => None
-          }
-          match custom_desc {
-            Some(Object(cd)) =>
-              for k, v in cd.properties {
-                desc[k] = v
-              }
-            _ => ()
-          }
-          if prop == "Proxy" {
-            // Check if it's the global object more directly
-            match ctx.resolve("globalThis") {
-              Object(g) if JSValue::Object(g).strict_equal(obj_arg) =>
-                desc["enumerable"] = JSValue::Boolean(false)
+            match gopd {
+              Object(f) if f.is_callable =>
+                return ctx.invoke(f, Undefined, [target, prop_arg])
               _ => ()
             }
           }
-          if custom_desc is Some(Object(_)) {
-            return JSValue::Object(desc)
-          }
-          match val {
-            Internal(Accessor(getter, setter)) => {
-              desc["get"] = getter.map(JSValue::Object(_)).unwrap_or(Undefined)
-              desc["set"] = setter.map(JSValue::Object(_)).unwrap_or(Undefined)
-              desc["enumerable"] = JSValue::Boolean(true)
-              desc["configurable"] = JSValue::Boolean(not(is_sealed))
+          _ =>
+            ctx.throw_type_error(
+              "Proxy getOwnPropertyDescriptor trap is not a function",
+            )
+        }
+      }
+      _ => ()
+    }
+
+    // Check if obj_arg is global object
+    let is_global = match ctx.resolve("globalThis") {
+      Object(g) => {
+        let g_val = JSValue::Object(g)
+        g_val.strict_equal(obj_arg) ||
+        (match obj_arg {
+          Object(o) if o.is_proxy =>
+            match o.proxy_target {
+              Some(t) => t.strict_equal(g_val)
+              _ => false
             }
-            _ => {
-              let is_symbol_to_string_tag = prop.contains("toStringTag")
-              if is_symbol_to_string_tag {
-                let d_props = {
-                  "writable": JSValue::Boolean(false),
-                  "enumerable": JSValue::Boolean(false),
-                  "configurable": JSValue::Boolean(true),
-                  "value": val,
-                }
-                return JSValue::Object(
-                  JSObject::new(properties=d_props, prototype=proto),
-                )
+          _ => false
+        })
+      }
+      _ => false
+    }
+    let (
+      obj_props,
+      is_func,
+      is_native_func,
+      is_string_obj,
+      is_frozen,
+      is_sealed,
+      is_array,
+    ) = match obj_arg {
+      Object(o) => {
+        let properties = o.properties
+        let is_frozen = o.is_frozen
+        let is_sealed = o.is_sealed
+        let is_func = o.is_callable
+        let is_native = match o.call_info {
+          Some({ body: Native(_), .. }) => true
+          _ => false
+        }
+        let is_str = match properties.get("PrimitiveValue") {
+          Some(String(_)) => true
+          _ => false
+        }
+        let is_array = not(is_func) &&
+          not(is_str) &&
+          properties.contains("length")
+        (properties, is_func, is_native, is_str, is_frozen, is_sealed, is_array)
+      }
+      _ => {
+        if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+          ctx.throw_type_error("Cannot convert undefined or null to object")
+        }
+        return JSValue::Undefined
+      }
+    }
+    let prop = match prop_arg {
+      _ => prop_arg.to_property_key()
+    }
+    if prop == "length" && not(is_string_obj) {
+      // Force check PrimitiveValue
+      let has_prim = obj_props.contains("PrimitiveValue")
+      if has_prim {
+        // If it has PrimitiveValue but is_string_obj is false, it must be that match failed.
+        match obj_props.get("PrimitiveValue") {
+          Some(String(_)) => () // Should be true
+          Some(_) => () // Not a string?
+          None => ()
+        }
+      }
+    }
+    if is_string_obj {
+      let (len, str_val) = match obj_arg {
+        Object({ proxy_target: Some(Object(t)), .. }) => {
+          let l = match t.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          let s = match t.properties.get("PrimitiveValue") {
+            Some(String(s)) => s
+            _ => ""
+          }
+          (l, s)
+        }
+        Object(o) => {
+          let l = match o.properties.get("length") {
+            Some(Number(n)) => n.to_int()
+            _ => 0
+          }
+          let s = match o.properties.get("PrimitiveValue") {
+            Some(String(s)) => s
+            _ => ""
+          }
+          (l, s)
+        }
+        _ => (0, "")
+      }
+      let idx = @strconv.parse_int(prop) catch { _ => -1 }
+      if idx >= 0 && idx < len {
+        let char_code = str_val[idx].to_int()
+        let c = match char_code.to_char() {
+          Some(c) => c
+          None => ' '
+        }
+        let char_str = String::make(1, c)
+        let desc = JSObject::new(properties={}, prototype=proto)
+        desc["value"] = JSValue::String(char_str)
+        desc["writable"] = JSValue::Boolean(false)
+        desc["enumerable"] = JSValue::Boolean(true)
+        desc["configurable"] = JSValue::Boolean(false)
+        return JSValue::Object(desc)
+      }
+    }
+    match obj_props.get(prop) {
+      Some(val) => {
+        let desc = JSObject::new(properties={}, prototype=proto)
+        // println("DEBUG: getOwnPropertyDescriptor prop=" + prop)
+
+        // Check for custom descriptors
+        let custom_desc = match obj_props.get("__descriptors") {
+          Some(Object(d)) => d.properties.get(prop)
+          _ => None
+        }
+        match custom_desc {
+          Some(Object(cd)) =>
+            for k, v in cd.properties {
+              desc[k] = v
+            }
+          _ => ()
+        }
+        if prop == "Proxy" {
+          // Check if it's the global object more directly
+          match ctx.resolve("globalThis") {
+            Object(g) if JSValue::Object(g).strict_equal(obj_arg) =>
+              desc["enumerable"] = JSValue::Boolean(false)
+            _ => ()
+          }
+        }
+        if custom_desc is Some(Object(_)) {
+          return JSValue::Object(desc)
+        }
+        match val {
+          Internal(Accessor(getter, setter)) => {
+            desc["get"] = getter.map(JSValue::Object(_)).unwrap_or(Undefined)
+            desc["set"] = setter.map(JSValue::Object(_)).unwrap_or(Undefined)
+            desc["enumerable"] = JSValue::Boolean(true)
+            desc["configurable"] = JSValue::Boolean(not(is_sealed))
+          }
+          _ => {
+            let is_symbol_to_string_tag = prop.contains("toStringTag")
+            if is_symbol_to_string_tag {
+              let d_props = {
+                "writable": JSValue::Boolean(false),
+                "enumerable": JSValue::Boolean(false),
+                "configurable": JSValue::Boolean(true),
+                "value": val,
               }
-              let is_symbol_iterator = prop.contains("iterator")
-              if is_symbol_iterator {
-                let d_props = {
-                  "writable": JSValue::Boolean(true),
-                  "enumerable": JSValue::Boolean(false),
-                  "configurable": JSValue::Boolean(true),
-                  "value": val,
-                }
-                return JSValue::Object(
-                  JSObject::new(properties=d_props, prototype=proto),
-                )
+              return JSValue::Object(
+                JSObject::new(properties=d_props, prototype=proto),
+              )
+            }
+            let is_symbol_iterator = prop.contains("iterator")
+            if is_symbol_iterator {
+              let d_props = {
+                "writable": JSValue::Boolean(true),
+                "enumerable": JSValue::Boolean(false),
+                "configurable": JSValue::Boolean(true),
+                "value": val,
               }
-              desc["value"] = val
-              desc["writable"] = JSValue::Boolean(not(is_frozen))
-              desc["enumerable"] = JSValue::Boolean(true)
-              desc["configurable"] = JSValue::Boolean(not(is_sealed))
-              if is_func {
-                if prop == "length" || prop == "name" {
-                  desc["writable"] = JSValue::Boolean(false)
-                  desc["enumerable"] = JSValue::Boolean(false)
-                  desc["configurable"] = JSValue::Boolean(true)
-                }
-                if prop == "caller" || prop == "arguments" {
-                  desc["enumerable"] = JSValue::Boolean(false)
-                  desc["configurable"] = JSValue::Boolean(false)
-                }
-                if prop == "prototype" {
-                  desc["enumerable"] = JSValue::Boolean(false)
-                  desc["configurable"] = JSValue::Boolean(false)
-                  if is_native_func {
-                    desc["writable"] = JSValue::Boolean(false)
-                  } else {
-                    desc["writable"] = JSValue::Boolean(true)
-                  }
-                }
+              return JSValue::Object(
+                JSObject::new(properties=d_props, prototype=proto),
+              )
+            }
+            desc["value"] = val
+            desc["writable"] = JSValue::Boolean(not(is_frozen))
+            desc["enumerable"] = JSValue::Boolean(true)
+            desc["configurable"] = JSValue::Boolean(not(is_sealed))
+            if is_func {
+              if prop == "length" || prop == "name" {
+                desc["writable"] = JSValue::Boolean(false)
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(true)
               }
-              if (is_string_obj || is_array) && prop == "length" {
-                desc["writable"] = JSValue::Boolean(is_array)
+              if prop == "caller" || prop == "arguments" {
                 desc["enumerable"] = JSValue::Boolean(false)
                 desc["configurable"] = JSValue::Boolean(false)
               }
-              if is_global {
-                if prop
-                  is ("String"
-                  | "Number"
-                  | "Boolean"
-                  | "Array"
-                  | "Object"
-                  | "Function"
-                  | "Math"
-                  | "Date"
-                  | "RegExp"
-                  | "Error"
-                  | "EvalError"
-                  | "RangeError"
-                  | "ReferenceError"
-                  | "SyntaxError"
-                  | "TypeError"
-                  | "URIError"
-                  | "JSON"
-                  | "Reflect"
-                  | "eval"
-                  | "parseInt"
-                  | "parseFloat"
-                  | "isNaN"
-                  | "isFinite"
-                  | "Map"
-                  | "Set"
-                  | "WeakMap"
-                  | "WeakSet"
-                  | "Promise"
-                  | "Proxy"
-                  | "Symbol") {
-                  desc["enumerable"] = JSValue::Boolean(false)
-                }
-              }
-
-              // Map.prototype and Set.prototype methods (heuristic)
-              if prop
-                is ("get"
-                | "set"
-                | "add"
-                | "has"
-                | "delete"
-                | "clear"
-                | "size"
-                | "entries"
-                | "keys"
-                | "values"
-                | "forEach"
-                | "getOrInsertComputed"
-                | "constructor") {
-                // Check if it's on Map.prototype/Set.prototype or an instance
-                let tag = obj_props.get("Symbol(Symbol.toStringTag)")
-                let is_related = obj_props.contains("MapData") ||
-                  obj_props.contains("SetData") ||
-                  tag == Some(JSValue::String("Map")) ||
-                  tag == Some(JSValue::String("Set"))
-                if is_related {
-                  desc["enumerable"] = JSValue::Boolean(false)
+              if prop == "prototype" {
+                desc["enumerable"] = JSValue::Boolean(false)
+                desc["configurable"] = JSValue::Boolean(false)
+                if is_native_func {
+                  desc["writable"] = JSValue::Boolean(false)
+                } else {
+                  desc["writable"] = JSValue::Boolean(true)
                 }
               }
             }
+            if (is_string_obj || is_array) && prop == "length" {
+              desc["writable"] = JSValue::Boolean(is_array)
+              desc["enumerable"] = JSValue::Boolean(false)
+              desc["configurable"] = JSValue::Boolean(false)
+            }
+            if is_global {
+              if prop
+                is ("String"
+                | "Number"
+                | "Boolean"
+                | "Array"
+                | "Object"
+                | "Function"
+                | "Math"
+                | "Date"
+                | "RegExp"
+                | "Error"
+                | "EvalError"
+                | "RangeError"
+                | "ReferenceError"
+                | "SyntaxError"
+                | "TypeError"
+                | "URIError"
+                | "JSON"
+                | "Reflect"
+                | "eval"
+                | "parseInt"
+                | "parseFloat"
+                | "isNaN"
+                | "isFinite"
+                | "Map"
+                | "Set"
+                | "WeakMap"
+                | "WeakSet"
+                | "Promise"
+                | "Proxy"
+                | "Symbol") {
+                desc["enumerable"] = JSValue::Boolean(false)
+              }
+            }
+
+            // Map.prototype and Set.prototype methods (heuristic)
+            if prop
+              is ("get"
+              | "set"
+              | "add"
+              | "has"
+              | "delete"
+              | "clear"
+              | "size"
+              | "entries"
+              | "keys"
+              | "values"
+              | "forEach"
+              | "getOrInsertComputed"
+              | "constructor") {
+              // Check if it's on Map.prototype/Set.prototype or an instance
+              let tag = obj_props.get("Symbol(Symbol.toStringTag)")
+              let is_related = obj_props.contains("MapData") ||
+                obj_props.contains("SetData") ||
+                tag == Some(JSValue::String("Map")) ||
+                tag == Some(JSValue::String("Set"))
+              if is_related {
+                desc["enumerable"] = JSValue::Boolean(false)
+              }
+            }
           }
-          JSValue::Object(desc)
         }
-        None => JSValue::Undefined
+        JSValue::Object(desc)
       }
-    } else {
-      JSValue::Undefined
+      None => JSValue::Undefined
     }
   })
   let get_own_property_descriptor_obj = JSObject::new_function(
@@ -1952,7 +1936,7 @@ pub fn create_object_constructor(
 
   // Object.getPrototypeOf
   let get_prototype_of_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
+    if args.0 is [obj_arg, ..] {
       // Proxy trap
       match obj_arg {
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
@@ -1977,7 +1961,7 @@ pub fn create_object_constructor(
             None => Null
           }
         _ => {
-          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+          if obj_arg is (JSValue::Null | JSValue::Undefined) {
             ctx.throw_type_error("Cannot convert undefined or null to object")
           }
           // For primitives, return their prototype
@@ -2026,7 +2010,7 @@ pub fn create_object_constructor(
 
   // Object.setPrototypeOf
   let set_prototype_of_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, proto_arg, ..] {
+    if args.0 is [obj_arg, proto_arg, ..] {
       // Proxy trap
       match obj_arg {
         Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
@@ -2072,209 +2056,209 @@ pub fn create_object_constructor(
 
   // Object.getOwnPropertyNames
   let get_own_property_names_fn = Native(fn(ctx, _this_val, args) {
-    if args is [obj_arg, ..] {
-      // Proxy trap
-      match obj_arg {
-        Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
-          let trap = handler.get_property("ownKeys")
-          match trap {
-            Object(f) =>
-              if f.is_callable {
-                let keys_list = ctx.invoke(f, handler, [target]) catch {
-                  e => raise e
-                }
-                // Convert keys_list (array-like) to Array of names
-                let array_proto = match ctx.resolve("Array") {
-                  Object(f) => JSValue::Object(f).get_property("prototype")
-                  _ => proto
-                }
-                let names_array = JSObject::new(
-                  properties={},
-                  prototype=array_proto,
-                )
-                let mut i = 0.0
-                let seen_keys = {}
-                match keys_list {
-                  Object({ properties: keys_props, .. }) => {
-                    let len = match keys_props.get("length") {
-                      Some(Number(n)) => n.to_int()
-                      _ => 0
+    let obj_arg = args[0]
+    if obj_arg == Undefined {
+      ctx.throw_type_error("Cannot convert undefined or null to object")
+      return JSValue::Undefined
+    }
+    // Proxy trap
+    match obj_arg {
+      Object({ proxy_target: Some(target), proxy_handler: Some(handler), .. }) => {
+        let trap = handler.get_property("ownKeys")
+        match trap {
+          Object(f) =>
+            if f.is_callable {
+              let keys_list = ctx.invoke(f, handler, [target]) catch {
+                e => raise e
+              }
+              // Convert keys_list (array-like) to Array of names
+              let array_proto = match ctx.resolve("Array") {
+                Object(f) => JSValue::Object(f).get_property("prototype")
+                _ => proto
+              }
+              let names_array = JSObject::new(
+                properties={},
+                prototype=array_proto,
+              )
+              let mut i = 0.0
+              let seen_keys = {}
+              match keys_list {
+                Object({ properties: keys_props, .. }) => {
+                  let len = match keys_props.get("length") {
+                    Some(Number(n)) => n.to_int()
+                    _ => 0
+                  }
+                  for j in 0..<len {
+                    let k_val = match keys_props.get(j.to_string()) {
+                      Some(v) => v
+                      None => Undefined
                     }
-                    for j in 0..<len {
-                      let k_val = match keys_props.get(j.to_string()) {
-                        Some(v) => v
-                        None => Undefined
-                      }
-                      let k = k_val.to_string()
-                      if seen_keys.contains(k) {
-                        ctx.throw_type_error(
-                          "Proxy ownKeys trap returned duplicate keys",
-                        )
-                      }
-                      seen_keys.set(k, true)
-                      if not(k.has_prefix("Symbol(")) {
-                        names_array[i.to_string()] = JSValue::String(k)
-                        i = i + 1.0
-                      }
+                    let k = k_val.to_string()
+                    if seen_keys.contains(k) {
+                      ctx.throw_type_error(
+                        "Proxy ownKeys trap returned duplicate keys",
+                      )
                     }
-                    // Invariants check
-                    let is_target_extensible = match target {
-                      Object(o) => o.extensible
+                    seen_keys.set(k, true)
+                    if not(k.has_prefix("Symbol(")) {
+                      names_array[i.to_string()] = JSValue::String(k)
+                      i = i + 1.0
+                    }
+                  }
+                  // Invariants check
+                  let is_target_extensible = match target {
+                    Object(o) => o.extensible
+                    _ => true
+                  }
+                  let target_props = match target {
+                    Object(o) => o.properties
+                    _ => {}
+                  }
+                  let is_sealed = match target {
+                    Object(o) => o.is_sealed
+                    _ => false
+                  }
+                  for k, _ in target_props {
+                    if k == "PrimitiveValue" || k.has_prefix("__") {
+                      continue
+                    }
+                    if k.has_prefix("Symbol(") {
+                      continue
+                    }
+                    let is_configurable = match
+                      target_props.get("__descriptors") {
+                      Some(Object(d)) =>
+                        match d.properties.get(k) {
+                          Some(Object(desc)) =>
+                            match desc.properties.get("configurable") {
+                              Some(Boolean(b)) => b
+                              _ => true
+                            }
+                          _ => true
+                        }
                       _ => true
                     }
-                    let target_props = match target {
-                      Object(o) => o.properties
-                      _ => {}
-                    }
-                    let is_sealed = match target {
-                      Object(o) => o.is_sealed
-                      _ => false
-                    }
-                    for k, _ in target_props {
-                      if k == "PrimitiveValue" || k.has_prefix("__") {
-                        continue
+                    if not(is_configurable) ||
+                      is_sealed ||
+                      not(is_target_extensible) {
+                      if not(seen_keys.contains(k)) {
+                        ctx.throw_type_error(
+                          "Proxy ownKeys trap failed to include a required property: " +
+                          k,
+                        )
                       }
-                      if k.has_prefix("Symbol(") {
-                        continue
-                      }
-                      let is_configurable = match
-                        target_props.get("__descriptors") {
-                        Some(Object(d)) =>
-                          match d.properties.get(k) {
-                            Some(Object(desc)) =>
-                              match desc.properties.get("configurable") {
-                                Some(Boolean(b)) => b
-                                _ => true
+                    }
+                  }
+                  if not(is_target_extensible) {
+                    for k, _ in seen_keys {
+                      if not(target_props.contains(k)) && k != "length" {
+                        let is_str_idx = match target {
+                          Object(o) =>
+                            match o.properties.get("PrimitiveValue") {
+                              Some(String(s)) => {
+                                let idx = @strconv.parse_int(k) catch {
+                                  _ => -1
+                                }
+                                idx >= 0 && idx < s.length()
                               }
-                            _ => true
-                          }
-                        _ => true
-                      }
-                      if not(is_configurable) ||
-                        is_sealed ||
-                        not(is_target_extensible) {
-                        if not(seen_keys.contains(k)) {
+                              _ => false
+                            }
+                          _ => false
+                        }
+                        if not(is_str_idx) {
                           ctx.throw_type_error(
-                            "Proxy ownKeys trap failed to include a required property: " +
-                            k,
+                            "Proxy ownKeys trap returned extra property for non-extensible target",
                           )
                         }
                       }
                     }
-                    if not(is_target_extensible) {
-                      for k, _ in seen_keys {
-                        if not(target_props.contains(k)) && k != "length" {
-                          let is_str_idx = match target {
-                            Object(o) =>
-                              match o.properties.get("PrimitiveValue") {
-                                Some(String(s)) => {
-                                  let idx = @strconv.parse_int(k) catch {
-                                    _ => -1
-                                  }
-                                  idx >= 0 && idx < s.length()
-                                }
-                                _ => false
-                              }
-                            _ => false
-                          }
-                          if not(is_str_idx) {
-                            ctx.throw_type_error(
-                              "Proxy ownKeys trap returned extra property for non-extensible target",
-                            )
-                          }
-                        }
-                      }
-                    }
                   }
-                  _ => ()
                 }
-                names_array["length"] = JSValue::Number(i)
-                return JSValue::Object(names_array)
-              }
-            _ => ()
-          }
-        }
-        _ => ()
-      }
-      let (obj_props, is_func) = match obj_arg {
-        Object({ properties, .. } as obj) => (properties, obj.is_callable)
-        _ => {
-          if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
-            ctx.throw_type_error("Cannot convert undefined or null to object")
-          }
-          // For primitives, return their keys (e.g. string indices)
-          let array_proto = match ctx.resolve("Array") {
-            Object(f) => JSValue::Object(f).get_property("prototype")
-            _ => proto
-          }
-          let names_array = JSObject::new(properties={}, prototype=array_proto)
-          let mut i = 0.0
-          match obj_arg {
-            String(s) => {
-              let len = s.length()
-              for idx in 0..<len {
-                names_array[i.to_string()] = JSValue::String(idx.to_string())
-                i = i + 1.0
+                _ => ()
               }
               names_array["length"] = JSValue::Number(i)
+              return JSValue::Object(names_array)
             }
-            _ => names_array["length"] = JSValue::Number(0.0)
-          }
-          return JSValue::Object(names_array)
+          _ => ()
         }
       }
-      let array_proto = match ctx.resolve("Array") {
-        Object(f) => JSValue::Object(f).get_property("prototype")
-        _ => proto
-      }
-      let names_array = JSObject::new(properties={}, prototype=array_proto)
-      let mut i = 0.0
-
-      // For functions, prioritize length and name
-      if is_func {
-        if obj_props.contains("length") {
-          names_array[i.to_string()] = JSValue::String("length")
-          i = i + 1.0
-        }
-        if obj_props.contains("name") {
-          names_array[i.to_string()] = JSValue::String("name")
-          i = i + 1.0
-        }
-      }
-
-      // Handle String indices
-      let is_string_obj = obj_props.contains("PrimitiveValue") &&
-        (match obj_props.get("PrimitiveValue") {
-          Some(String(_)) => true
-          _ => false
-        })
-      if is_string_obj {
-        let len = match obj_props.get("length") {
-          Some(Number(n)) => n.to_int()
-          _ => 0
-        }
-        for idx in 0..<len {
-          names_array[i.to_string()] = JSValue::String(idx.to_string())
-          i = i + 1.0
-        }
-      }
-      for k, _ in obj_props {
-        if not(k.has_prefix("Symbol(")) &&
-          not(k.has_prefix("__")) &&
-          k != "PrimitiveValue" {
-          if is_func && (k == "length" || k == "name") {
-            continue
-          }
-          names_array[i.to_string()] = JSValue::String(k)
-          i = i + 1.0
-        }
-      }
-      names_array["length"] = JSValue::Number(i)
-      JSValue::Object(names_array)
-    } else {
-      ctx.throw_type_error("Cannot convert undefined or null to object")
-      JSValue::Undefined
+      _ => ()
     }
+    let (obj_props, is_func) = match obj_arg {
+      Object({ properties, .. } as obj) => (properties, obj.is_callable)
+      _ => {
+        if obj_arg == JSValue::Null || obj_arg == JSValue::Undefined {
+          ctx.throw_type_error("Cannot convert undefined or null to object")
+        }
+        // For primitives, return their keys (e.g. string indices)
+        let array_proto = match ctx.resolve("Array") {
+          Object(f) => JSValue::Object(f).get_property("prototype")
+          _ => proto
+        }
+        let names_array = JSObject::new(properties={}, prototype=array_proto)
+        let mut i = 0.0
+        match obj_arg {
+          String(s) => {
+            let len = s.length()
+            for idx in 0..<len {
+              names_array[i.to_string()] = JSValue::String(idx.to_string())
+              i = i + 1.0
+            }
+            names_array["length"] = JSValue::Number(i)
+          }
+          _ => names_array["length"] = JSValue::Number(0.0)
+        }
+        return JSValue::Object(names_array)
+      }
+    }
+    let array_proto = match ctx.resolve("Array") {
+      Object(f) => JSValue::Object(f).get_property("prototype")
+      _ => proto
+    }
+    let names_array = JSObject::new(properties={}, prototype=array_proto)
+    let mut i = 0.0
+
+    // For functions, prioritize length and name
+    if is_func {
+      if obj_props.contains("length") {
+        names_array[i.to_string()] = JSValue::String("length")
+        i = i + 1.0
+      }
+      if obj_props.contains("name") {
+        names_array[i.to_string()] = JSValue::String("name")
+        i = i + 1.0
+      }
+    }
+
+    // Handle String indices
+    let is_string_obj = obj_props.contains("PrimitiveValue") &&
+      (match obj_props.get("PrimitiveValue") {
+        Some(String(_)) => true
+        _ => false
+      })
+    if is_string_obj {
+      let len = match obj_props.get("length") {
+        Some(Number(n)) => n.to_int()
+        _ => 0
+      }
+      for idx in 0..<len {
+        names_array[i.to_string()] = JSValue::String(idx.to_string())
+        i = i + 1.0
+      }
+    }
+    for k, _ in obj_props {
+      if not(k.has_prefix("Symbol(")) &&
+        not(k.has_prefix("__")) &&
+        k != "PrimitiveValue" {
+        if is_func && (k == "length" || k == "name") {
+          continue
+        }
+        names_array[i.to_string()] = JSValue::String(k)
+        i = i + 1.0
+      }
+    }
+    names_array["length"] = JSValue::Number(i)
+    JSValue::Object(names_array)
   })
   let get_own_property_names_obj = JSObject::new_function(
     name="getOwnPropertyNames",
