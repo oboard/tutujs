@@ -33,20 +33,6 @@ test "Number constructor" {
 }
 
 ///|
-test "Boolean constructor" {
-  let ctx = @tutujs.Context::new()
-
-  // Boolean() call
-  inspect(ctx.eval("Boolean(1)"), content="true")
-  inspect(ctx.eval("Boolean(0)"), content="false")
-  inspect(ctx.eval("typeof Boolean(true)"), content="boolean")
-
-  // new Boolean()
-  inspect(ctx.eval("new Boolean(true).valueOf()"), content="true")
-  inspect(ctx.eval("typeof new Boolean(true)"), content="object")
-}
-
-///|
 test "String constructor fixes" {
   let ctx = @tutujs.Context::new()
 

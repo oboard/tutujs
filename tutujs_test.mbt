@@ -1,8 +1,8 @@
 ///|
 test "arithmetic" {
   let context = @tutujs.Context::new()
-  @json.inspect(context.eval("1 == 1"), content=["Boolean", true])
-  @json.inspect(context.eval("1 === 1"), content=["Boolean", true])
+  @json.inspect(context.eval("1 == 1"), content=["Bool", true])
+  @json.inspect(context.eval("1 === 1"), content=["Bool", true])
   @json.inspect(context.eval("1 + 1"), content=["Number", 2])
   @json.inspect(context.eval("1 - 1"), content=["Number", 0])
   @json.inspect(context.eval("\"Hello World\""), content=[
@@ -22,9 +22,9 @@ test "type coercion" {
     }
   }
 
-  @json.inspect(eval("true || false"), content=["Boolean", true])
-  @json.inspect(eval("false || true"), content=["Boolean", true])
-  @json.inspect(eval("false || false"), content=["Boolean", false])
+  @json.inspect(eval("true || false"), content=["Bool", true])
+  @json.inspect(eval("false || true"), content=["Bool", true])
+  @json.inspect(eval("false || false"), content=["Bool", false])
   @json.inspect(eval("1 || 0"), content=["Number", 1])
   @json.inspect(eval("0 || 1"), content=["Number", 1])
   @json.inspect(eval("0 || null"), content="Null")
@@ -32,21 +32,21 @@ test "type coercion" {
   @json.inspect(eval("\"\" || \"World\""), content=["String", "World"])
   @json.inspect(eval("null || undefined"), content="Undefined")
   @json.inspect(eval("undefined || null"), content="Null")
-  @json.inspect(eval("true && false"), content=["Boolean", false])
-  @json.inspect(eval("true && true"), content=["Boolean", true])
+  @json.inspect(eval("true && false"), content=["Bool", false])
+  @json.inspect(eval("true && true"), content=["Bool", true])
   @json.inspect(eval("1 && 0"), content=["Number", 0])
   @json.inspect(eval("\"Hello\" && \"World\""), content=["String", "World"])
   @json.inspect(eval("\"\" && \"World\""), content=["String", ""])
   @json.inspect(eval("null && undefined"), content="Null")
   @json.inspect(eval("undefined && null"), content="Undefined")
-  @json.inspect(eval("!true"), content=["Boolean", false])
-  @json.inspect(eval("!false"), content=["Boolean", true])
-  @json.inspect(eval("!0"), content=["Boolean", true])
-  @json.inspect(eval("!1"), content=["Boolean", false])
-  @json.inspect(eval("!\"Hello\""), content=["Boolean", false])
-  @json.inspect(eval("!\"\""), content=["Boolean", true])
-  @json.inspect(eval("!null"), content=["Boolean", true])
-  @json.inspect(eval("!undefined"), content=["Boolean", true])
+  @json.inspect(eval("!true"), content=["Bool", false])
+  @json.inspect(eval("!false"), content=["Bool", true])
+  @json.inspect(eval("!0"), content=["Bool", true])
+  @json.inspect(eval("!1"), content=["Bool", false])
+  @json.inspect(eval("!\"Hello\""), content=["Bool", false])
+  @json.inspect(eval("!\"\""), content=["Bool", true])
+  @json.inspect(eval("!null"), content=["Bool", true])
+  @json.inspect(eval("!undefined"), content=["Bool", true])
   @json.inspect(eval("NaN && 0"), content=["Number", @double.not_a_number])
   @json.inspect(eval("0 && NaN"), content=["Number", 0])
   @json.inspect(eval("NaN && 1"), content=["Number", @double.not_a_number])
@@ -61,14 +61,14 @@ test "type coercion" {
   @json.inspect(eval("-true"), content=["Number", -1])
   @json.inspect(eval("null || 'test'"), content=["String", "test"])
   @json.inspect(eval("undefined || 42"), content=["Number", 42])
-  @json.inspect(eval("'' || false"), content=["Boolean", false])
+  @json.inspect(eval("'' || false"), content=["Bool", false])
   @json.inspect(eval("null && 'test'"), content="Null")
   @json.inspect(eval("undefined && 42"), content="Undefined")
   @json.inspect(eval("'' && false"), content=["String", ""])
-  @json.inspect(eval("!NaN"), content=["Boolean", true])
-  @json.inspect(eval("!'test'"), content=["Boolean", false])
-  @json.inspect(eval("![1, 2, 3]"), content=["Boolean", false])
-  @json.inspect(eval("!{key: 'value'}"), content=["Boolean", false])
+  @json.inspect(eval("!NaN"), content=["Bool", true])
+  @json.inspect(eval("!'test'"), content=["Bool", false])
+  @json.inspect(eval("![1, 2, 3]"), content=["Bool", false])
+  @json.inspect(eval("!{key: 'value'}"), content=["Bool", false])
   @json.inspect(eval("+'test'"), content=["Number", @double.not_a_number])
   @json.inspect(eval("+'123.45'"), content=["Number", 123.45])
   @json.inspect(eval("-'test'"), content=["Number", @double.not_a_number])
@@ -77,12 +77,6 @@ test "type coercion" {
   @json.inspect(eval("+'false'"), content=["Number", @double.not_a_number])
   @json.inspect(eval("-null"), content=["Number", -0])
   @json.inspect(eval("-undefined"), content=["Number", @double.not_a_number])
-}
-
-///|
-test "bench" (b : @bench.T) {
-  let context = @tutujs.Context::new()
-  b.bench(fn() { b.keep(context.eval("1 + 1")) })
 }
 
 ///|

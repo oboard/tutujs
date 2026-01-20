@@ -13,7 +13,7 @@ pub enum JSValue {
   Object(ObjectValue)
   Array(ArrayValue)
   Arguments(ArgumentsValue)
-} derive(Show, ToJson)
+} derive(ToJson)
 
 ///|
 pub fn value_undefined() -> JSValue {

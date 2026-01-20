@@ -46,28 +46,28 @@ test "function prototype chain" {
   let ctx = @tutujs.Context::new()
 
   // Identity checks
-  @json.inspect(ctx.eval("Function === Function"), content=["Boolean", true])
-  @json.inspect(ctx.eval("Object === Object"), content=["Boolean", true])
+  @json.inspect(ctx.eval("Function === Function"), content=["Bool", true])
+  @json.inspect(ctx.eval("Object === Object"), content=["Bool", true])
   @json.inspect(ctx.eval("Function.prototype === Function.prototype"), content=[
-    "Boolean", true,
+    "Bool",true,
   ])
 
   // Constructor check
   @json.inspect(ctx.eval("Function.prototype.constructor === Function"), content=[
-    "Boolean", true,
+    "Bool",true,
   ])
   @json.inspect(ctx.eval("(new Function()).constructor === Function"), content=[
-    "Boolean", true,
+    "Bool",true,
   ])
 
   // Instanceof check
   @json.inspect(ctx.eval("(new Function()) instanceof Function"), content=[
-    "Boolean", true,
+    "Bool",true,
   ])
   ctx.eval("function f() {}") |> ignore
-  @json.inspect(ctx.eval("f instanceof Function"), content=["Boolean", true])
+  @json.inspect(ctx.eval("f instanceof Function"), content=["Bool", true])
   @json.inspect(ctx.eval("f.prototype.constructor === f"), content=[
-    "Boolean", true,
+    "Bool",true,
   ])
 }
 

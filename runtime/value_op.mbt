@@ -12,7 +12,6 @@ pub impl Sub for JSValue with sub(self, other) -> JSValue {
   }
 }
 
-
 ///|
 pub impl Mul for JSValue with mul(self, other) -> JSValue {
   eval_binary(@engine.BinaryOp::Mul, self, other) catch {
@@ -27,10 +26,19 @@ pub impl Div for JSValue with div(self, other) -> JSValue {
   }
 }
 
-
 ///|
 pub impl Mod for JSValue with mod(self, other) -> JSValue {
   eval_binary(@engine.BinaryOp::Mod, self, other) catch {
     _ => value_undefined()
+  }
+}
+
+///|
+pub impl Show for JSValue with output(self, logger) -> Unit {
+  match self {
+    Number(n) => n.output(logger)
+    String(s) => logger.write_string(s)
+    Bool(b)=> b.output(logger)
+    _ => ()
   }
 }
