@@ -66,7 +66,7 @@ fn declare_global_ctors(
   env_declare(env, "Float64Array", float64_array_ctor)
   env_declare(env, "String", string_ctor)
   env_declare(env, "Number", number_ctor)
-  env_declare(env, "Bool", bool_ctor)
+  env_declare(env, "Boolean", bool_ctor)
   env_declare(env, "BigInt", bigint_ctor)
   env_declare(env, "Symbol", symbol_ctor)
   env_declare(env, "Iterator", iterator_ctor)

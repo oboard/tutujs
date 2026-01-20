@@ -1268,7 +1268,7 @@ fn scan_punct(
 
 ///|
 fn is_line_break(ch : Char) -> Bool {
-  ch == '\n' || ch == '\r' || ch == '\u2028' || ch == '\u2029'
+  ch is ('\n' | '\r' | '\u2028' | '\u2029')
 }
 
 ///|
@@ -1336,11 +1336,11 @@ fn slice_string(chars : Array[Char], start : Int, end : Int) -> String {
 
 ///|
 fn hex_digit_value(ch : Char) -> Int? {
-  if ch.is_ascii_digit() {
+  if ch is ('0'..='9') {
     Some(ch.to_int() - '0'.to_int())
-  } else if ch >= 'A' && ch <= 'F' {
+  } else if ch is ('A'..='F') {
     Some(ch.to_int() - 'A'.to_int() + 10)
-  } else if ch >= 'a' && ch <= 'f' {
+  } else if ch is ('a'..='f') {
     Some(ch.to_int() - 'a'.to_int() + 10)
   } else {
     None
@@ -1350,10 +1350,7 @@ fn hex_digit_value(ch : Char) -> Int? {
 ///|
 fn parse_unicode_escape(chars : Array[Char], offset : Int) -> (Int, Int)? {
   let len = chars.length()
-  if offset + 1 >= len {
-    return None
-  }
-  if chars[offset] != '\\' || chars[offset + 1] != 'u' {
+  if offset + 1 >= len || chars[offset] != '\\' || chars[offset + 1] != 'u' {
     return None
   }
   if offset + 2 < len && chars[offset + 2] == '{' {
@@ -1807,9 +1804,9 @@ fn parse_legacy_octal_escape(chars : Array[Char], start : Int) -> (Int, Int) {
 fn hex_value(ch : Char) -> Int? {
   if ch.is_ascii_digit() {
     Some(ch.to_int() - '0'.to_int())
-  } else if ch >= 'a' && ch <= 'f' {
+  } else if ch is ('a'..='f') {
     Some(10 + ch.to_int() - 'a'.to_int())
-  } else if ch >= 'A' && ch <= 'F' {
+  } else if ch is ('A'..='F') {
     Some(10 + ch.to_int() - 'A'.to_int())
   } else {
     None
@@ -1856,7 +1853,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
   let mut i = offset
   if chars[i] == '0' {
     match chars.get(i + 1) {
-      Some('x') | Some('X') => {
+      Some('x' | 'X') => {
         i = i + 2
         while i < length && (is_hex_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1866,7 +1863,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
         }
         return (slice_string(chars, offset, i), i)
       }
-      Some('o') | Some('O') => {
+      Some('o' | 'O') => {
         i = i + 2
         while i < length && (is_oct_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1876,7 +1873,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
         }
         return (slice_string(chars, offset, i), i)
       }
-      Some('b') | Some('B') => {
+      Some('b' | 'B') => {
         i = i + 2
         while i < length && (is_bin_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1910,11 +1907,11 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
       }
     }
   }
-  if i < length && (chars[i] == 'e' || chars[i] == 'E') {
+  if i < length && chars[i] is ('e' | 'E') {
     has_exp = true
     i = i + 1
     match chars.get(i) {
-      Some('+') | Some('-') => i = i + 1
+      Some('+' | '-') => i = i + 1
       _ => ()
     }
     while i < length && (chars[i].is_ascii_digit() || chars[i] == '_') {
@@ -1931,9 +1928,9 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
 fn is_hex_digit(ch : Char) -> Bool {
   if ch.is_ascii_digit() {
     true
-  } else if ch >= 'a' && ch <= 'f' {
+  } else if ch is ('a'..='f') {
     true
-  } else if ch >= 'A' && ch <= 'F' {
+  } else if ch is ('A'..='F') {
     true
   } else {
     false
@@ -1942,7 +1939,7 @@ fn is_hex_digit(ch : Char) -> Bool {
 
 ///|
 fn is_oct_digit(ch : Char) -> Bool {
-  ch is ('0'..<'8')
+  ch is ('0'..='7')
 }
 
 ///|

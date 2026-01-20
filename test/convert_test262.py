@@ -189,57 +189,53 @@ def should_skip(filepath, meta, config):
     for excl in config.excludes:
         excl_abs = os.path.abspath(excl)
         if abs_path == excl_abs or abs_path.startswith(excl_abs + os.sep):
-            return True
+            return True, "excluded-by-config"
 
     # Check features
     for feat in meta.get('features', []):
         if feat in config.features:
             if not config.features[feat]: # Explicitly set to False (skip)
-                return True
+                return True, "feature-disabled"
         # If feature is not in config.features, we skip it to be safe/compliant with config
         elif len(config.features) > 0: # Only if features are defined
-             return True
+             return True, "feature-not-enabled"
 
     # Check flags
     flags = meta.get('flags', [])
     if config.skip_async and 'async' in flags:
-        return True
+        return True, "async-skipped"
     if config.skip_module and 'module' in flags:
-        return True
+        return True, "module-skipped"
         
     # Check strict mode
     is_only_strict = 'onlyStrict' in flags
     is_no_strict = 'noStrict' in flags
     
-    if config.test_mode == TestMode.DefaultNoStrict:
-        if is_only_strict: return True
-    elif config.test_mode == TestMode.DefaultStrict:
-        if is_no_strict: return True
-    elif config.test_mode == TestMode.NoStrict:
-        if is_only_strict: return True
-    elif config.test_mode == TestMode.Strict:
-        if is_no_strict: return True
-    # TestMode.All runs everything
+    if is_only_strict and not config.run_strict:
+        return True, "only-strict-skipped"
+    if is_no_strict and not config.run_nostrict:
+        return True, "no-strict-skipped"
         
     # Negative tests
     if meta.get('negative'):
-        return True
+        return True, "negative-test"
         
-    return False
+    return False, None
 
 def process_file(filepath, config):
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
-    except:
-        return False, None
+    except Exception as e:
+        return False, None, f"read-error: {str(e)}"
         
     meta = parse_frontmatter(content)
     
-    if should_skip(filepath, meta, config):
-        return False, None
+    skip, reason = should_skip(filepath, meta, config)
+    if skip:
+        return False, meta, reason
         
-    return True, meta
+    return True, meta, None
 
 def generate_tests():
     config = parse_config(CONFIG_PATH)

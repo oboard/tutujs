@@ -27,6 +27,32 @@ const timeoutMs = Number(process.env.TEST_TIMEOUT_MS || "5000")
 const port = Number(process.env.PORT || "3000")
 const total = allLines.length
 
+function getGroupName(pathStr) {
+  const parts = pathStr.split('/')
+  let startIdx = 0
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (parts[i] === 'test262' && parts[i + 1] === 'test') {
+      startIdx = i + 2
+      break
+    }
+  }
+  
+  if (startIdx >= parts.length) return "misc"
+  
+  const p1 = parts[startIdx]
+  const p2 = parts[startIdx + 1]
+  if (!p1) return "misc"
+  if (!p2 || p2.endsWith('.js')) return p1
+  
+  return `${p1}/${p2}`
+}
+
+const groupsTotal = new Map()
+allLines.forEach(line => {
+  const group = getGroupName(line)
+  groupsTotal.set(group, (groupsTotal.get(group) || 0) + 1)
+})
+
 let completed = 0
 let passed = 0
 let failed = 0
@@ -249,15 +275,10 @@ const server = http.createServer((req, res) => {
     }))
     
     // Get real stats from database instead of memory counters
-    db.get(
-      `SELECT 
-        COUNT(DISTINCT path) as total_tests,
-        COUNT(CASE WHEN status = 'PASS' THEN 1 END) as passed,
-        COUNT(CASE WHEN status = 'FAIL' THEN 1 END) as failed,
-        COUNT(CASE WHEN status = 'TIMEOUT' THEN 1 END) as timedOut
-       FROM results`,
+    db.all(
+      `SELECT path, status FROM results`,
       [],
-      (err, row) => {
+      (err, rows) => {
         if (err) {
           console.error("DB stats error:", err.message)
           res.statusCode = 500
@@ -265,20 +286,69 @@ const server = http.createServer((req, res) => {
           return
         }
         
-        const dbStats = row || { total_tests: 0, passed: 0, failed: 0, timedOut: 0 }
-        const completed = dbStats.passed + dbStats.failed + dbStats.timedOut
+        let dbPassed = 0
+        let dbFailed = 0
+        let dbTimedOut = 0
+        
+        const groupsStats = new Map()
+        
+        // Initialize with totals
+        for (const [name, totalCount] of groupsTotal.entries()) {
+           groupsStats.set(name, {
+             name,
+             total: totalCount,
+             passed: 0,
+             failed: 0,
+             timedOut: 0
+           })
+        }
+        
+        if (rows) {
+          for (const row of rows) {
+             if (row.status === 'PASS') dbPassed++
+             else if (row.status === 'FAIL') dbFailed++
+             else if (row.status === 'TIMEOUT') dbTimedOut++
+             
+             const groupName = getGroupName(row.path)
+             const stat = groupsStats.get(groupName)
+             if (stat) {
+               if (row.status === 'PASS') stat.passed++
+               else if (row.status === 'FAIL') stat.failed++
+               else if (row.status === 'TIMEOUT') stat.timedOut++
+             }
+          }
+        }
+        
+        const completed = dbPassed + dbFailed + dbTimedOut
         const remaining = Math.max(0, total - completed - runningList.length)
         
+        // Convert map to array and sort
+        const groupsList = Array.from(groupsStats.values()).map(g => {
+           const gCompleted = g.passed + g.failed + g.timedOut
+           const gRemaining = Math.max(0, g.total - gCompleted)
+           return {
+             ...g,
+             completed: gCompleted,
+             remaining: gRemaining,
+             percent: g.total > 0 ? Math.round((g.passed / g.total) * 100) : 0
+           }
+        }).sort((a, b) => {
+           // Sort by failure count descending, then name
+           if (b.failed !== a.failed) return b.failed - a.failed
+           return a.name.localeCompare(b.name)
+        })
+
         const payload = {
           total: total,
           completed: completed,
-          passed: dbStats.passed,
-          failed: dbStats.failed,
-          timedOut: dbStats.timedOut,
+          passed: dbPassed,
+          failed: dbFailed,
+          timedOut: dbTimedOut,
           running: runningList,
           remaining: remaining,
           workers: workers,
           timeoutMs: timeoutMs,
+          groups: groupsList
         }
         res.setHeader("Content-Type", "application/json; charset=utf-8")
         res.end(JSON.stringify(payload))
