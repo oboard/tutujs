@@ -7,23 +7,14 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     }
     let code = args[0]
     match code {
-      String(s) => {
-        let lexer = @lexer.Lexer::new(s.to_string())
-        let tokens = lexer.tokenize()
-        try {
-          let program = @parser.parse(tokens)
-          let mut result = JSValue::Undefined
-          for stmt in program.body {
-            result = ctx.evaluate(Statement(stmt))
-          }
-          result
-        } catch {
-          _ => {
+      String(s) =>
+        match ctx.eval_safe_annex_b(s) {
+          Ok(v) => v
+          Err(_) => {
             ctx.throw_syntax_error("Syntax error in eval")
             Undefined
           }
         }
-      }
       _ => code
     }
   })
@@ -143,6 +134,25 @@ pub fn init_global_functions(ctx : Context) -> Unit {
     }
   }
 
+  // Helper function to parse hex string to int
+  let parse_hex = fn(hex_str : String) -> Int? {
+    if hex_str.length() == 0 {
+      return None
+    }
+    let mut result = 0
+    for i = 0; i < hex_str.length(); i = i + 1 {
+      let c = hex_str[i]
+      let digit = match c {
+        '0'..='9' => c.to_int() - '0'.to_int()
+        'A'..='F' => c.to_int() - 'A'.to_int() + 10
+        'a'..='f' => c.to_int() - 'a'.to_int() + 10
+        _ => return None
+      }
+      result = result * 16 + digit
+    }
+    Some(result)
+  }
+
   // escape function (Annex B)
   let escape_fn = Native(fn(_ctx, _this, args) {
     if args.length() == 0 {
@@ -187,10 +197,10 @@ pub fn init_global_functions(ctx : Context) -> Unit {
   let escape_obj = JSObject::new_function(name="escape", body=escape_fn)
   ctx.register_builtin("escape", JSValue::Object(escape_obj))
 
-  // unescape function (Annex B) 
+  // unescape function (Annex B)
   let unescape_fn = Native(fn(_ctx, _this, args) {
     if args.length() == 0 {
-      return String("")
+      return String("undefined")
     }
     let str = js_to_string(_ctx, args[0]) catch { _ => "" }
     let result = StringBuilder::new()
@@ -201,16 +211,51 @@ pub fn init_global_functions(ctx : Context) -> Unit {
       if c == '%' && i + 1 < len {
         let next_char = str[i + 1]
         if next_char == 'u' && i + 5 < len {
-          // %uXXXX format (4 hex digits) - skip for now, just copy %u
-          result.write_char('%')
-          result.write_char('u')
-          i = i + 2
-          continue
+          // %uXXXX format (4 hex digits)
+          let hex_view = str[i + 2:i + 6] catch { _ => "" }
+          let hex_str = hex_view.to_string()
+          match parse_hex(hex_str) {
+            Some(code) => {
+              match code.to_char() {
+                Some(char) => result.write_char(char)
+                None => result.write_char('?')
+              }
+              i = i + 6
+              continue
+            }
+            None => {
+              // Invalid hex, just copy the %u
+              result.write_char('%')
+              result.write_char('u')
+              i = i + 2
+              continue
+            }
+          }
         } else if i + 2 < len {
-          // %XX format (2 hex digits) - skip for now, just copy %
-          result.write_char('%')
-          i = i + 1
-          continue
+          // %XX format (2 hex digits)
+          let hex_view = str[i + 1:i + 3] catch { _ => "" }
+          let hex_str = hex_view.to_string()
+          match parse_hex(hex_str) {
+            Some(code) => {
+              if code >= 0 && code <= 255 {
+                match code.to_char() {
+                  Some(char) => result.write_char(char)
+                  None => result.write_char('?')
+                }
+              } else {
+                // Invalid code, just copy the %
+                result.write_char('%')
+              }
+              i = i + 3
+              continue
+            }
+            None => {
+              // Invalid hex, just copy the %
+              result.write_char('%')
+              i = i + 1
+              continue
+            }
+          }
         } else {
           // Not enough characters for hex, just copy the %
           result.write_char('%')
@@ -222,8 +267,9 @@ pub fn init_global_functions(ctx : Context) -> Unit {
         result.write_char(c.to_char().unwrap_or('?'))
         i = i + 1
       }
+    } else {
+      String(result.to_string())
     }
-    String(result.to_string())
   })
   let unescape_obj = JSObject::new_function(name="unescape", body=unescape_fn)
   ctx.register_builtin("unescape", JSValue::Object(unescape_obj))

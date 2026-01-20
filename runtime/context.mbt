@@ -96,6 +96,26 @@ pub fn Context::resolve(self : Context, name : String) -> JSValue {
 }
 
 ///|
+pub fn Context::resolve_strict(
+  self : Context,
+  name : String,
+) -> JSValue raise EvalError {
+  let current = Option::Some(self)
+  loop current {
+    Some({ scope, parent, .. }) =>
+      match scope.get(name) {
+        Some(v) => return v
+        None => continue parent
+      }
+    None => {
+      // Throw ReferenceError for undefined variables
+      self.throw_reference_error(name + " is not defined")
+      return Undefined // This line will never be reached due to throw
+    }
+  }
+}
+
+///|
 #as_free_fn(create_global)
 pub fn Context::create_global() -> Context {
   let ctx = Context::new()

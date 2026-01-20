@@ -134,12 +134,14 @@ pub(all) struct Context {
 pub fn Context::create_global() -> Self
 pub fn Context::eval(Self, &Show) -> JSValue
 pub fn Context::eval_safe(Self, &Show) -> Result[JSValue, JSValue]
+pub fn Context::eval_safe_annex_b(Self, &Show) -> Result[JSValue, JSValue]
 pub fn Context::get_property(Self, JSValue, String) -> JSValue
 pub fn Context::invoke(Self, JSObject, JSValue, Array[JSValue]) -> JSValue raise EvalError
 #as_free_fn(new)
 pub fn Context::new(parent? : Self, strict? : Bool) -> Self
 pub fn Context::register_builtin(Self, String, JSValue, enumerable? : Bool, configurable? : Bool, writable? : Bool) -> Unit
 pub fn Context::resolve(Self, String) -> JSValue
+pub fn Context::resolve_strict(Self, String) -> JSValue raise EvalError
 pub fn[T] Context::throw_error(Self, String, String) -> T raise EvalError
 pub fn[T] Context::throw_range_error(Self, String) -> T raise EvalError
 pub fn[T] Context::throw_reference_error(Self, String) -> T raise EvalError

@@ -74,6 +74,87 @@ pub fn Context::eval_safe(
 }
 
 ///|
+fn Context::eval_ast_annex_b(
+  self : Context,
+  ast : @parser.Program,
+) -> Result[JSValue, JSValue] {
+  // Check for "use strict" in global scope
+  let mut strict = false
+  for d in ast.directives {
+    if d.value.value == "use strict" {
+      strict = true
+      break
+    }
+  }
+  if strict {
+    self.strict = true
+  }
+
+  // For Annex B eval, we need special handling for function declarations in if-else
+  // First pass: collect Annex B function declarations
+  let annex_b_funcs = Array::new()
+  for stmt in ast.body {
+    match stmt {
+      IfStatement({ consequent, alternate, .. }) => {
+        match consequent {
+          FunctionDeclaration({ id, .. }) => annex_b_funcs.push(id.name)
+          _ => ()
+        }
+        match alternate {
+          Some(FunctionDeclaration({ id, .. })) => annex_b_funcs.push(id.name)
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+
+  // Create bindings for Annex B functions (initialize to undefined)
+  for func_name in annex_b_funcs {
+    self.scope.set(func_name, Undefined)
+  }
+
+  // Hoist regular FunctionDeclarations (not Annex B ones)
+  for node in ast.body {
+    match node {
+      FunctionDeclaration({ id, .. }) =>
+        if !annex_b_funcs.contains(id.name) {
+          try self.evaluate(Statement(node)) |> ignore catch {
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  let mut res = JSValue::Undefined
+  for node in ast.body {
+    try {
+      res = self.evaluate(Statement(node))
+    } catch {
+      EvalError::Return(v) => return Ok(v) // Top-level return
+      EvalError::Break(_) => () // Illegal at top-level in strict JS, but lenient here
+      EvalError::Continue(_) => () // Illegal
+      EvalError::Throw(v) => return Err(v)
+    }
+  }
+  Ok(res)
+}
+
+///|
+pub fn Context::eval_safe_annex_b(
+  self : Context,
+  code : &Show,
+) -> Result[JSValue, JSValue] {
+  let code_str = code.to_string()
+  let lex = code_str |> @lexer.parse
+  let ast = lex |> @parser.parse
+  match self.eval_ast_annex_b(ast) {
+    Ok(v) => Ok(v)
+    Err(v) => Err(v)
+  }
+}
+
+///|
 pub fn format_js_error(val : JSValue) -> String {
   match val {
     Object(obj) => {
@@ -358,9 +439,22 @@ fn Context::evaluate(
         }
         IfStatement({ test_, consequent, alternate }) =>
           if self.evaluate(Expression(test_)).is_truthy() {
-            self.evaluate(Statement(consequent))
+            // Annex B: Handle function declarations in consequent
+            match consequent {
+              FunctionDeclaration({ id, .. }) => {
+                // For Annex B, just create binding in current scope, don't hoist
+                self.scope.set(id.name, Undefined)
+                Undefined
+              }
+              _ => self.evaluate(Statement(consequent))
+            }
           } else {
             match alternate {
+              Some(FunctionDeclaration({ id, .. })) => {
+                // For Annex B, just create binding in current scope, don't hoist
+                self.scope.set(id.name, Undefined)
+                Undefined
+              }
               Some(stmt) => self.evaluate(Statement(stmt))
               None => Undefined
             }

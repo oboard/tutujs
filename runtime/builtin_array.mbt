@@ -517,6 +517,103 @@ pub fn init_array_prototype(
       )
       obj["indexOf"] = JSValue::Object(index_of_obj)
 
+      // flatMap
+      let flat_map_fn = Native(fn(ctx, this_val, args) raise EvalError {
+        match this_val {
+          Object(
+            { properties: { "length": Number(len), .. } as properties, .. }
+          ) =>
+            if args is [Object(callback), .. rest] {
+              if not(callback.is_callable) {
+                raise EvalError::Throw(
+                  String(
+                    "TypeError: flatMap() expects a function as first argument",
+                  ),
+                )
+              }
+              let this_arg = if rest is [this_arg, ..] {
+                this_arg
+              } else {
+                JSValue::Undefined
+              }
+
+              // First, map each element using the callback
+              let mapped_results : Array[JSValue] = []
+              for i = 0; i < len.to_int(); i = i + 1 {
+                let key = i.to_string()
+                if properties.get(key) is Some(val) {
+                  let mapped_val = ctx.invoke(callback, this_arg, [
+                    val,
+                    JSValue::Number(i.to_double()),
+                    this_val,
+                  ]) catch {
+                    _ => JSValue::Undefined
+                  }
+                  mapped_results.push(mapped_val)
+                }
+              }
+
+              // Then, flatten the results by one level
+              let flattened_results : Array[JSValue] = []
+              for mapped_val in mapped_results {
+                match mapped_val {
+                  Object(arr_obj) =>
+                    // Check if it's array-like (has length property)
+                    match arr_obj.properties.get("length") {
+                      Some(Number(arr_len)) =>
+                        // It's array-like, flatten it
+                        for j = 0; j < arr_len.to_int(); j = j + 1 {
+                          let arr_key = j.to_string()
+                          match arr_obj.properties.get(arr_key) {
+                            Some(element) => flattened_results.push(element)
+                            None => ()
+                          }
+                        }
+                      _ =>
+                        // Not array-like, add as single element
+                        flattened_results.push(mapped_val)
+                    }
+                  _ =>
+                    // Not an object, add as single element
+                    flattened_results.push(mapped_val)
+                }
+              }
+
+              // Create the result array
+              let proto = match ctx.resolve("Array") {
+                Object(f) => f.properties.get("prototype")
+                _ => None
+              }
+              let result_obj = match proto {
+                Some(p) => JSObject::new(properties={}, prototype=p)
+                None => JSObject::new(properties={})
+              }
+
+              // Set the flattened elements
+              for k = 0; k < flattened_results.length(); k = k + 1 {
+                result_obj[k.to_string()] = flattened_results[k]
+              }
+              result_obj["length"] = JSValue::Number(
+                flattened_results.length().to_double(),
+              )
+              JSValue::Object(result_obj)
+            } else {
+              raise EvalError::Throw(
+                String(
+                  "TypeError: flatMap() expects a function as first argument",
+                ),
+              )
+            }
+          _ => JSValue::Undefined
+        }
+      })
+      let flat_map_obj = JSObject::new_function(
+        name="flatMap",
+        body=flat_map_fn,
+        prototype=func_proto,
+      )
+      obj["flatMap"] = JSValue::Object(flat_map_obj)
+
       // shift
       let shift_fn = Native(fn(_ctx, this_val, _args) {
         match this_val {
