@@ -216,10 +216,6 @@ def should_skip(filepath, meta, config):
     if is_no_strict and not config.run_nostrict:
         return True, "no-strict-skipped"
         
-    # Negative tests
-    if meta.get('negative'):
-        return True, "negative-test"
-        
     return False, None
 
 def process_file(filepath, config):

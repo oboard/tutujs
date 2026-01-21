@@ -53,7 +53,7 @@ fn run_test262(path : String) -> Unit {
   harness_code = harness_code + "}\n"
   let full_code = harness_code + code
   let ctx = @runtime.Context::new()
-  let is_negative = code.contains("negative:")
+  let is_negative = code.contains("negative:\n  phase:")
   let _ = ctx.eval(full_code) catch {
     e => {
       if is_negative {
