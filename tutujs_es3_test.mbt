@@ -8,7 +8,7 @@ test "while loop" {
     #| }
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -24,7 +24,7 @@ test "while loop with break" {
     #| }
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -42,7 +42,7 @@ test "while loop with continue" {
     #| }
     #| sum; // 1 + 3 + 4 + 5 = 13
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 13])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 13])
 }
 
 ///|
@@ -55,7 +55,7 @@ test "do...while loop" {
     #| } while (i < 3);
     #| i;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 3])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 3])
 }
 
 ///|
@@ -68,7 +68,7 @@ test "for loop" {
     #| }
     #| sum;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 6])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 6])
 }
 
 ///|
@@ -89,7 +89,7 @@ test "switch statement" {
     #| }
     #| result;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["String", "two"])
+  json_inspect(@runtime.Context::new().eval(code), content=["String", "two"])
 }
 
 ///|
@@ -100,7 +100,7 @@ test "ternary operator" {
     #| let y = x > 5 ? "big" : "small";
     #| y;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["String", "big"])
+  json_inspect(@runtime.Context::new().eval(code), content=["String", "big"])
 }
 
 ///|
@@ -111,7 +111,7 @@ test "ternary operator nested" {
     #| var y = x > 15 ? "huge" : (x > 5 ? "big" : "small");
     #| y;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["String", "big"])
+  json_inspect(@runtime.Context::new().eval(code), content=["String", "big"])
 }
 
 ///|
@@ -124,7 +124,7 @@ test "ternary operator truthiness" {
     #| var d = "hello" ? "true" : "false";
     #| a + b + c + d;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=[
+  json_inspect(@runtime.Context::new().eval(code), content=[
     "String", "truefalsefalsetrue",
   ])
 }
@@ -138,7 +138,7 @@ test "ternary operator precedence" {
     #| var x = a ? b ? "1" : "2" : "3"; // true ? (false ? "1" : "2") : "3" -> "2"
     #| x;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["String", "2"])
+  json_inspect(@runtime.Context::new().eval(code), content=["String", "2"])
 }
 
 ///|
@@ -151,9 +151,7 @@ test "instanceof operator" {
     #| var isStr = arr instanceof String;
     #| isArr ? (isObj ? (isStr ? "all" : "arr+obj") : "arr") : "none";
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=[
-    "String", "arr+obj",
-  ])
+  json_inspect(@runtime.Context::new().eval(code), content=["String", "arr+obj"])
 }
 
 ///|
@@ -166,7 +164,7 @@ test "for loop (fix verification)" {
     #| }
     #| sum;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 45])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 45])
 }
 
 ///|
@@ -177,7 +175,7 @@ test "object properties" {
     #| o.z = 3;
     #| o.x + o.y + o.z;
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 6])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 6])
 }
 
 ///|
@@ -190,7 +188,7 @@ test "fibonacci recursive" {
     #| }
     #| fib(6);
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 8])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 8])
 }
 
 ///|
@@ -202,7 +200,7 @@ test "array push and pop" {
     #| var last = arr.pop();
     #| arr.length + last; // 3 + 4 = 7
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 7])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 7])
 }
 
 ///|
@@ -213,7 +211,7 @@ test "array constructor" {
     #| arr[0] = 10;
     #| arr.length + arr[0]; // 3 + 10 = 13
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 13])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 13])
 }
 
 ///|
@@ -224,5 +222,5 @@ test "array literal prototype" {
     #| arr.push(1);
     #| arr[0];
     #|
-  @json.inspect(@runtime.Context::new().eval(code), content=["Number", 1])
+  json_inspect(@runtime.Context::new().eval(code), content=["Number", 1])
 }

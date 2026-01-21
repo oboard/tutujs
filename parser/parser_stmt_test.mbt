@@ -24,7 +24,7 @@ test "parse for statement" {
 test "parse problematic for loop" {
   let code = "for (let i = 1; i <= 3; i = i + 1) { sum = sum + i; }"
   let ast = code |> @lexer.parse |> @parser.parse
-  @json.inspect(ast, content={
+  json_inspect(ast, content={
     "sourceType": "Module",
     "body": [
       [

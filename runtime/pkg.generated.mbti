@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/tutujs/runtime"
 
-import(
-  "moonbitlang/core/bigint"
-  "moonbitlang/core/hashmap"
-  "oboard/tutujs/engine"
-)
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/hashmap",
+  "oboard/tutujs/engine",
+}
 
 // Values
 pub fn async_done_count() -> Int

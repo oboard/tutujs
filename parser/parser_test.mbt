@@ -1,6 +1,6 @@
 ///|
 test "tokenize and parse" {
-  @json.inspect("1 * 3 + 8" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("1 * 3 + 8" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -26,7 +26,7 @@ test "tokenize and parse" {
     ],
     "directives": [],
   })
-  @json.inspect("1 / 3 * 8 - 8" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("1 / 3 * 8 - 8" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -64,7 +64,7 @@ test "tokenize and parse" {
 ///|
 test "parse equality" {
   let code = "1 == 1"
-  @json.inspect(code |> @lexer.parse |> @parser.parse, content={
+  json_inspect(code |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -87,7 +87,7 @@ test "parse equality" {
 
 ///|
 test "parse strict equality" {
-  @json.inspect("(1 === 1) == true" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("(1 === 1) == true" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -117,7 +117,7 @@ test "parse strict equality" {
 
 ///|
 test "parse logical" {
-  @json.inspect("true || false" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("true || false" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -140,7 +140,7 @@ test "parse logical" {
 
 ///|
 test "parse logical precedence" {
-  @json.inspect("true || false && true" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("true || false && true" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -170,7 +170,7 @@ test "parse logical precedence" {
 
 ///|
 test "parse array literal" {
-  @json.inspect("[1, 2, , ...a]" |> @lexer.parse |> @parser.parse, content={
+  json_inspect("[1, 2, , ...a]" |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -204,7 +204,7 @@ test "parse array literal" {
 
 ///|
 test "function" {
-  @json.inspect(
+  json_inspect(
     (
       #|function example() { 
       #|  return 1;

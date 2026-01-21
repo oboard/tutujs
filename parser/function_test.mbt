@@ -1,7 +1,7 @@
 ///|
 test "parse function declaration" {
   let code = "function foo() {}"
-  @json.inspect(code |> @lexer.parse |> @parser.parse, content={
+  json_inspect(code |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [
@@ -24,7 +24,7 @@ test "parse function declaration" {
 ///|
 test "parse async function declaration" {
   let code = "async function foo() {}"
-  @json.inspect(code |> @lexer.parse |> @parser.parse, content={
+  json_inspect(code |> @lexer.parse |> @parser.parse, content={
     "sourceType": "Module",
     "body": [
       [

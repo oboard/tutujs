@@ -4,6 +4,7 @@
     "oboard/readline",
     "oboard/tutujs/runtime",
     "oboard/tutujs/config",
-    "moonbitlang/x/fs"
+    "moonbitlang/x/fs",
+    "moonbitlang/core/env"
   ]
 }
