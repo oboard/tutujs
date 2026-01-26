@@ -1,5 +1,8 @@
 {
   "import": [
+    "moonbitlang/core/json",
+    "moonbitlang/core/strconv",
+    "moonbitlang/core/double",
     "oboard/tutujs/tokens",
     "oboard/tutujs/lexer"
   ]

@@ -1,0 +1,7 @@
+{
+  "name": "tutujs",
+  "scripts": {
+    "echo": "echo \"Hello, World!\"",
+    "test262": "bun test/test262_runner.js"
+  }
+}

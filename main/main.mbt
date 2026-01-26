@@ -10,13 +10,12 @@ fn main {
   match args {
     ["repl"] => start_repl()
     ["test262", path] => run_test262(path)
-    ["exec", code] => {
-      let ctx = @runtime.Context::new()
-      let _ = ctx.eval(code) catch { _ => @runtime.value_undefined() }
+    ["exec", .. args] => {
+      let _ = run_js_args(Array::from_iter(args.iter()))
 
     }
     ["run", script_or_file, .. args] => {
-      let is_file = @fs.is_file(script_or_file) catch { _ => false }
+      let is_file = is_file_safe(script_or_file)
       if is_file {
         // Run as file
         run_file(script_or_file)
@@ -69,7 +68,7 @@ fn run_file(path : String) -> Unit {
       return
     }
   }
-  let ctx = @runtime.Context::new()
+  let ctx = @tutujs.new_context()
   let _ = ctx.eval_with_path(code, path) catch {
     _ => @runtime.value_undefined()
   }
@@ -82,34 +81,74 @@ fn run_shell_command(args : Array[String]) -> Int {
     return 0
   }
   let cmd = args[0]
-  let cmd_args = args[1:]
-  // Placeholder until we fix async process execution
-  println("Executing: \{cmd} \{cmd_args}")
-  // @process.run(...)
-  0
+  let cmd_args = Array::from_iter(args[1:].iter())
+  let mut exit_code = 0
+  @async.run_async_main(async fn() {
+    exit_code = @process.run(
+      cmd,
+      cmd_args,
+      inherit_env=true,
+      stdin=@stdio.stdin,
+      stdout=@stdio.stdout,
+      stderr=@stdio.stderr,
+    )
+  })
+  exit_code
+}
+
+///|
+fn run_js_args(args : Array[String]) -> Unit {
+  if args.is_empty() {
+    return
+  }
+  let code = join_args(args)
+  let ctx = @tutujs.new_context()
+  let _ = ctx.eval(code) catch { _ => @runtime.value_undefined() }
+
+}
+
+///|
+fn join_args(args : Array[String]) -> String {
+  let sb = StringBuilder::new()
+  let mut i = 0
+  while i < args.length() {
+    if i > 0 {
+      sb.write_char(' ')
+    }
+    sb.write_string(args[i])
+    i = i + 1
+  }
+  sb.to_string()
+}
+
+///|
+fn is_file_safe(path : String) -> Bool {
+  @fs.is_file(path) catch {
+    _ => false
+  }
 }
 
 ///|
 fn resolve_package_script(name : String) -> String? {
   // Look for package.json in current directory
   let pkg_path = "package.json"
-  if @fs.path_exists(pkg_path) {
-    let content = @fs.read_file_to_string(pkg_path) catch { _ => return None }
-    let json = @json.parse(content) catch { _ => return None }
-    match json {
-      Object(fields) =>
-        match fields.get("scripts") {
-          Some(Object(scripts)) =>
-            match scripts.get(name) {
-              Some(String(cmd)) => Some(cmd)
-              _ => None
-            }
-          _ => None
-        }
-      _ => None
+  try {
+    if @fs.path_exists(pkg_path) {
+      let content = @fs.read_file_to_string(pkg_path)
+      let json = @json.parse(content)
+      match json {
+        { "scripts": Object(scripts), .. } =>
+          match scripts.get(name) {
+            Some(String(cmd)) => Some(cmd)
+            _ => None
+          }
+        _ => None
+      }
+    } else {
+      None
     }
-  } else {
-    None
+  } catch {
+    _ => return None
   }
 }
 

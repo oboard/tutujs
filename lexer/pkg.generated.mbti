@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/tutujs/lexer"
 
-import(
-  "oboard/tutujs/tokens"
-)
+import {
+  "oboard/tutujs/tokens",
+}
 
 // Values
 pub fn parse(String) -> Array[LexToken]

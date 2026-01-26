@@ -1,5 +1,9 @@
 {
   "import": [
+    {
+      "path": "moonbitlang/core/immut/hashmap",
+      "alias": "immut/hashmap"
+    },
     "oboard/tutujs/tokens"
   ]
 }

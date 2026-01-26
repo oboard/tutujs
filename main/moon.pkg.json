@@ -2,6 +2,7 @@
   "is-main": true,
   "import": [
     "oboard/readline",
+    "oboard/tutujs",
     "oboard/tutujs/runtime",
     "oboard/tutujs/config",
     "moonbitlang/x/fs",

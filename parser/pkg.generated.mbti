@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/tutujs/parser"
 
-import(
-  "moonbitlang/core/bigint"
-  "moonbitlang/core/json"
-  "oboard/tutujs/lexer"
-)
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/json",
+  "oboard/tutujs/lexer",
+}
 
 // Values
 pub fn parse(Array[@lexer.LexToken]) -> Program

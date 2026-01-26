@@ -6,6 +6,7 @@ import {
 }
 
 // Values
+pub fn new_context() -> @runtime.Vm
 
 // Errors
 
