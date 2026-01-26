@@ -5,6 +5,21 @@
     "oboard/tutujs/runtime",
     "oboard/tutujs/config",
     "moonbitlang/x/fs",
-    "moonbitlang/core/env"
+    "moonbitlang/core/env",
+    "moonbitlang/core/json",
+    "moonbitlang/x/path",
+    {
+      "path": "moonbitlang/x/sys",
+      "alias": "sys"
+    },
+    {
+      "path": "moonbitlang/async/process",
+      "alias": "process"
+    },
+    {
+      "path": "moonbitlang/async/stdio",
+      "alias": "stdio"
+    },
+    "moonbitlang/async"
   ]
 }
