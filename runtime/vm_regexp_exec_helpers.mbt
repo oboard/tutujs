@@ -1,5 +1,5 @@
 ///|
-fn regexp_exec_method(rx : JSValue, input : JSValue) -> JSValue raise {
+fn regexp_exec_method(rx : Value, input : Value) -> Value raise {
   let exec_method = property_get(rx, "exec")
   if is_callable(exec_method) {
     let result = call_value_with_this(exec_method, [input], rx)
@@ -18,11 +18,46 @@ fn regexp_exec_method(rx : JSValue, input : JSValue) -> JSValue raise {
 }
 
 ///|
+fn regexp_test_method(rx : Value, input : Value) -> Bool raise {
+  let exec_method = property_get(rx, "exec")
+  if is_callable(exec_method) {
+    match exec_method {
+      Builtin(builtin) =>
+        if builtin.kind == BuiltinFunction::RegExpExec {
+          return regexp_test_builtin(rx, input)
+        }
+      _ => ()
+    }
+    let result = call_value_with_this(exec_method, [input], rx)
+    if is_object_like(result) || result is Null {
+      return !(result is Null)
+    }
+    let _ = throw_type_error("RegExp exec method must return an object or null")
+    return false
+  }
+  regexp_test_builtin(rx, input)
+}
+
+///|
+fn regexp_test_builtin(rx : Value, input : Value) -> Bool raise {
+  match regexp_object_from_value(rx) {
+    Some((obj, data)) => {
+      let text = to_string_strict(input)
+      regexp_test_value(obj, data, text)
+    }
+    None => {
+      let _ = throw_type_error("not a regexp")
+      false
+    }
+  }
+}
+
+///|
 fn regexp_exec_value(
   obj : ObjectValue,
   data : RegexpData,
   input : String,
-) -> JSValue raise {
+) -> Value raise {
   let len = input.length()
   let last_index_value = regexp_last_index(obj)
   let mut exec_data = data
@@ -63,7 +98,7 @@ fn regexp_exec_value(
       if use_last_index {
         set_regexp_last_index(obj, end)
       }
-      let elements : Array[JSValue?] = []
+      let elements : Array[Value?] = []
       for entry in groups {
         match entry {
           Some(text) => elements.push(Some(String(text)))
@@ -73,9 +108,14 @@ fn regexp_exec_value(
       let result = new_array_value(elements)
       match result {
         Array(arr) => {
-          arr.props.set("index", property_data(Number(Double::from_int(start))))
-          arr.props.set("input", property_data(String(input)))
-          arr.props.set("groups", property_data(groups_value))
+          props_convert_to_dict(arr.props)
+          props_set(
+            arr.props,
+            "index",
+            property_data(Number(Double::from_int(start))),
+          )
+          props_set(arr.props, "input", property_data(String(input)))
+          props_set(arr.props, "groups", property_data(groups_value))
           if exec_data.has_indices {
             let indices = build_regexp_indices(
               start,
@@ -83,12 +123,57 @@ fn regexp_exec_value(
               match_value.indices,
               exec_data.regex.capture_names,
             )
-            arr.props.set("indices", property_data(indices))
+            props_set(arr.props, "indices", property_data(indices))
           }
         }
         _ => ()
       }
       result
+    }
+  }
+}
+
+///|
+fn regexp_test_value(
+  obj : ObjectValue,
+  data : RegexpData,
+  input : String,
+) -> Bool raise {
+  let len = input.length()
+  let last_index_value = regexp_last_index(obj)
+  let mut exec_data = data
+  match obj.regexp_data {
+    Some(current) => exec_data = current
+    None => ()
+  }
+  let use_last_index = exec_data.global || exec_data.sticky
+  let mut last_index = if use_last_index { last_index_value } else { 0L }
+  if use_last_index {
+    let len64 = Int64::from_int(len)
+    if last_index > len64 {
+      set_regexp_last_index(obj, 0)
+      return false
+    }
+    if (exec_data.unicode || exec_data.unicode_sets) &&
+      !is_valid_unicode_index(input, Int64::to_int(last_index)) {
+      set_regexp_last_index(obj, 0)
+      last_index = 0L
+    }
+  }
+  let start_index = if use_last_index { Int64::to_int(last_index) } else { 0 }
+  match
+    regexp_match_indices_from(exec_data, input, start_index, exec_data.sticky) {
+    None => {
+      if use_last_index {
+        set_regexp_last_index(obj, 0)
+      }
+      false
+    }
+    Some((_, end, _)) => {
+      if use_last_index {
+        set_regexp_last_index(obj, end)
+      }
+      true
     }
   }
 }
@@ -101,6 +186,16 @@ fn regexp_match_from(
   sticky : Bool,
 ) -> RegexpMatch? {
   regexp_match_from_program(data.regex, input, start, sticky)
+}
+
+///|
+fn regexp_match_indices_from(
+  data : RegexpData,
+  input : String,
+  start : Int,
+  sticky : Bool,
+) -> (Int, Int, Array[CaptureSpan?])? {
+  regexp_match_indices_from_program(data.regex, input, start, sticky)
 }
 
 ///|
@@ -117,7 +212,7 @@ fn has_named_captures(capture_names : Array[String?]) -> Bool {
 fn build_regexp_groups(
   capture_names : Array[String?],
   groups : Array[String?],
-) -> JSValue {
+) -> Value {
   if !has_named_captures(capture_names) {
     return Undefined
   }
@@ -126,6 +221,7 @@ fn build_regexp_groups(
     Object(obj) => obj
     _ => new_object_struct(None)
   }
+  props_convert_to_dict(groups_obj.props)
   let mut i = 0
   while i < capture_names.length() {
     match capture_names[i] {
@@ -134,8 +230,8 @@ fn build_regexp_groups(
           Some(Some(text)) => String(text)
           _ => Undefined
         }
-        if !(value is Undefined) || !groups_obj.props.contains(name) {
-          groups_obj.props.set(name, property_data(value))
+        if !(value is Undefined) || !props_contains(groups_obj.props, name) {
+          props_set(groups_obj.props, name, property_data(value))
         }
       }
       None => ()
@@ -151,8 +247,8 @@ fn build_regexp_indices(
   end : Int,
   group_indices : Array[CaptureSpan?],
   capture_names : Array[String?],
-) -> JSValue {
-  let values : Array[JSValue?] = []
+) -> Value {
+  let values : Array[Value?] = []
   let use_groups = has_named_captures(capture_names)
   let mut groups_value = Undefined
   let mut groups_obj : ObjectValue? = None
@@ -162,8 +258,12 @@ fn build_regexp_indices(
       Object(obj) => Some(obj)
       _ => None
     }
+    match groups_obj {
+      Some(obj) => props_convert_to_dict(obj.props)
+      None => ()
+    }
   }
-  let pair : Array[JSValue?] = [
+  let pair : Array[Value?] = [
     Some(Number(Double::from_int(start))),
     Some(Number(Double::from_int(end))),
   ]
@@ -185,8 +285,8 @@ fn build_regexp_indices(
     }
     match (groups_obj, capture_names.get(i)) {
       (Some(obj), Some(Some(name))) =>
-        if !(val is Undefined) || !obj.props.contains(name) {
-          obj.props.set(name, property_data(val))
+        if !(val is Undefined) || !props_contains(obj.props, name) {
+          props_set(obj.props, name, property_data(val))
         }
       _ => ()
     }
@@ -194,7 +294,10 @@ fn build_regexp_indices(
   }
   let indices_value = new_array_value(values)
   match indices_value {
-    Array(arr) => arr.props.set("groups", property_data(groups_value))
+    Array(arr) => {
+      props_convert_to_dict(arr.props)
+      props_set(arr.props, "groups", property_data(groups_value))
+    }
     _ => ()
   }
   indices_value
@@ -202,14 +305,14 @@ fn build_regexp_indices(
 
 ///|
 fn regexp_last_index(obj : ObjectValue) -> Int64 raise {
-  let value = property_get(JSValue::Object(obj), "lastIndex")
+  let value = property_get(Value::Object(obj), "lastIndex")
   to_length_int64(to_number(value))
 }
 
 ///|
 fn set_regexp_last_index(obj : ObjectValue, index : Int) -> Unit raise {
   let _ = property_set(
-    JSValue::Object(obj),
+    Value::Object(obj),
     "lastIndex",
     Number(Double::from_int(index)),
     true,

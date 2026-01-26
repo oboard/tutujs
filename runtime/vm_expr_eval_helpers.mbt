@@ -3,7 +3,7 @@ fn eval_template_literal(
   env : Env,
   parts : @engine.TemplateParts,
   exprs : Array[@engine.Expr],
-) -> JSValue raise {
+) -> Value raise {
   let mut result = ""
   let cooked = parts.cooked
   if !cooked.is_empty() {
@@ -41,13 +41,13 @@ fn eval_template_literal(
 fn build_template_object(
   env : Env,
   parts : @engine.TemplateParts,
-) -> JSValue raise {
+) -> Value raise {
   let registry = template_registry_for_env(env)
   match registry.get(parts.site_id) {
     Some(value) => value
     None => {
-      let cooked : Array[JSValue?] = []
-      let raw_parts : Array[JSValue?] = []
+      let cooked : Array[Value?] = []
+      let raw_parts : Array[Value?] = []
       for part in parts.cooked {
         match part {
           Some(text) => cooked.push(Some(String(text)))
@@ -60,12 +60,13 @@ fn build_template_object(
       let cooked_value = new_array_value(cooked)
       let raw_value = new_array_value(raw_parts)
       match cooked_value {
-        Array(arr) => arr.props.set("raw", property_data_non_enum(raw_value))
+        Array(arr) =>
+          props_set(arr.props, "raw", property_data_non_enum(raw_value))
         _ => ()
       }
       let _ = object_freeze(raw_value)
       let _ = object_freeze(cooked_value)
-      registry.set(parts.site_id, cooked_value)
+      template_registry_set(registry, parts.site_id, cooked_value)
       cooked_value
     }
   }
@@ -77,8 +78,8 @@ fn eval_tagged_template(
   callee : @engine.Expr,
   parts : @engine.TemplateParts,
   exprs : Array[@engine.Expr],
-) -> JSValue raise {
-  let mut this_value : JSValue? = None
+) -> Value raise {
+  let mut this_value : Value? = None
   let callee_value = match callee {
     @engine.Expr::Member(obj_expr, key, _) => {
       let target = eval_expr(env, obj_expr)
@@ -98,7 +99,7 @@ fn eval_tagged_template(
     _ => eval_expr(env, callee)
   }
   let template_obj = build_template_object(env, parts)
-  let argv : Array[JSValue] = [template_obj]
+  let argv : Array[Value] = [template_obj]
   for expr in exprs {
     argv.push(eval_expr(env, expr))
   }
@@ -109,7 +110,7 @@ fn eval_tagged_template(
 }
 
 ///|
-fn eval_typeof(env : Env, expr : @engine.Expr) -> JSValue raise {
+fn eval_typeof(env : Env, expr : @engine.Expr) -> Value raise {
   match expr {
     @engine.Expr::Ident(name, _) =>
       if env_has(env, name) {
@@ -126,7 +127,7 @@ fn eval_typeof(env : Env, expr : @engine.Expr) -> JSValue raise {
 }
 
 ///|
-fn eval_expr(env : Env, expr : @engine.Expr) -> JSValue raise {
+fn eval_expr(env : Env, expr : @engine.Expr) -> Value raise {
   match expr {
     Number(value, _, _) => Number(value)
     Bool(value) => Bool(value)
@@ -286,12 +287,12 @@ fn eval_expr(env : Env, expr : @engine.Expr) -> JSValue raise {
           env_define_readonly(
             name_env,
             name,
-            JSValue::Function(func_value),
+            Value::Function(func_value),
             false,
           )
-          JSValue::Function(func_value)
+          Value::Function(func_value)
         }
-        None => JSValue::Function(to_function_value(env, func, false))
+        None => Value::Function(to_function_value(env, func, false))
       }
     ClassExpr(class_def) => eval_class(env, class_def)
     ObjectLiteral(props) => eval_object_literal(env, props)

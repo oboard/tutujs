@@ -1,6 +1,6 @@
 ///|
 fn require_iterator_wrap(
-  this_value : JSValue?,
+  this_value : Value?,
 ) -> (ObjectValue, IteratorWrapData) raise {
   match this_value {
     Some(Object(obj)) =>
@@ -29,7 +29,7 @@ fn require_iterator_wrap(
 
 ///|
 fn require_iterator_concat(
-  this_value : JSValue?,
+  this_value : Value?,
 ) -> (ObjectValue, IteratorConcatData) raise {
   match this_value {
     Some(Object(obj)) =>
@@ -69,7 +69,7 @@ fn require_iterator_concat(
 
 ///|
 fn require_iterator_helper(
-  this_value : JSValue?,
+  this_value : Value?,
 ) -> (ObjectValue, IteratorHelperData) raise {
   match this_value {
     Some(Object(obj)) =>

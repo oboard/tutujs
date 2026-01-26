@@ -131,7 +131,7 @@ fn regexp_data_from_pattern(
 }
 
 ///|
-fn is_regexp_value(value : JSValue) -> Bool raise {
+fn is_regexp_value(value : Value) -> Bool raise {
   if !is_object_like(value) {
     return false
   }
@@ -154,7 +154,7 @@ fn is_regexp_value(value : JSValue) -> Bool raise {
 }
 
 ///|
-fn check_regexp_g_flag(value : JSValue) -> Unit raise {
+fn check_regexp_g_flag(value : Value) -> Unit raise {
   if !is_regexp_value(value) {
     return
   }
@@ -174,7 +174,7 @@ fn check_regexp_g_flag(value : JSValue) -> Unit raise {
 }
 
 ///|
-fn regexp_object_from_value(value : JSValue) -> (ObjectValue, RegexpData)? {
+fn regexp_object_from_value(value : Value) -> (ObjectValue, RegexpData)? {
   match value {
     Object(obj) =>
       match obj.regexp_data {
@@ -186,7 +186,7 @@ fn regexp_object_from_value(value : JSValue) -> (ObjectValue, RegexpData)? {
 }
 
 ///|
-fn require_regexp(this_value : JSValue?) -> (ObjectValue, RegexpData) raise {
+fn require_regexp(this_value : Value?) -> (ObjectValue, RegexpData) raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.regexp_data {
@@ -209,9 +209,9 @@ fn require_regexp(this_value : JSValue?) -> (ObjectValue, RegexpData) raise {
 
 ///|
 fn regexp_compile_value(
-  this_value : JSValue?,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value?,
+  args : Array[Value],
+) -> Value raise {
   let (obj, _) = require_regexp(this_value)
   let pattern_value = if args.is_empty() { Undefined } else { args[0] }
   let flags_value = if args.length() > 1 { args[1] } else { Undefined }
@@ -245,10 +245,10 @@ fn regexp_compile_value(
 
 ///|
 fn regexp_from_args(
-  args : Array[JSValue],
+  args : Array[Value],
   force_new : Bool,
-  new_target? : JSValue = Undefined,
-) -> JSValue raise {
+  new_target? : Value = Undefined,
+) -> Value raise {
   let pattern_value = if args.is_empty() { Undefined } else { args[0] }
   let flags_value = if args.length() > 1 { args[1] } else { Undefined }
   let pattern_is_regexp = is_regexp_value(pattern_value)
@@ -262,7 +262,7 @@ fn regexp_from_args(
   }
   let mut pattern = ""
   let mut flags_str : String? = None
-  let mut flags_raw : JSValue? = None
+  let mut flags_raw : Value? = None
   if pattern_is_regexp {
     match regexp_object_from_value(pattern_value) {
       Some((_, data)) => {

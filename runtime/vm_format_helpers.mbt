@@ -99,7 +99,7 @@ fn format_float_fixed(value : Double, precision : Int) -> String {
 }
 
 ///|
-fn std_sprintf(args : Array[JSValue]) -> JSValue raise {
+fn std_sprintf(args : Array[Value]) -> Value raise {
   if args.is_empty() {
     return String("")
   }

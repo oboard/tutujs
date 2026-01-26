@@ -1,5 +1,5 @@
 ///|
-fn new_proxy_value(target : JSValue, handler : JSValue) -> JSValue raise {
+fn new_proxy_value(target : Value, handler : Value) -> Value raise {
   if !is_object_like(target) {
     return throw_type_error("proxy target must be an object")
   }
@@ -10,7 +10,7 @@ fn new_proxy_value(target : JSValue, handler : JSValue) -> JSValue raise {
   let constructable = is_constructor_value(target)
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: None,
     string_data: None,
     number_data: None,
@@ -42,14 +42,16 @@ fn new_proxy_value(target : JSValue, handler : JSValue) -> JSValue raise {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_value(target)
+  rc_incref_value(handler)
   Object(obj)
 }
 
 ///|
-fn new_proxy_revoke_function(proxy : JSValue) -> JSValue {
+fn new_proxy_revoke_function(proxy : Value) -> Value {
   match new_builtin_value_with_this(BuiltinFunction::ProxyRevoke, proxy) {
     Builtin(builtin) => {
-      builtin.props.set("name", property_data_readonly(String("")))
+      props_set(builtin.props, "name", property_data_readonly(String("")))
       Builtin(builtin)
     }
     value => value

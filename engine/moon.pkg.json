@@ -1,12 +1,6 @@
 {
-  "import":[
-    "moonbitlang/core/bigint",
-    "moonbitlang/core/double",
+  "import": [
     "moonbitlang/core/strconv",
-    "moonbitlang/core/hashmap",
-    "moonbitlang/core/math",
-    "moonbitlang/core/json",
-    "moonbitlang/core/env",
-    "moonbitlang/core/encoding/utf8"
+    "moonbitlang/core/bigint"
   ]
 }

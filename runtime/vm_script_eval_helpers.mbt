@@ -28,7 +28,7 @@ fn eval_script_with_strict(
   inherit_strict : Bool,
   var_configurable : Bool,
   eval_skip_outer_var : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let old_strict = env.strict
   env.strict = if inherit_strict {
     env.strict || script.is_strict || script.is_module
@@ -55,15 +55,18 @@ fn eval_script_with_strict(
           }
           hoist_decls(env, script.body, var_configurable, eval_skip_outer_var)
           try {
-            let mut last = Undefined
-            for stmt in script.body {
-              let value = eval_stmt(env, stmt)
-              if stmt_updates_completion(stmt) {
-                last = value
+            let bytecode = bytecode_compile_script(script)
+            match bytecode {
+              Some(func) => {
+                let value = bytecode_exec(env, func)
+                gc_maybe_collect_with_root(value)
+                value
               }
-              gc_maybe_collect_with_root(last)
+              None => {
+                let _ = throw_type_error("bytecode compile failed")
+                Undefined
+              }
             }
-            last
           } catch {
             ReturnSignal(_) => throw_syntax_error("illegal return")
             BreakSignal((_, _)) => throw_syntax_error("illegal break")
@@ -88,6 +91,6 @@ fn eval_script_with_strict(
 }
 
 ///|
-fn eval_script(env : Env, script : @engine.Script) -> JSValue raise {
+fn eval_script(env : Env, script : @engine.Script) -> Value raise {
   eval_script_with_strict(env, script, true, false, false)
 }

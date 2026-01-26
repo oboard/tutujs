@@ -24,6 +24,8 @@ pub fn unicode_is_ident_continue(Int) -> Bool
 
 pub fn unicode_is_ident_start(Int) -> Bool
 
+pub fn var_binding_name(String) -> VarBinding
+
 // Errors
 pub(all) suberror ParseError {
   At(offset~ : Int, message~ : String)

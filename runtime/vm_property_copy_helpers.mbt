@@ -1,5 +1,5 @@
 ///|
-fn copy_data_properties(target : ObjectValue, source : JSValue) -> Unit raise {
+fn copy_data_properties(target : ObjectValue, source : Value) -> Unit raise {
   if !is_object_like(source) {
     return
   }
@@ -18,20 +18,20 @@ fn copy_data_properties(target : ObjectValue, source : JSValue) -> Unit raise {
   let keys = own_enumerable_string_keys(from)
   for key in keys {
     let value = property_get(from, key)
-    target.props.set(key, property_data(value))
+    props_set(target.props, key, property_data(value))
   }
   let symbols = own_symbol_keys(from, false)
   for symbol in symbols {
     let key = symbol_prop_key(symbol)
     let value = property_get(from, key)
-    target.props.set(key, property_data(value))
+    props_set(target.props, key, property_data(value))
   }
 }
 
 ///|
 fn copy_data_properties_excluding(
   target : ObjectValue,
-  source : JSValue,
+  source : Value,
   excluded : Array[String],
 ) -> Unit raise {
   if !is_object_like(source) {
@@ -59,7 +59,7 @@ fn copy_data_properties_excluding(
           let enumerable_value = property_get(desc, "enumerable")
           if is_truthy(enumerable_value) {
             let value = property_get(from, key_name)
-            target.props.set(key_name, property_data(value))
+            props_set(target.props, key_name, property_data(value))
           }
         }
     }

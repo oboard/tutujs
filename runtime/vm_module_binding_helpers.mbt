@@ -1,16 +1,18 @@
 ///|
-fn new_module_binding_value(
-  module_value : JSValue,
-  name : String,
-) -> JSValue raise {
+fn new_module_binding_value(module_value : Value, name : String) -> Value raise {
   let target = to_object(module_value)
   let binding_value = new_object_value_with_proto(
     value_from_object(object_proto()),
   )
   match binding_value {
     Object(obj) => {
-      obj.props.set(module_binding_target_key, property_data_non_enum(target))
-      obj.props.set(
+      props_set(
+        obj.props,
+        module_binding_target_key,
+        property_data_non_enum(target),
+      )
+      props_set(
+        obj.props,
         module_binding_name_key,
         property_data_non_enum(String(name)),
       )
@@ -22,13 +24,13 @@ fn new_module_binding_value(
 }
 
 ///|
-fn module_binding_info(value : JSValue) -> (JSValue, String, Int)? {
+fn module_binding_info(value : Value) -> (Value, String, Int)? {
   match value {
     Object(obj) =>
       match
         (
-          obj.props.get(module_binding_target_key),
-          obj.props.get(module_binding_name_key),
+          props_get(obj.props, module_binding_target_key),
+          props_get(obj.props, module_binding_name_key),
         ) {
         (Some(target_prop), Some(name_prop)) =>
           match name_prop.value {
@@ -42,7 +44,7 @@ fn module_binding_info(value : JSValue) -> (JSValue, String, Int)? {
 }
 
 ///|
-fn module_binding_deref(value : JSValue) -> JSValue raise {
+fn module_binding_deref(value : Value) -> Value raise {
   let mut current = value
   let seen : Map[Int, Bool] = Map::new()
   while true {
@@ -93,13 +95,13 @@ fn module_meta_object(path : String, is_main : Bool) -> ObjectValue {
     _ => new_object_struct(None)
   }
   let url = if path.contains(":") { path } else { "file://" + path }
-  meta_obj.props.set("url", property_data(String(url)))
-  meta_obj.props.set("main", property_data(Bool(is_main)))
+  props_set(meta_obj.props, "url", property_data(String(url)))
+  props_set(meta_obj.props, "main", property_data(Bool(is_main)))
   meta_obj
 }
 
 ///|
-fn import_meta_value() -> JSValue raise {
+fn import_meta_value() -> Value raise {
   let mut path : String? = None
   match current_function() {
     Some(func) => path = func.source_path

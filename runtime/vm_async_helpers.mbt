@@ -1,5 +1,5 @@
 ///|
-fn await_value(value : JSValue) -> JSValue raise {
+fn await_value(value : Value) -> Value raise {
   let promise_ctor = promise_ctor_value_for_current_env()
   let promise = promise_resolve_value(promise_ctor, value, false)
   match promise_data_from_value(promise) {

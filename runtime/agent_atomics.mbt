@@ -2,7 +2,7 @@
 priv struct Test262AgentState {
   id : Int
   env : Env
-  mut broadcast_callback : JSValue?
+  mut broadcast_callback : Value?
 }
 
 ///|
@@ -57,6 +57,9 @@ let current_agent_id_ref : Ref[Int?] = Ref::new(None)
 let agent_clock_ref : Ref[Int64] = Ref::new(0)
 
 ///|
+let agent_local_clock_ref : Ref[Map[Int, Int64]] = Ref::new(Map::new())
+
+///|
 let atomics_waiter_table_ref : Ref[Map[Int, AtomicsWaiter]] = Ref::new(
   Map::new(),
 )
@@ -77,6 +80,18 @@ let atomics_notify_time_ref : Ref[Map[Int, Int64]] = Ref::new(Map::new())
 let atomics_waiter_token_prefix = "\u{00}atomics_waiter:"
 
 ///|
+fn rc_incref_agent_state(state : Test262AgentState) -> Unit {
+  rc_incref_env(state.env)
+  rc_incref_optional_value(state.broadcast_callback)
+}
+
+///|
+fn rc_decref_agent_state(state : Test262AgentState) -> Unit {
+  rc_decref_env(state.env)
+  rc_decref_optional_value(state.broadcast_callback)
+}
+
+///|
 fn current_agent_id() -> Int? {
   let mut value : Int? = None
   current_agent_id_ref.update(fn(current) {
@@ -87,7 +102,7 @@ fn current_agent_id() -> Int? {
 }
 
 ///|
-fn with_agent_id(id : Int?, f : () -> JSValue raise) -> JSValue raise {
+fn with_agent_id(id : Int?, f : () -> Value raise) -> Value raise {
   let prev = current_agent_id()
   current_agent_id_ref.update(fn(_) { id })
   try f() catch {
@@ -138,8 +153,23 @@ fn agent_state_get(id : Int) -> Test262AgentState? {
 ///|
 fn agent_state_set(state : Test262AgentState) -> Unit {
   agent_table_ref.update(fn(table) {
+    match table.get(state.id) {
+      Some(existing) => rc_decref_agent_state(existing)
+      None => ()
+    }
+    rc_incref_agent_state(state)
     table.set(state.id, state)
     table
+  })
+}
+
+///|
+fn agent_table_clear() -> Unit {
+  agent_table_ref.update(fn(table) {
+    for _, state in table {
+      rc_decref_agent_state(state)
+    }
+    Map::new()
   })
 }
 
@@ -587,4 +617,56 @@ fn agent_clock_advance(delta_ms : Int64) -> Int64 {
   })
   atomics_update_waiter_timeouts(value)
   value
+}
+
+///|
+fn agent_local_clock_now(agent_id : Int) -> Int64 {
+  let mut value : Int64? = None
+  agent_local_clock_ref.update(fn(table) {
+    value = table.get(agent_id)
+    table
+  })
+  match value {
+    Some(current) => current
+    None => {
+      let now = agent_clock_now()
+      agent_local_clock_ref.update(fn(table) {
+        table.set(agent_id, now)
+        table
+      })
+      now
+    }
+  }
+}
+
+///|
+fn agent_local_clock_advance(agent_id : Int, delta_ms : Int64) -> Int64 {
+  let mut next_value : Int64 = 0
+  agent_local_clock_ref.update(fn(table) {
+    let current = match table.get(agent_id) {
+      Some(value) => value
+      None => agent_clock_now()
+    }
+    let next = current + delta_ms
+    table.set(agent_id, next)
+    next_value = next
+    table
+  })
+  next_value
+}
+
+///|
+fn agent_local_clock_advance_to(agent_id : Int, target : Int64) -> Int64 {
+  let mut next_value : Int64 = 0
+  agent_local_clock_ref.update(fn(table) {
+    let current = match table.get(agent_id) {
+      Some(value) => value
+      None => agent_clock_now()
+    }
+    let next = if target > current { target } else { current }
+    table.set(agent_id, next)
+    next_value = next
+    table
+  })
+  next_value
 }

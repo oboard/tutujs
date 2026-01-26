@@ -2,7 +2,7 @@
 fn arguments_set(
   args : ArgumentsValue,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   let receiver = Arguments(args)
   if name == "length" || name == "callee" {
@@ -16,14 +16,14 @@ fn arguments_set(
       if !args.extensible && !arguments_has_index(args, index) {
         return false
       }
-      if args.props.contains(name) &&
+      if props_contains(args.props, name) &&
         !(index < args.mapped.length() && args.mapped[index]) {
         return set_property_in(args.props, name, value, receiver)
       }
       arguments_set_index(args, index, value)
     }
     None =>
-      if args.extensible || args.props.contains(name) {
+      if args.extensible || props_contains(args.props, name) {
         set_property_in(args.props, name, value, receiver)
       } else {
         false
@@ -35,7 +35,7 @@ fn arguments_set(
 fn arguments_set_index(
   args : ArgumentsValue,
   index : Int,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   if index < 0 {
     return false
@@ -47,6 +47,7 @@ fn arguments_set_index(
       args.mapped[index] {
       env_set_local(args.env, args.params[index], value)
     }
+    rc_replace_optional_value(args.elements[index], Some(value))
     args.elements[index] = Some(value)
     true
   } else {

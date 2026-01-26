@@ -3,7 +3,7 @@
 fn initialize_binding_assign(
   env : Env,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   env_initialize_binding(env, name, value)
 }
@@ -12,8 +12,8 @@ fn initialize_binding_assign(
 fn assign_binding_value(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
-  assign : (String, JSValue) -> Unit raise,
+  value : Value,
+  assign : (String, Value) -> Unit raise,
 ) -> Unit raise {
   match binding {
     @engine.VarBinding::Name(name) => assign(name, value)
@@ -30,7 +30,7 @@ fn prepare_identifier_assignment_target(
   env : Env,
   name : String,
   strict : Bool,
-) -> ((JSValue) -> Unit raise) raise {
+) -> ((Value) -> Unit raise) raise {
   match env.with_object {
     Some(obj) =>
       if has_property_value(obj, name) && !is_unscopable(obj, name) {
@@ -59,46 +59,19 @@ fn prepare_identifier_assignment_target(
         None =>
           match global_object(env) {
             Some(obj) =>
-              if has_property_in_chain(obj.props, obj.proto, name) {
-                fn(value) raise {
-                  if has_property_in_chain(obj.props, obj.proto, name) {
-                    let _ = property_set(
-                      JSValue::Object(obj),
-                      name,
-                      value,
-                      strict,
-                    )
+              fn(value) raise {
+                if has_property_in_chain(obj.props, obj.proto, name) {
+                  let _ = property_set(Value::Object(obj), name, value, strict)
 
-                  } else if strict {
-                    let _ = throw_reference_error("undefined variable")
+                } else if strict {
+                  let _ = throw_reference_error("undefined variable")
 
-                  } else {
-                    let _ = property_set(
-                      JSValue::Object(obj),
-                      name,
-                      value,
-                      false,
-                    )
+                } else {
+                  let _ = property_set(Value::Object(obj), name, value, false)
 
-                  }
-                }
-              } else {
-                fn(value) raise {
-                  if strict {
-                    let _ = throw_reference_error("undefined variable")
-
-                  } else {
-                    let _ = property_set(
-                      JSValue::Object(obj),
-                      name,
-                      value,
-                      false,
-                    )
-
-                  }
                 }
               }
-            None => fn(value) { env.bindings.set(name, value) }
+            None => fn(value) { env_bindings_set(env, name, value) }
           }
       }
   }
@@ -109,8 +82,8 @@ fn prepare_member_assignment_target_with_roots(
   env : Env,
   obj_expr : @engine.Expr,
   key : @engine.MemberKey,
-) -> (Array[JSValue], (JSValue) -> Unit raise) raise {
-  let roots : Array[JSValue] = []
+) -> (Array[Value], (Value) -> Unit raise) raise {
+  let roots : Array[Value] = []
   match obj_expr {
     @engine.Expr::Super =>
       match key {
@@ -196,7 +169,7 @@ fn prepare_member_assignment_target_with_roots(
 fn prepare_assignment_target_with_roots(
   env : Env,
   expr : @engine.Expr,
-) -> (Array[JSValue], (JSValue) -> Unit raise) raise {
+) -> (Array[Value], (Value) -> Unit raise) raise {
   match expr {
     @engine.Expr::Ident(name, _) =>
       ([], prepare_identifier_assignment_target(env, name, env.strict))

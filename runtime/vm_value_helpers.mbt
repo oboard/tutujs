@@ -1,5 +1,5 @@
 ///|
-fn is_callable(value : JSValue) -> Bool {
+fn is_callable(value : Value) -> Bool {
   match value {
     Function(_) => true
     BoundFunction(_) => true
@@ -68,7 +68,7 @@ fn is_constructor_builtin(kind : BuiltinFunction) -> Bool {
 }
 
 ///|
-fn is_constructor_value(value : JSValue) -> Bool {
+fn is_constructor_value(value : Value) -> Bool {
   match value {
     Function(func) => func.is_constructor
     BoundFunction(bound) => bound.is_constructor
@@ -83,7 +83,7 @@ fn is_constructor_value(value : JSValue) -> Bool {
 }
 
 ///|
-fn function_realm_env(value : JSValue) -> Env? {
+fn function_realm_env(value : Value) -> Env? {
   match value {
     Function(func) => Some(func.env)
     BoundFunction(bound) => function_realm_env(bound.target)
@@ -107,7 +107,7 @@ fn function_realm_env(value : JSValue) -> Env? {
 }
 
 ///|
-fn function_realm_env_checked(value : JSValue) -> Env raise {
+fn function_realm_env_checked(value : Value) -> Env raise {
   match value {
     Function(func) => func.env
     BoundFunction(bound) => function_realm_env_checked(bound.target)
@@ -141,11 +141,11 @@ fn function_realm_env_checked(value : JSValue) -> Env raise {
 }
 
 ///|
-fn constructor_name(value : JSValue) -> String? {
+fn constructor_name(value : Value) -> String? {
   match value {
     Function(func) => func.name
     BoundFunction(bound) =>
-      match bound.props.get("name") {
+      match props_get(bound.props, "name") {
         Some(prop) =>
           match prop.value {
             String(name) => Some(name)
@@ -159,7 +159,7 @@ fn constructor_name(value : JSValue) -> String? {
 }
 
 ///|
-fn throw_not_constructor(value : JSValue) -> JSValue raise {
+fn throw_not_constructor(value : Value) -> Value raise {
   match constructor_name(value) {
     Some(name) => throw_type_error("\{name} is not a constructor")
     None => throw_type_error("not a constructor")
@@ -167,7 +167,7 @@ fn throw_not_constructor(value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn is_object_like(value : JSValue) -> Bool {
+fn is_object_like(value : Value) -> Bool {
   match value {
     Object(_) => true
     Function(_) => true
@@ -196,7 +196,7 @@ fn proxy_check_revoked(data : ProxyData) -> Unit raise {
 }
 
 ///|
-fn is_array_value(value : JSValue) -> Bool raise {
+fn is_array_value(value : Value) -> Bool raise {
   match value {
     Array(arr) => arr.typed_array_data is None
     Object(obj) =>

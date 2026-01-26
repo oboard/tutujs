@@ -1,11 +1,11 @@
 ///|
 fn set_property_in(
-  props : Map[String, Property],
+  props : Props,
   name : String,
-  value : JSValue,
-  receiver : JSValue,
+  value : Value,
+  receiver : Value,
 ) -> Bool raise {
-  match props.get(name) {
+  match props_get(props, name) {
     Some(prop) =>
       match prop.setter {
         Some(setter) =>
@@ -18,7 +18,7 @@ fn set_property_in(
           }
         None =>
           if prop.writable {
-            props.set(name, Property::{
+            props_set(props, name, Property::{
               value,
               writable: prop.writable,
               configurable: prop.configurable,
@@ -32,7 +32,7 @@ fn set_property_in(
           }
       }
     None => {
-      props.set(name, property_data(value))
+      props_set(props, name, property_data(value))
       true
     }
   }
@@ -40,15 +40,15 @@ fn set_property_in(
 
 ///|
 fn set_property_with_proto(
-  props : Map[String, Property],
-  proto : JSValue?,
+  props : Props,
+  proto : Value?,
   name : String,
-  value : JSValue,
-  receiver : JSValue,
+  value : Value,
+  receiver : Value,
   extensible : Bool,
 ) -> Bool raise {
   let _ = extensible
-  if props.contains(name) {
+  if props_contains(props, name) {
     return set_property_in(props, name, value, receiver)
   }
   match proto {
@@ -86,7 +86,8 @@ fn set_property_with_proto(
               } else {
                 let desc_obj = new_object_value()
                 match desc_obj {
-                  Object(obj) => obj.props.set("value", property_data(value))
+                  Object(obj) =>
+                    props_set(obj.props, "value", property_data(value))
                   _ => ()
                 }
                 define_property_value(

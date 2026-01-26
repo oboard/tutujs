@@ -3,7 +3,7 @@ fn gen_eval_call(
   env : Env,
   callee : @engine.Expr,
   args : Array[@engine.Expr],
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
     match unwrap_paren(callee) {
@@ -96,8 +96,8 @@ fn gen_eval_args(
   env : Env,
   args : Array[@engine.Expr],
   index : Int,
-  values : Array[JSValue],
-  k : (Array[JSValue]) -> GenStep raise,
+  values : Array[Value],
+  k : (Array[Value]) -> GenStep raise,
 ) -> GenStep raise {
   if index >= args.length() {
     return k(values)

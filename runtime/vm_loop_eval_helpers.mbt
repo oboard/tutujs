@@ -11,7 +11,7 @@ fn label_matches(signal_label : String?, target_label : String?) -> Bool {
 }
 
 ///|
-fn update_empty(value_opt : JSValue?, fallback : JSValue) -> JSValue {
+fn update_empty(value_opt : Value?, fallback : Value) -> Value {
   match value_opt {
     Some(value) => value
     None => fallback
@@ -24,7 +24,7 @@ fn eval_while_with_label(
   label : String?,
   cond_expr : @engine.Expr,
   body : @engine.Stmt,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let mut gc_tick = 0
   while is_truthy(eval_expr(env, cond_expr)) {
@@ -103,7 +103,7 @@ fn eval_for_with_label(
   test_expr : @engine.Expr?,
   update_expr : @engine.Expr?,
   body : @engine.Stmt,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let (use_loop_env, loop_is_const) = match init {
     @engine.ForInit::Var(kind, _) =>
@@ -218,7 +218,7 @@ fn eval_for_in_with_label(
   init : @engine.ForInit,
   expr : @engine.Expr,
   body : @engine.Stmt,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let use_loop_env = match init {
     @engine.ForInit::Var(kind, _) => !(kind is @engine.VarKind::Var)
@@ -383,7 +383,7 @@ fn eval_for_of_with_label(
   init : @engine.ForInit,
   expr : @engine.Expr,
   body : @engine.Stmt,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let use_loop_env = match init {
     @engine.ForInit::Var(kind, _) => !(kind is @engine.VarKind::Var)
@@ -538,7 +538,7 @@ fn eval_for_await_of_with_label(
   init : @engine.ForInit,
   expr : @engine.Expr,
   body : @engine.Stmt,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let use_loop_env = match init {
     @engine.ForInit::Var(kind, _) => !(kind is @engine.VarKind::Var)
@@ -692,7 +692,7 @@ fn eval_do_while_with_label(
   label : String?,
   body : @engine.Stmt,
   cond_expr : @engine.Expr,
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let mut gc_tick = 0
   while true {
@@ -733,7 +733,7 @@ fn eval_switch_with_label(
   label : String?,
   discriminant : @engine.Expr,
   cases : Array[@engine.SwitchCase],
-) -> JSValue raise {
+) -> Value raise {
   let mut last = Undefined
   let value = eval_expr(env, discriminant)
   let switch_env = Env::new(Some(env))

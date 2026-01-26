@@ -1,11 +1,11 @@
 ///|
 fn call_builtin_regexp(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::RegExpConstructor =>
-      regexp_from_args(args, false, new_target=JSValue::Builtin(builtin))
+      regexp_from_args(args, false, new_target=Value::Builtin(builtin))
     BuiltinFunction::RegExpExec => {
       let (obj, data) = require_regexp(builtin.this_value)
       let input = if args.is_empty() {
@@ -21,10 +21,7 @@ fn call_builtin_regexp(
         None => Undefined
       }
       let input = if args.is_empty() { Undefined } else { args[0] }
-      match regexp_exec_method(this_value, input) {
-        Null => Bool(false)
-        _ => Bool(true)
-      }
+      Bool(regexp_test_method(this_value, input))
     }
     BuiltinFunction::RegExpToString =>
       regexp_to_string_value(builtin.this_value)

@@ -1,9 +1,9 @@
 ///|
 fn property_get_with_receiver(
-  target : JSValue,
+  target : Value,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match target {
     Object(obj) =>
       match obj.proxy_data {
@@ -25,12 +25,12 @@ fn property_get_with_receiver(
 }
 
 ///|
-fn property_get(target : JSValue, name : String) -> JSValue raise {
+fn property_get(target : Value, name : String) -> Value raise {
   property_get_with_receiver(target, name, target)
 }
 
 ///|
-fn proto_for_value(target : JSValue) -> JSValue? {
+fn proto_for_value(target : Value) -> Value? {
   match target {
     Object(obj) => obj.proto
     Function(func) => func.proto
@@ -43,7 +43,7 @@ fn proto_for_value(target : JSValue) -> JSValue? {
 }
 
 ///|
-fn property_get_raw(target : JSValue, name : String) -> JSValue raise {
+fn property_get_raw(target : Value, name : String) -> Value raise {
   match props_map_for_value(target) {
     Some(props) =>
       property_get_from_chain_raw(props, proto_for_value(target), name, target)

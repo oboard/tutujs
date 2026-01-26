@@ -1,21 +1,21 @@
 ///|
-fn descriptor_is_accessor(desc : JSValue) -> Bool raise {
+fn descriptor_is_accessor(desc : Value) -> Bool raise {
   has_property_value(desc, "get") || has_property_value(desc, "set")
 }
 
 ///|
-fn descriptor_is_data(desc : JSValue) -> Bool raise {
+fn descriptor_is_data(desc : Value) -> Bool raise {
   has_property_value(desc, "value") || has_property_value(desc, "writable")
 }
 
 ///|
 priv struct PropertyDescInfo {
-  value : JSValue
+  value : Value
   writable : Bool
   enumerable : Bool
   configurable : Bool
-  getter : JSValue
-  setter : JSValue
+  getter : Value
+  setter : Value
   has_value : Bool
   has_writable : Bool
   has_enumerable : Bool
@@ -25,7 +25,7 @@ priv struct PropertyDescInfo {
 }
 
 ///|
-fn to_property_desc_info(desc : JSValue) -> PropertyDescInfo raise {
+fn to_property_desc_info(desc : Value) -> PropertyDescInfo raise {
   if !is_object_like(desc) {
     let _ = throw_type_error("property description must be an object")
     return PropertyDescInfo::{
@@ -149,7 +149,7 @@ fn to_property_desc_info(desc : JSValue) -> PropertyDescInfo raise {
 }
 
 ///|
-fn property_descriptor_object(prop : Property) -> JSValue {
+fn property_descriptor_object(prop : Property) -> Value {
   let desc = new_object_value()
   match desc {
     Object(obj) => {
@@ -162,14 +162,18 @@ fn property_descriptor_object(prop : Property) -> JSValue {
           Some(value) => value
           None => Undefined
         }
-        obj.props.set("get", property_data(getter))
-        obj.props.set("set", property_data(setter))
+        props_set(obj.props, "get", property_data(getter))
+        props_set(obj.props, "set", property_data(setter))
       } else {
-        obj.props.set("value", property_data(prop.value))
-        obj.props.set("writable", property_data(Bool(prop.writable)))
+        props_set(obj.props, "value", property_data(prop.value))
+        props_set(obj.props, "writable", property_data(Bool(prop.writable)))
       }
-      obj.props.set("enumerable", property_data(Bool(prop.enumerable)))
-      obj.props.set("configurable", property_data(Bool(prop.configurable)))
+      props_set(obj.props, "enumerable", property_data(Bool(prop.enumerable)))
+      props_set(
+        obj.props,
+        "configurable",
+        property_data(Bool(prop.configurable)),
+      )
     }
     _ => ()
   }
@@ -177,27 +181,31 @@ fn property_descriptor_object(prop : Property) -> JSValue {
 }
 
 ///|
-fn property_descriptor_object_from_info(info : PropertyDescInfo) -> JSValue {
+fn property_descriptor_object_from_info(info : PropertyDescInfo) -> Value {
   let desc = new_object_value()
   match desc {
     Object(obj) => {
       if info.has_get {
-        obj.props.set("get", property_data(info.getter))
+        props_set(obj.props, "get", property_data(info.getter))
       }
       if info.has_set {
-        obj.props.set("set", property_data(info.setter))
+        props_set(obj.props, "set", property_data(info.setter))
       }
       if info.has_value {
-        obj.props.set("value", property_data(info.value))
+        props_set(obj.props, "value", property_data(info.value))
       }
       if info.has_writable {
-        obj.props.set("writable", property_data(Bool(info.writable)))
+        props_set(obj.props, "writable", property_data(Bool(info.writable)))
       }
       if info.has_enumerable {
-        obj.props.set("enumerable", property_data(Bool(info.enumerable)))
+        props_set(obj.props, "enumerable", property_data(Bool(info.enumerable)))
       }
       if info.has_configurable {
-        obj.props.set("configurable", property_data(Bool(info.configurable)))
+        props_set(
+          obj.props,
+          "configurable",
+          property_data(Bool(info.configurable)),
+        )
       }
     }
     _ => ()
@@ -206,7 +214,7 @@ fn property_descriptor_object_from_info(info : PropertyDescInfo) -> JSValue {
 }
 
 ///|
-fn property_data(value : JSValue) -> Property {
+fn property_data(value : Value) -> Property {
   Property::{
     value,
     writable: true,
@@ -218,7 +226,7 @@ fn property_data(value : JSValue) -> Property {
 }
 
 ///|
-fn property_data_readonly(value : JSValue) -> Property {
+fn property_data_readonly(value : Value) -> Property {
   Property::{
     value,
     writable: false,
@@ -230,7 +238,7 @@ fn property_data_readonly(value : JSValue) -> Property {
 }
 
 ///|
-fn property_data_const(value : JSValue) -> Property {
+fn property_data_const(value : Value) -> Property {
   Property::{
     value,
     writable: false,
@@ -242,7 +250,7 @@ fn property_data_const(value : JSValue) -> Property {
 }
 
 ///|
-fn property_data_non_enum_non_config(value : JSValue) -> Property {
+fn property_data_non_enum_non_config(value : Value) -> Property {
   Property::{
     value,
     writable: true,
@@ -254,7 +262,7 @@ fn property_data_non_enum_non_config(value : JSValue) -> Property {
 }
 
 ///|
-fn property_data_non_enum(value : JSValue) -> Property {
+fn property_data_non_enum(value : Value) -> Property {
   Property::{
     value,
     writable: true,
@@ -266,7 +274,7 @@ fn property_data_non_enum(value : JSValue) -> Property {
 }
 
 ///|
-fn property_accessor(getter : JSValue, setter : JSValue) -> Property {
+fn property_accessor(getter : Value, setter : Value) -> Property {
   Property::{
     value: Undefined,
     writable: false,
@@ -278,7 +286,7 @@ fn property_accessor(getter : JSValue, setter : JSValue) -> Property {
 }
 
 ///|
-fn property_accessor_non_config(getter : JSValue, setter : JSValue) -> Property {
+fn property_accessor_non_config(getter : Value, setter : Value) -> Property {
   Property::{
     value: Undefined,
     writable: false,
@@ -291,12 +299,12 @@ fn property_accessor_non_config(getter : JSValue, setter : JSValue) -> Property 
 
 ///|
 fn set_accessor_property(
-  props : Map[String, Property],
+  props : Props,
   name : String,
-  getter : JSValue?,
-  setter : JSValue?,
+  getter : Value?,
+  setter : Value?,
 ) -> Unit {
-  match props.get(name) {
+  match props_get(props, name) {
     Some(prop) =>
       if prop.getter is Some(_) || prop.setter is Some(_) {
         let next_getter = match getter {
@@ -307,7 +315,7 @@ fn set_accessor_property(
           Some(_) => setter
           None => prop.setter
         }
-        props.set(name, Property::{
+        props_set(props, name, Property::{
           value: Undefined,
           writable: false,
           configurable: prop.configurable,
@@ -316,7 +324,7 @@ fn set_accessor_property(
           setter: next_setter,
         })
       } else {
-        props.set(name, Property::{
+        props_set(props, name, Property::{
           value: Undefined,
           writable: false,
           configurable: true,
@@ -326,7 +334,7 @@ fn set_accessor_property(
         })
       }
     None =>
-      props.set(name, Property::{
+      props_set(props, name, Property::{
         value: Undefined,
         writable: false,
         configurable: true,
@@ -339,13 +347,13 @@ fn set_accessor_property(
 
 ///|
 fn set_accessor_property_with_enum(
-  props : Map[String, Property],
+  props : Props,
   name : String,
-  getter : JSValue?,
-  setter : JSValue?,
+  getter : Value?,
+  setter : Value?,
   enumerable : Bool,
 ) -> Unit {
-  match props.get(name) {
+  match props_get(props, name) {
     Some(prop) =>
       if prop.getter is Some(_) || prop.setter is Some(_) {
         let next_getter = match getter {
@@ -356,7 +364,7 @@ fn set_accessor_property_with_enum(
           Some(_) => setter
           None => prop.setter
         }
-        props.set(name, Property::{
+        props_set(props, name, Property::{
           value: Undefined,
           writable: false,
           configurable: prop.configurable,
@@ -365,7 +373,7 @@ fn set_accessor_property_with_enum(
           setter: next_setter,
         })
       } else {
-        props.set(name, Property::{
+        props_set(props, name, Property::{
           value: Undefined,
           writable: false,
           configurable: true,
@@ -375,7 +383,7 @@ fn set_accessor_property_with_enum(
         })
       }
     None =>
-      props.set(name, Property::{
+      props_set(props, name, Property::{
         value: Undefined,
         writable: false,
         configurable: true,

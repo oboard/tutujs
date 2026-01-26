@@ -1,5 +1,5 @@
 ///|
-fn strict_eq(a : JSValue, b : JSValue) -> Bool {
+fn strict_eq(a : Value, b : Value) -> Bool {
   match (a, b) {
     (Undefined, Undefined) => true
     (Null, Null) => true
@@ -19,7 +19,7 @@ fn strict_eq(a : JSValue, b : JSValue) -> Bool {
 }
 
 ///|
-fn loose_eq(a : JSValue, b : JSValue) -> Bool raise {
+fn loose_eq(a : Value, b : Value) -> Bool raise {
   if strict_eq(a, b) {
     return true
   }
@@ -89,11 +89,7 @@ enum CompareOp {
 } derive(Show)
 
 ///|
-fn compare_values(
-  left : JSValue,
-  right : JSValue,
-  op : CompareOp,
-) -> Bool raise {
+fn compare_values(left : Value, right : Value, op : CompareOp) -> Bool raise {
   let mut l = left
   let mut r = right
   if is_object_like(l) {

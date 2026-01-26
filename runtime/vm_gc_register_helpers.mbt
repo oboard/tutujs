@@ -1,5 +1,5 @@
 ///|
-fn value_id(value : JSValue) -> Int? {
+fn value_id(value : Value) -> Int? {
   match value {
     Object(obj) => Some(obj.id)
     Function(func) => Some(func.id)
@@ -17,6 +17,7 @@ fn register_env(env : Env) -> Unit {
   gc_registry_ref().update(fn(registry) {
     if !registry.envs.contains(env.id) {
       registry.envs.set(env.id, env)
+      rc_meta_register(env.id)
       gc_alloc_count_ref().update(fn(count) { count + 1 })
     }
     registry
@@ -25,12 +26,13 @@ fn register_env(env : Env) -> Unit {
 }
 
 ///|
-fn register_value(value : JSValue) -> Unit {
+fn register_value(value : Value) -> Unit {
   match value_id(value) {
     Some(id) =>
       gc_registry_ref().update(fn(registry) {
         if !registry.values.contains(id) {
           registry.values.set(id, value)
+          rc_meta_register(id)
           gc_alloc_count_ref().update(fn(count) { count + 1 })
         }
         registry
@@ -80,12 +82,27 @@ fn register_arguments_value(args : ArgumentsValue) -> ArgumentsValue {
 
 ///|
 fn gc_prepare_meta(state : GcState) -> Unit {
+  let mut rc_table : Map[Int, RcMeta] = Map::new()
+  gc_rc_meta_ref().update(fn(table) {
+    rc_table = table
+    table
+  })
   gc_registry_ref().update(fn(registry) {
     registry.values.each(fn(id, _) {
-      state.meta.set(id, GcMeta::{ ref_count: 0, mark: false, in_tmp: false })
+      let mut ref_count = 0
+      match rc_table.get(id) {
+        Some(meta) => ref_count = meta.ref_count
+        None => ()
+      }
+      state.meta.set(id, GcMeta::{ ref_count, mark: false, in_tmp: false })
     })
     registry.envs.each(fn(id, _) {
-      state.meta.set(id, GcMeta::{ ref_count: 0, mark: false, in_tmp: false })
+      let mut ref_count = 0
+      match rc_table.get(id) {
+        Some(meta) => ref_count = meta.ref_count
+        None => ()
+      }
+      state.meta.set(id, GcMeta::{ ref_count, mark: false, in_tmp: false })
     })
     registry
   })

@@ -29,7 +29,7 @@ fn gen_bind_noraise(step : GenStep, f : (GenControl) -> GenStep) -> GenStep {
 }
 
 ///|
-fn gen_await_value(value : JSValue, k : (JSValue) -> GenStep raise) -> GenStep {
+fn gen_await_value(value : Value, k : (Value) -> GenStep raise) -> GenStep {
   Await(value, fn(resume_state) raise {
     match resume_state {
       GenResume::Next(arg) => k(arg)
@@ -55,7 +55,7 @@ fn gen_unwrap_async_yield_resume(
 }
 
 ///|
-fn gen_async_return(value : JSValue) -> GenStep {
+fn gen_async_return(value : Value) -> GenStep {
   Await(value, fn(resume_state) {
     match resume_state {
       GenResume::Next(arg) => Done(Return(arg))

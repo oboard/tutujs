@@ -4,7 +4,6 @@ fn run_gc_internal(remove_weak : Bool) -> Unit {
   let state = new_gc_state()
   gc_prepare_meta(state)
   gc_count_roots(state)
-  gc_count_internal_refs(state)
   gc_debug_dump_assert_meta(state, "pre")
   if remove_weak {
     gc_remove_weak_objects(state)
@@ -46,6 +45,16 @@ fn gc_request() -> Unit {
 }
 
 ///|
+fn gc_is_pending() -> Bool {
+  let mut pending = false
+  gc_pending_ref().update(fn(current) {
+    pending = current
+    current
+  })
+  pending
+}
+
+///|
 fn gc_root_depth() -> Int {
   let mut depth = 0
   gc_value_root_ref().update(fn(stack) {
@@ -56,7 +65,7 @@ fn gc_root_depth() -> Int {
 }
 
 ///|
-fn gc_root_push(value : JSValue) -> Int {
+fn gc_root_push(value : Value) -> Int {
   let mut depth = 0
   gc_value_root_ref().update(fn(stack) {
     stack.push(value)
@@ -78,7 +87,7 @@ fn gc_root_pop_to(depth : Int) -> Unit {
 }
 
 ///|
-fn with_gc_frame(f : () -> JSValue raise) -> JSValue raise {
+fn with_gc_frame(f : () -> Value raise) -> Value raise {
   let base = gc_root_depth()
   try f() catch {
     err => {
@@ -94,7 +103,7 @@ fn with_gc_frame(f : () -> JSValue raise) -> JSValue raise {
 }
 
 ///|
-fn with_gc_frame_values(f : () -> Array[JSValue] raise) -> Array[JSValue] raise {
+fn with_gc_frame_values(f : () -> Array[Value] raise) -> Array[Value] raise {
   let base = gc_root_depth()
   try f() catch {
     err => {
@@ -110,9 +119,7 @@ fn with_gc_frame_values(f : () -> Array[JSValue] raise) -> Array[JSValue] raise 
 }
 
 ///|
-fn with_gc_frame_pair(
-  f : () -> (JSValue, JSValue?) raise,
-) -> (JSValue, JSValue?) raise {
+fn with_gc_frame_pair(f : () -> (Value, Value?) raise) -> (Value, Value?) raise {
   let base = gc_root_depth()
   try f() catch {
     err => {
@@ -159,7 +166,7 @@ fn gc_maybe_collect() -> Unit {
 }
 
 ///|
-fn gc_maybe_collect_with_root(value : JSValue) -> Unit {
+fn gc_maybe_collect_with_root(value : Value) -> Unit {
   let base = gc_root_depth()
   match current_env() {
     Some(env) => {
@@ -174,7 +181,7 @@ fn gc_maybe_collect_with_root(value : JSValue) -> Unit {
 }
 
 ///|
-fn gc_maybe_collect_with_global(env : Env, value : JSValue) -> Unit {
+fn gc_maybe_collect_with_global(env : Env, value : Value) -> Unit {
   let base = gc_root_depth()
   let _ = gc_root_push(global_object_value(env))
   let _ = gc_root_push(value)
@@ -184,7 +191,7 @@ fn gc_maybe_collect_with_global(env : Env, value : JSValue) -> Unit {
 
 ///|
 #warnings("-unused_error_type")
-fn loop_gc_maybe(env : Env, value : JSValue, tick : Int) -> Int raise {
+fn loop_gc_maybe(env : Env, value : Value, tick : Int) -> Int raise {
   let next = tick + 1
   if Int::land(next, 255) == 0 {
     let _ = with_env_value(env, fn() raise {

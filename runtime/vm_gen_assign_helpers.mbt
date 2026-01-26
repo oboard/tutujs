@@ -2,8 +2,8 @@
 fn gen_assign_binding_value(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
-  assign : (String, JSValue) -> Unit raise,
+  value : Value,
+  assign : (String, Value) -> Unit raise,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   match binding {
@@ -26,7 +26,7 @@ fn gen_assign_binding_value(
 fn gen_prepare_assignment_target(
   env : Env,
   expr : @engine.Expr,
-  k : ((JSValue) -> Unit raise) -> GenStep raise,
+  k : ((Value) -> Unit raise) -> GenStep raise,
 ) -> GenStep raise {
   match expr {
     @engine.Expr::Ident(name, _) =>
@@ -46,7 +46,7 @@ fn gen_prepare_member_assignment_target(
   env : Env,
   obj_expr : @engine.Expr,
   key : @engine.MemberKey,
-  k : ((JSValue) -> Unit raise) -> GenStep raise,
+  k : ((Value) -> Unit raise) -> GenStep raise,
 ) -> GenStep raise {
   match obj_expr {
     @engine.Expr::Super =>
@@ -120,8 +120,8 @@ fn gen_prepare_member_assignment_target(
 
 ///|
 fn gen_apply_assign_target(
-  assign_target : (JSValue) -> Unit raise,
-  value : JSValue,
+  assign_target : (Value) -> Unit raise,
+  value : Value,
 ) -> GenStep raise {
   try {
     assign_target(value)
@@ -136,11 +136,11 @@ fn gen_apply_assign_target(
 fn gen_destructure_array_pattern_iter(
   env : Env,
   pattern : Array[@engine.ArrayPatternElem],
-  iterator : JSValue,
-  next_method : JSValue,
+  iterator : Value,
+  next_method : Value,
   index : Int,
   done : Bool,
-  assign : (String, JSValue) -> Unit raise,
+  assign : (String, Value) -> Unit raise,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   if index >= pattern.length() {
@@ -188,7 +188,7 @@ fn gen_destructure_array_pattern_iter(
     @engine.ArrayPatternElem::Bind(binding, default) =>
       match binding {
         @engine.VarBinding::Target(expr) => {
-          let mut target_assign : ((JSValue) -> Unit raise)? = None
+          let mut target_assign : ((Value) -> Unit raise)? = None
           let prep_step = gen_prepare_assignment_target(env, expr, fn(
             assigner,
           ) {
@@ -336,7 +336,7 @@ fn gen_destructure_array_pattern_iter(
     @engine.ArrayPatternElem::Rest(binding) =>
       match binding {
         @engine.VarBinding::Target(expr) => {
-          let mut target_assign : ((JSValue) -> Unit raise)? = None
+          let mut target_assign : ((Value) -> Unit raise)? = None
           let prep_step = gen_prepare_assignment_target(env, expr, fn(
             assigner,
           ) {
@@ -350,7 +350,7 @@ fn gen_destructure_array_pattern_iter(
                   Some(value) => value
                   None => fn(_) { () }
                 }
-                let rest_values : Array[JSValue?] = []
+                let rest_values : Array[Value?] = []
                 if !done {
                   for {
                     let (is_done, item) = iterator_step_value(
@@ -385,7 +385,7 @@ fn gen_destructure_array_pattern_iter(
           })
         }
         _ => {
-          let rest_values : Array[JSValue?] = []
+          let rest_values : Array[Value?] = []
           if !done {
             for {
               let (is_done, item) = iterator_step_value(iterator, next_method) catch {
@@ -419,8 +419,8 @@ fn gen_destructure_array_pattern_iter(
 fn gen_destructure_array_pattern(
   env : Env,
   pattern : Array[@engine.ArrayPatternElem],
-  value : JSValue,
-  assign : (String, JSValue) -> Unit raise,
+  value : Value,
+  assign : (String, Value) -> Unit raise,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
@@ -437,10 +437,10 @@ fn gen_destructure_array_pattern(
 fn gen_destructure_object_pattern(
   env : Env,
   pattern : Array[@engine.ObjectPatternElem],
-  obj : JSValue,
+  obj : Value,
   bound : Array[String],
   index : Int,
-  assign : (String, JSValue) -> Unit raise,
+  assign : (String, Value) -> Unit raise,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
@@ -455,10 +455,10 @@ fn gen_destructure_object_pattern(
 fn gen_destructure_object_pattern_inner(
   env : Env,
   pattern : Array[@engine.ObjectPatternElem],
-  obj : JSValue,
+  obj : Value,
   bound : Array[String],
   index : Int,
-  assign : (String, JSValue) -> Unit raise,
+  assign : (String, Value) -> Unit raise,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   if index >= pattern.length() {
@@ -470,7 +470,7 @@ fn gen_destructure_object_pattern_inner(
         bound.push(key_name)
         match binding {
           @engine.VarBinding::Target(expr) => {
-            let mut target_assign : ((JSValue) -> Unit raise)? = None
+            let mut target_assign : ((Value) -> Unit raise)? = None
             let prep_step = gen_prepare_assignment_target(env, expr, fn(
               assigner,
             ) {
@@ -619,7 +619,7 @@ fn gen_eval_assign_op(
   op : @engine.BinaryOp,
   lhs : @engine.Expr,
   rhs : @engine.Expr,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
     match lhs {

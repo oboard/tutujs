@@ -290,9 +290,9 @@ fn dataview_value_size(kind : DataViewValueKind) -> Int {
 ///|
 fn dataview_get_value(
   data : DataViewData,
-  args : Array[JSValue],
+  args : Array[Value],
   kind : DataViewValueKind,
-) -> JSValue raise {
+) -> Value raise {
   let pos64 = if args.is_empty() { 0L } else { to_index_int64(args[0]) }
   let little_endian = args.length() > 1 && is_truthy(args[1])
   let size = dataview_value_size(kind)
@@ -424,9 +424,9 @@ fn buffer_write_bytes(
 ///|
 fn dataview_set_value(
   data : DataViewData,
-  args : Array[JSValue],
+  args : Array[Value],
   kind : DataViewValueKind,
-) -> JSValue raise {
+) -> Value raise {
   let pos64 = if args.is_empty() { 0L } else { to_index_int64(args[0]) }
   let value_arg = if args.length() > 1 { args[1] } else { Undefined }
   let little_endian = args.length() > 2 && is_truthy(args[2])

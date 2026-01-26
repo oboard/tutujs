@@ -2,9 +2,18 @@
 fn gen_eval_yield_star(
   env : Env,
   expr : @engine.Expr,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
+  let target = unwrap_paren(expr)
   gen_eval_expr_cont(env, expr, fn(value) raise {
+    match target {
+      @engine.Expr::Ident(name, _) =>
+        if !env_has(env, name) {
+          let _ = throw_reference_error("undefined variable")
+          return Done(Throw(Undefined))
+        }
+      _ => ()
+    }
     gen_with_root_frame(fn() raise {
       let is_async = match current_function() {
         Some(func) => func.is_async
@@ -40,11 +49,11 @@ fn gen_eval_yield_star(
 
 ///|
 fn gen_yield_star_loop(
-  iterator : JSValue,
-  next_method : JSValue,
+  iterator : Value,
+  next_method : Value,
   resume_state : GenResume,
   returning : Bool,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   try {
     let mut return_mode = returning
@@ -118,12 +127,12 @@ fn gen_yield_star_loop(
 
 ///|
 fn gen_async_yield_star_loop(
-  iterator : JSValue,
-  next_method : JSValue,
+  iterator : Value,
+  next_method : Value,
   resume_state : GenResume,
   first : Bool,
   returning : Bool,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if !first {
     return gen_unwrap_async_yield_resume(resume_state, fn(unwrapped) raise {

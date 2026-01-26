@@ -1,11 +1,12 @@
 ///|
-fn new_builtin_value(kind : BuiltinFunction) -> JSValue {
-  let props = Map::new()
-  props.set(
+fn new_builtin_value(kind : BuiltinFunction) -> Value {
+  let props = props_new()
+  props_set(
+    props,
     "length",
     property_data_readonly(Number(Double::from_int(builtin_length(kind)))),
   )
-  props.set("name", property_data_readonly(String(builtin_name(kind))))
+  props_set(props, "name", property_data_readonly(String(builtin_name(kind))))
   let realm_env = match current_env() {
     Some(env) => Some(env)
     None => root_env()
@@ -28,16 +29,19 @@ fn new_builtin_value(kind : BuiltinFunction) -> JSValue {
     is_html_dda: false,
     realm_env,
   })
+  rc_incref_optional_value(proto)
+  rc_incref_optional_env(realm_env)
   Builtin(builtin)
 }
 
 ///|
 fn new_builtin_value_with_this(
   kind : BuiltinFunction,
-  this_value : JSValue,
-) -> JSValue {
+  this_value : Value,
+) -> Value {
   match new_builtin_value(kind) {
     Builtin(builtin) => {
+      rc_incref_value(this_value)
       let with_this = register_builtin_value(BuiltinValue::{
         kind: builtin.kind,
         id: builtin.id,
@@ -55,7 +59,7 @@ fn new_builtin_value_with_this(
 }
 
 ///|
-fn new_html_dda_builtin(kind : BuiltinFunction) -> JSValue {
+fn new_html_dda_builtin(kind : BuiltinFunction) -> Value {
   match new_builtin_value(kind) {
     Builtin(builtin) => {
       builtin.is_html_dda = true

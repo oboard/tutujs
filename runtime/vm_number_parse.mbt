@@ -1,5 +1,5 @@
 ///|
-fn parse_int_value(args : Array[JSValue]) -> JSValue raise {
+fn parse_int_value(args : Array[Value]) -> Value raise {
   if args.is_empty() {
     return Number(nan())
   }
@@ -70,7 +70,7 @@ fn parse_int_string(text : String, radix_arg : Int) -> Double {
 }
 
 ///|
-fn parse_float_value(args : Array[JSValue]) -> JSValue raise {
+fn parse_float_value(args : Array[Value]) -> Value raise {
   if args.is_empty() {
     return Number(nan())
   }

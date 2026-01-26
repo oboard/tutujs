@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_math(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::MathAbs =>
       if args.is_empty() {

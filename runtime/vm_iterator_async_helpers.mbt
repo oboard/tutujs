@@ -1,18 +1,20 @@
 ///|
 fn new_async_from_sync_iterator(
-  sync_iter : JSValue,
-  next_method : JSValue,
-) -> JSValue {
+  sync_iter : Value,
+  next_method : Value,
+) -> Value {
   let iterator = new_object_value_with_proto(
     value_from_object(async_from_sync_iterator_proto()),
   )
   match iterator {
     Object(iter_obj) => {
-      iter_obj.props.set(
+      props_set(
+        iter_obj.props,
         async_from_sync_iter_target_key,
         property_data_non_enum(sync_iter),
       )
-      iter_obj.props.set(
+      props_set(
+        iter_obj.props,
         async_from_sync_iter_next_key,
         property_data_non_enum(next_method),
       )
@@ -24,8 +26,8 @@ fn new_async_from_sync_iterator(
 
 ///|
 fn require_async_from_sync_iterator(
-  this_value : JSValue?,
-) -> (ObjectValue, JSValue, JSValue) raise {
+  this_value : Value?,
+) -> (ObjectValue, Value, Value) raise {
   match this_value {
     Some(Object(obj)) => {
       let (sync_iter, ok) = iterator_internal_value(
@@ -50,7 +52,7 @@ fn require_async_from_sync_iterator(
 }
 
 ///|
-fn new_async_from_sync_iterator_unwrap(done : Bool) -> JSValue {
+fn new_async_from_sync_iterator_unwrap(done : Bool) -> Value {
   let func = new_builtin_value(BuiltinFunction::AsyncFromSyncIteratorUnwrap)
   match func {
     Builtin(builtin) =>
@@ -63,7 +65,7 @@ fn new_async_from_sync_iterator_unwrap(done : Bool) -> JSValue {
 }
 
 ///|
-fn new_async_from_sync_iterator_close_wrap(sync_iter : JSValue) -> JSValue {
+fn new_async_from_sync_iterator_close_wrap(sync_iter : Value) -> Value {
   let func = new_builtin_value(BuiltinFunction::AsyncFromSyncIteratorCloseWrap)
   match func {
     Builtin(builtin) =>
@@ -78,8 +80,8 @@ fn new_async_from_sync_iterator_close_wrap(sync_iter : JSValue) -> JSValue {
 ///|
 fn async_from_sync_iterator_unwrap(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue {
+  args : Array[Value],
+) -> Value {
   match async_from_sync_unwrap_data_get(builtin.id) {
     Some(data) => {
       let value = if args.is_empty() { Undefined } else { args[0] }
@@ -92,8 +94,8 @@ fn async_from_sync_iterator_unwrap(
 ///|
 fn async_from_sync_iterator_close_wrap(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match async_from_sync_close_wrap_data_get(builtin.id) {
     Some(data) => {
       let reason = if args.is_empty() { Undefined } else { args[0] }
@@ -106,10 +108,10 @@ fn async_from_sync_iterator_close_wrap(
 
 ///|
 fn async_from_sync_iterator_step(
-  this_value : JSValue?,
-  args : Array[JSValue],
+  this_value : Value?,
+  args : Array[Value],
   kind : Int,
-) -> JSValue raise {
+) -> Value raise {
   let (promise, resolve, reject) = new_promise_capability(Undefined)
   try {
     let (_, sync_iter, next_method) = require_async_from_sync_iterator(

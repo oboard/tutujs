@@ -1,5 +1,5 @@
 ///|
-fn require_file_fd(this_value : JSValue?) -> Int raise {
+fn require_file_fd(this_value : Value?) -> Int raise {
   match this_value {
     Some(Object(obj)) => {
       let fd_value = property_get(Object(obj), "__fd")
@@ -19,53 +19,64 @@ fn require_file_fd(this_value : JSValue?) -> Int raise {
 }
 
 ///|
-fn new_file_object(fd : Int) -> JSValue {
+fn new_file_object(fd : Int) -> Value {
   let obj = new_object_value()
   match obj {
     Object(object) => {
-      object.props.set(
+      props_set(
+        object.props,
         "__fd",
         property_data_non_enum(Number(Double::from_int(fd))),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "puts",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FilePuts)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "putByte",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FilePutByte)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "seek",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileSeek)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "tell",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileTell)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "read",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileRead)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "readAsString",
         property_data_non_enum(
           new_builtin_value(BuiltinFunction::FileReadAsString),
         ),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "getByte",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileGetByte)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "getline",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileGetline)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "eof",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileEof)),
       )
-      object.props.set(
+      props_set(
+        object.props,
         "close",
         property_data_non_enum(new_builtin_value(BuiltinFunction::FileClose)),
       )
@@ -124,7 +135,7 @@ fn resolve_path_from_source(path : String) -> String {
 }
 
 ///|
-fn std_load_file(path : String) -> JSValue {
+fn std_load_file(path : String) -> Value {
   let full_path = resolve_path(path)
   try {
     let text = @fs.read_file_to_string(full_path)
@@ -135,7 +146,7 @@ fn std_load_file(path : String) -> JSValue {
 }
 
 ///|
-fn std_load_script(path : String) -> JSValue raise {
+fn std_load_script(path : String) -> Value raise {
   let full_path = resolve_path(path)
   let source = @fs.read_file_to_string(full_path) catch {
     _ => {
@@ -152,7 +163,7 @@ fn std_load_script(path : String) -> JSValue raise {
 }
 
 ///|
-fn std_open_file(path : String, mode : String) -> JSValue {
+fn std_open_file(path : String, mode : String) -> Value {
   let readable = mode.contains("r") || mode.contains("+")
   let writable = mode.contains("w") || mode.contains("a") || mode.contains("+")
   let truncate = mode.contains("w")
@@ -165,12 +176,12 @@ fn std_open_file(path : String, mode : String) -> JSValue {
 }
 
 ///|
-fn std_tmpfile() -> JSValue {
+fn std_tmpfile() -> Value {
   new_file_object(tmp_file_handle())
 }
 
 ///|
-fn std_popen(command : String, mode : String) -> JSValue {
+fn std_popen(command : String, mode : String) -> Value {
   if !mode.contains("r") {
     return Null
   }
@@ -190,7 +201,7 @@ fn std_popen(command : String, mode : String) -> JSValue {
 }
 
 ///|
-fn std_fdopen(fd : Int, _mode : String) -> JSValue {
+fn std_fdopen(fd : Int, _mode : String) -> Value {
   match get_fd_handle(fd) {
     Some(_) => new_file_object(fd)
     None => Null

@@ -1,9 +1,9 @@
 ///|
 pub struct Property {
-  value : JSValue
+  value : Value
   writable : Bool
   configurable : Bool
   enumerable : Bool
-  getter : JSValue?
-  setter : JSValue?
+  getter : Value?
+  setter : Value?
 }

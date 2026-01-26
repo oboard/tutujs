@@ -3,21 +3,21 @@ fn init_error_protos(
   object_proto_obj : ObjectValue,
 ) -> (
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
   ObjectValue,
-  JSValue,
+  Value,
 ) {
   let error_proto_value = new_object_value_with_proto(
     Some(Object(object_proto_obj)),
@@ -27,8 +27,16 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(object_proto_obj)))
   }
   set_proto_ref(error_proto_ref, Some(error_proto_obj))
-  error_proto_obj.props.set("name", property_data_non_enum(String("Error")))
-  error_proto_obj.props.set("message", property_data_non_enum(String("")))
+  props_set(
+    error_proto_obj.props,
+    "name",
+    property_data_non_enum(String("Error")),
+  )
+  props_set(
+    error_proto_obj.props,
+    "message",
+    property_data_non_enum(String("")),
+  )
   let aggregate_error_proto_value = new_object_value_with_proto(
     Some(Object(error_proto_obj)),
   )
@@ -37,11 +45,13 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(aggregate_error_proto_ref, Some(aggregate_error_proto_obj))
-  aggregate_error_proto_obj.props.set(
+  props_set(
+    aggregate_error_proto_obj.props,
     "name",
     property_data_non_enum(String("AggregateError")),
   )
-  aggregate_error_proto_obj.props.set(
+  props_set(
+    aggregate_error_proto_obj.props,
     "message",
     property_data_non_enum(String("")),
   )
@@ -53,11 +63,16 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(eval_error_proto_ref, Some(eval_error_proto_obj))
-  eval_error_proto_obj.props.set(
+  props_set(
+    eval_error_proto_obj.props,
     "name",
     property_data_non_enum(String("EvalError")),
   )
-  eval_error_proto_obj.props.set("message", property_data_non_enum(String("")))
+  props_set(
+    eval_error_proto_obj.props,
+    "message",
+    property_data_non_enum(String("")),
+  )
   let syntax_error_proto_value = new_object_value_with_proto(
     Some(Object(error_proto_obj)),
   )
@@ -66,11 +81,13 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(syntax_error_proto_ref, Some(syntax_error_proto_obj))
-  syntax_error_proto_obj.props.set(
+  props_set(
+    syntax_error_proto_obj.props,
     "name",
     property_data_non_enum(String("SyntaxError")),
   )
-  syntax_error_proto_obj.props.set(
+  props_set(
+    syntax_error_proto_obj.props,
     "message",
     property_data_non_enum(String("")),
   )
@@ -82,11 +99,16 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(range_error_proto_ref, Some(range_error_proto_obj))
-  range_error_proto_obj.props.set(
+  props_set(
+    range_error_proto_obj.props,
     "name",
     property_data_non_enum(String("RangeError")),
   )
-  range_error_proto_obj.props.set("message", property_data_non_enum(String("")))
+  props_set(
+    range_error_proto_obj.props,
+    "message",
+    property_data_non_enum(String("")),
+  )
   let type_error_proto_value = new_object_value_with_proto(
     Some(Object(error_proto_obj)),
   )
@@ -95,11 +117,16 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(type_error_proto_ref, Some(type_error_proto_obj))
-  type_error_proto_obj.props.set(
+  props_set(
+    type_error_proto_obj.props,
     "name",
     property_data_non_enum(String("TypeError")),
   )
-  type_error_proto_obj.props.set("message", property_data_non_enum(String("")))
+  props_set(
+    type_error_proto_obj.props,
+    "message",
+    property_data_non_enum(String("")),
+  )
   let reference_error_proto_value = new_object_value_with_proto(
     Some(Object(error_proto_obj)),
   )
@@ -108,11 +135,13 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(reference_error_proto_ref, Some(reference_error_proto_obj))
-  reference_error_proto_obj.props.set(
+  props_set(
+    reference_error_proto_obj.props,
     "name",
     property_data_non_enum(String("ReferenceError")),
   )
-  reference_error_proto_obj.props.set(
+  props_set(
+    reference_error_proto_obj.props,
     "message",
     property_data_non_enum(String("")),
   )
@@ -124,11 +153,16 @@ fn init_error_protos(
     _ => new_object_struct(Some(Object(error_proto_obj)))
   }
   set_proto_ref(uri_error_proto_ref, Some(uri_error_proto_obj))
-  uri_error_proto_obj.props.set(
+  props_set(
+    uri_error_proto_obj.props,
     "name",
     property_data_non_enum(String("URIError")),
   )
-  uri_error_proto_obj.props.set("message", property_data_non_enum(String("")))
+  props_set(
+    uri_error_proto_obj.props,
+    "message",
+    property_data_non_enum(String("")),
+  )
   (
     error_proto_obj, error_proto_value, aggregate_error_proto_obj, aggregate_error_proto_value,
     eval_error_proto_obj, eval_error_proto_value, syntax_error_proto_obj, syntax_error_proto_value,

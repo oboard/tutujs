@@ -1,7 +1,7 @@
 ///|
 fn init_error_suite(
   object_proto_obj : ObjectValue,
-) -> (JSValue, JSValue, JSValue, JSValue, JSValue, JSValue, JSValue, JSValue) {
+) -> (Value, Value, Value, Value, Value, Value, Value, Value) {
   let (
     error_proto_obj,
     error_proto_value,

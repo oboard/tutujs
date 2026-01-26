@@ -1,5 +1,5 @@
 ///|
-fn object_seal(target : JSValue, freeze_flag : Bool) -> JSValue raise {
+fn object_seal(target : Value, freeze_flag : Bool) -> Value raise {
   if !is_object_like(target) {
     return target
   }
@@ -26,11 +26,19 @@ fn object_seal(target : JSValue, freeze_flag : Bool) -> JSValue raise {
           let seal_desc = new_object_value()
           match seal_desc {
             Object(desc_obj) => {
-              desc_obj.props.set("configurable", property_data(Bool(false)))
+              props_set(
+                desc_obj.props,
+                "configurable",
+                property_data(Bool(false)),
+              )
               if freeze_flag &&
                 descriptor_is_data(current) &&
                 is_truthy(property_get(current, "writable")) {
-                desc_obj.props.set("writable", property_data(Bool(false)))
+                props_set(
+                  desc_obj.props,
+                  "writable",
+                  property_data(Bool(false)),
+                )
               }
             }
             _ => ()
@@ -44,7 +52,7 @@ fn object_seal(target : JSValue, freeze_flag : Bool) -> JSValue raise {
 }
 
 ///|
-fn object_is_sealed(target : JSValue, freeze_flag : Bool) -> Bool raise {
+fn object_is_sealed(target : Value, freeze_flag : Bool) -> Bool raise {
   if !is_object_like(target) {
     return true
   }
@@ -78,6 +86,6 @@ fn object_is_sealed(target : JSValue, freeze_flag : Bool) -> Bool raise {
 }
 
 ///|
-fn object_freeze(target : JSValue) -> JSValue raise {
+fn object_freeze(target : Value) -> Value raise {
   object_seal(target, true)
 }

@@ -2,7 +2,7 @@
 let object_proto_ref : Ref[ObjectValue?] = Ref::new(None)
 
 ///|
-let function_proto_ref : Ref[JSValue?] = Ref::new(None)
+let function_proto_ref : Ref[Value?] = Ref::new(None)
 
 ///|
 fn object_proto() -> ObjectValue? {
@@ -10,7 +10,7 @@ fn object_proto() -> ObjectValue? {
 }
 
 ///|
-fn function_proto() -> JSValue? {
+fn function_proto() -> Value? {
   get_value_ref(function_proto_ref)
 }
 
@@ -18,11 +18,11 @@ fn function_proto() -> JSValue? {
 fn object_proto_for_env(env : Env) -> ObjectValue? {
   match global_object(env) {
     Some(global_obj) =>
-      match global_obj.props.get("Object") {
+      match props_get(global_obj.props, "Object") {
         Some(prop) =>
           match prop.value {
             Builtin(builtin) =>
-              match builtin.props.get("prototype") {
+              match props_get(builtin.props, "prototype") {
                 Some(proto_prop) =>
                   match proto_prop.value {
                     Object(proto_obj) => Some(proto_obj)
@@ -39,14 +39,14 @@ fn object_proto_for_env(env : Env) -> ObjectValue? {
 }
 
 ///|
-fn function_proto_for_env(env : Env) -> JSValue? {
+fn function_proto_for_env(env : Env) -> Value? {
   match global_object(env) {
     Some(global_obj) =>
-      match global_obj.props.get("Function") {
+      match props_get(global_obj.props, "Function") {
         Some(prop) =>
           match prop.value {
             Builtin(builtin) =>
-              match builtin.props.get("prototype") {
+              match props_get(builtin.props, "prototype") {
                 Some(proto_prop) => Some(proto_prop.value)
                 None => None
               }
@@ -59,10 +59,10 @@ fn function_proto_for_env(env : Env) -> JSValue? {
 }
 
 ///|
-fn function_ctor_for_env(env : Env) -> JSValue? {
+fn function_ctor_for_env(env : Env) -> Value? {
   match global_object(env) {
     Some(global_obj) =>
-      match global_obj.props.get("Function") {
+      match props_get(global_obj.props, "Function") {
         Some(prop) => Some(prop.value)
         None => None
       }

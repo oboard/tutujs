@@ -1,5 +1,5 @@
 ///|
-fn generator_next_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
+fn generator_next_object(obj : ObjectValue, arg : Value) -> Value raise {
   let (value, done) = generator_step_result(obj, GenResume::Next(arg))
   let raw = take_yield_star_raw()
   if !done && raw {
@@ -9,7 +9,7 @@ fn generator_next_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
 }
 
 ///|
-fn generator_return_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
+fn generator_return_object(obj : ObjectValue, arg : Value) -> Value raise {
   let (value, done) = generator_step_result(obj, GenResume::Return(arg))
   let raw = take_yield_star_raw()
   if !done && raw {
@@ -19,7 +19,7 @@ fn generator_return_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
 }
 
 ///|
-fn generator_throw_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
+fn generator_throw_object(obj : ObjectValue, arg : Value) -> Value raise {
   let (value, done) = generator_step_result(obj, GenResume::Throw(arg))
   let raw = take_yield_star_raw()
   if !done && raw {
@@ -30,9 +30,9 @@ fn generator_throw_object(obj : ObjectValue, arg : JSValue) -> JSValue raise {
 
 ///|
 fn async_generator_request(
-  this_value : JSValue?,
+  this_value : Value?,
   resume_state : GenResume,
-) -> JSValue raise {
+) -> Value raise {
   let (promise, resolve, reject) = new_promise_capability(Undefined)
   match this_value {
     Some(Object(obj)) =>
@@ -57,14 +57,54 @@ fn async_generator_request(
 }
 
 ///|
+fn rc_incref_gen_resume(resume_state : GenResume) -> Unit {
+  match resume_state {
+    GenResume::Next(value) => rc_incref_value(value)
+    GenResume::Return(value) => rc_incref_value(value)
+    GenResume::Throw(value) => rc_incref_value(value)
+  }
+}
+
+///|
+fn rc_decref_gen_resume(resume_state : GenResume) -> Unit {
+  match resume_state {
+    GenResume::Next(value) => rc_decref_value(value)
+    GenResume::Return(value) => rc_decref_value(value)
+    GenResume::Throw(value) => rc_decref_value(value)
+  }
+}
+
+///|
+fn async_generator_clear_request(
+  data : AsyncGeneratorData,
+  index : Int,
+  request : AsyncGeneratorRequest,
+) -> Unit {
+  rc_decref_gen_resume(request.resume_state)
+  rc_decref_value(request.promise)
+  rc_decref_value(request.resolve)
+  rc_decref_value(request.reject)
+  data.queue[index] = AsyncGeneratorRequest::{
+    resume_state: GenResume::Next(Undefined),
+    promise: Undefined,
+    resolve: Undefined,
+    reject: Undefined,
+  }
+}
+
+///|
 fn async_generator_enqueue_request(
   obj : ObjectValue,
   data : AsyncGeneratorData,
   resume_state : GenResume,
-  promise : JSValue,
-  resolve : JSValue,
-  reject : JSValue,
+  promise : Value,
+  resolve : Value,
+  reject : Value,
 ) -> Unit raise {
+  rc_incref_gen_resume(resume_state)
+  rc_incref_value(promise)
+  rc_incref_value(resolve)
+  rc_incref_value(reject)
   data.queue.push(AsyncGeneratorRequest::{
     resume_state,
     promise,
@@ -108,14 +148,23 @@ fn async_generator_queue_pop(
 ///|
 fn async_generator_resolve_or_reject(
   data : AsyncGeneratorData,
-  result : JSValue,
+  result : Value,
   is_reject : Bool,
 ) -> Unit raise {
   match async_generator_queue_pop(data) {
     Some(request) => {
       let handler = if is_reject { request.reject } else { request.resolve }
-      let _ = call_value_with_this(handler, [result], Undefined)
+      let popped_index = data.queue_index - 1
+      try {
+        let _ = call_value_with_this(handler, [result], Undefined)
 
+      } catch {
+        err => {
+          async_generator_clear_request(data, popped_index, request)
+          raise err
+        }
+      }
+      async_generator_clear_request(data, popped_index, request)
     }
     None => ()
   }
@@ -124,7 +173,7 @@ fn async_generator_resolve_or_reject(
 ///|
 fn async_generator_resolve(
   data : AsyncGeneratorData,
-  value : JSValue,
+  value : Value,
   done : Bool,
 ) -> Unit raise {
   let result = generator_result_object(value, done)
@@ -134,7 +183,7 @@ fn async_generator_resolve(
 ///|
 fn async_generator_reject(
   data : AsyncGeneratorData,
-  exception : JSValue,
+  exception : Value,
 ) -> Unit raise {
   async_generator_resolve_or_reject(data, exception, true)
 }
@@ -159,7 +208,7 @@ fn new_async_generator_resolve_function(
   generator : ObjectValue,
   resume_next : Bool,
   is_reject : Bool,
-) -> JSValue {
+) -> Value {
   let func = new_builtin_value(BuiltinFunction::AsyncGeneratorResolveFunction)
   match func {
     Builtin(builtin) =>
@@ -177,7 +226,7 @@ fn new_async_generator_resolve_function(
 fn new_async_generator_resolve_functions(
   generator : ObjectValue,
   resume_next : Bool,
-) -> (JSValue, JSValue) {
+) -> (Value, Value) {
   let resolve = new_async_generator_resolve_function(
     generator, resume_next, false,
   )
@@ -191,7 +240,7 @@ fn new_async_generator_resolve_functions(
 fn async_generator_completed_return(
   obj : ObjectValue,
   data : AsyncGeneratorData,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   let promise_ctor = promise_ctor_value_for_current_env()
   let mut promise = Undefined
@@ -223,7 +272,7 @@ fn async_generator_completed_return(
 }
 
 ///|
-fn async_generator_await(obj : ObjectValue, value : JSValue) -> Unit raise {
+fn async_generator_await(obj : ObjectValue, value : Value) -> Unit raise {
   let promise_ctor = promise_ctor_value_for_current_env()
   let promise = promise_resolve_value(promise_ctor, value, false)
   match promise_data_from_value(promise) {
@@ -404,7 +453,7 @@ fn async_generator_resume_next(
 fn new_async_function_resolve_function(
   generator : ObjectValue,
   is_reject : Bool,
-) -> JSValue {
+) -> Value {
   let func = new_builtin_value(BuiltinFunction::AsyncFunctionResolveFunction)
   match func {
     Builtin(builtin) =>
@@ -420,14 +469,14 @@ fn new_async_function_resolve_function(
 ///|
 fn new_async_function_resolve_functions(
   generator : ObjectValue,
-) -> (JSValue, JSValue) {
+) -> (Value, Value) {
   let resolve = new_async_function_resolve_function(generator, false)
   let reject = new_async_function_resolve_function(generator, true)
   (resolve, reject)
 }
 
 ///|
-fn async_function_await(obj : ObjectValue, value : JSValue) -> Unit raise {
+fn async_function_await(obj : ObjectValue, value : Value) -> Unit raise {
   let promise_ctor = promise_ctor_value_for_current_env()
   let promise = promise_resolve_value(promise_ctor, value, false)
   match promise_data_from_value(promise) {
@@ -515,7 +564,7 @@ fn async_function_resume(
 fn generator_step_result(
   obj : ObjectValue,
   resume_state : GenResume,
-) -> (JSValue, Bool) raise {
+) -> (Value, Bool) raise {
   match obj.generator_data {
     Some(data) =>
       match data.state {
@@ -603,7 +652,7 @@ fn generator_step_exec_raw(
 fn generator_step_exec(
   data : GeneratorData,
   resume_state : GenResume,
-) -> (JSValue, Bool) raise {
+) -> (Value, Bool) raise {
   let step = generator_step_exec_raw(data, resume_state)
   match step {
     Yield(value, _) => (value, false)
@@ -630,12 +679,12 @@ fn generator_step_exec(
 }
 
 ///|
-fn generator_result_object(value : JSValue, done : Bool) -> JSValue {
+fn generator_result_object(value : Value, done : Bool) -> Value {
   let result = new_object_value()
   match result {
     Object(obj) => {
-      obj.props.set("value", property_data(value))
-      obj.props.set("done", property_data(Bool(done)))
+      props_set(obj.props, "value", property_data(value))
+      props_set(obj.props, "done", property_data(Bool(done)))
     }
     _ => ()
   }

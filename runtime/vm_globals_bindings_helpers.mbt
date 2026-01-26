@@ -1,49 +1,49 @@
 ///|
 fn declare_global_ctors(
   env : Env,
-  object_ctor : JSValue,
-  function_ctor : JSValue,
-  array_ctor : JSValue,
-  array_buffer_ctor : JSValue,
-  shared_array_buffer_ctor : JSValue,
-  dataview_ctor : JSValue,
-  typed_array_ctor : JSValue,
-  uint8_array_ctor : JSValue,
-  int8_array_ctor : JSValue,
-  uint8_clamped_array_ctor : JSValue,
-  uint16_array_ctor : JSValue,
-  int16_array_ctor : JSValue,
-  uint32_array_ctor : JSValue,
-  int32_array_ctor : JSValue,
-  bigint64_array_ctor : JSValue,
-  biguint64_array_ctor : JSValue,
-  float16_array_ctor : JSValue,
-  float32_array_ctor : JSValue,
-  float64_array_ctor : JSValue,
-  string_ctor : JSValue,
-  number_ctor : JSValue,
-  bool_ctor : JSValue,
-  bigint_ctor : JSValue,
-  symbol_ctor : JSValue,
-  iterator_ctor : JSValue,
-  regexp_ctor : JSValue,
-  date_ctor : JSValue,
-  map_ctor : JSValue,
-  set_ctor : JSValue,
-  weakmap_ctor : JSValue,
-  weakset_ctor : JSValue,
-  weakref_ctor : JSValue,
-  finreg_ctor : JSValue,
-  promise_ctor : JSValue,
-  proxy_ctor : JSValue,
-  error_ctor : JSValue,
-  aggregate_error_ctor : JSValue,
-  eval_error_ctor : JSValue,
-  syntax_error_ctor : JSValue,
-  range_error_ctor : JSValue,
-  type_error_ctor : JSValue,
-  reference_error_ctor : JSValue,
-  uri_error_ctor : JSValue,
+  object_ctor : Value,
+  function_ctor : Value,
+  array_ctor : Value,
+  array_buffer_ctor : Value,
+  shared_array_buffer_ctor : Value,
+  dataview_ctor : Value,
+  typed_array_ctor : Value,
+  uint8_array_ctor : Value,
+  int8_array_ctor : Value,
+  uint8_clamped_array_ctor : Value,
+  uint16_array_ctor : Value,
+  int16_array_ctor : Value,
+  uint32_array_ctor : Value,
+  int32_array_ctor : Value,
+  bigint64_array_ctor : Value,
+  biguint64_array_ctor : Value,
+  float16_array_ctor : Value,
+  float32_array_ctor : Value,
+  float64_array_ctor : Value,
+  string_ctor : Value,
+  number_ctor : Value,
+  bool_ctor : Value,
+  bigint_ctor : Value,
+  symbol_ctor : Value,
+  iterator_ctor : Value,
+  regexp_ctor : Value,
+  date_ctor : Value,
+  map_ctor : Value,
+  set_ctor : Value,
+  weakmap_ctor : Value,
+  weakset_ctor : Value,
+  weakref_ctor : Value,
+  finreg_ctor : Value,
+  promise_ctor : Value,
+  proxy_ctor : Value,
+  error_ctor : Value,
+  aggregate_error_ctor : Value,
+  eval_error_ctor : Value,
+  syntax_error_ctor : Value,
+  range_error_ctor : Value,
+  type_error_ctor : Value,
+  reference_error_ctor : Value,
+  uri_error_ctor : Value,
 ) -> Unit {
   env_declare(env, "Object", object_ctor)
   env_declare(env, "Function", function_ctor)
@@ -93,12 +93,12 @@ fn declare_global_ctors(
 ///|
 fn declare_standard_objects(
   env : Env,
-  json_obj : JSValue,
-  reflect_obj : JSValue,
-  atomics_obj : JSValue,
-  math_obj : JSValue,
-  parse_int_func : JSValue,
-  parse_float_func : JSValue,
+  json_obj : Value,
+  reflect_obj : Value,
+  atomics_obj : Value,
+  math_obj : Value,
+  parse_int_func : Value,
+  parse_float_func : Value,
 ) -> Unit {
   env_declare(env, "JSON", json_obj)
   env_declare(env, "Reflect", reflect_obj)
@@ -158,9 +158,9 @@ fn declare_global_functions(env : Env) -> Unit {
 ///|
 fn declare_host_objects(
   env : Env,
-  std_obj : JSValue,
-  os_obj : JSValue,
-  bjson_obj : JSValue,
+  std_obj : Value,
+  os_obj : Value,
+  bjson_obj : Value,
 ) -> Unit {
   env_declare(env, "std", std_obj)
   env_declare(env, "os", os_obj)
@@ -168,12 +168,12 @@ fn declare_host_objects(
 }
 
 ///|
-fn set_global_intrinsics(global : JSValue) -> Unit {
+fn set_global_intrinsics(global : Value) -> Unit {
   match global {
     Object(obj) => {
-      obj.props.set("NaN", property_data_const(Number(nan())))
-      obj.props.set("Infinity", property_data_const(Number(inf())))
-      obj.props.set("undefined", property_data_const(Undefined))
+      props_set(obj.props, "NaN", property_data_const(Number(nan())))
+      props_set(obj.props, "Infinity", property_data_const(Number(inf())))
+      props_set(obj.props, "undefined", property_data_const(Undefined))
     }
     _ => ()
   }

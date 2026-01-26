@@ -1,5 +1,5 @@
 ///|
-fn call_builtin(builtin : BuiltinValue, args : Array[JSValue]) -> JSValue raise {
+fn call_builtin(builtin : BuiltinValue, args : Array[Value]) -> Value raise {
   match builtin.kind {
     BuiltinFunction::JsonStringify => call_builtin_json(builtin, args)
     BuiltinFunction::JsonParse => call_builtin_json(builtin, args)

@@ -2,9 +2,9 @@
 pub struct BuiltinValue {
   kind : BuiltinFunction
   id : Int
-  props : Map[String, Property]
-  mut this_value : JSValue?
-  mut proto : JSValue?
+  props : Props
+  mut this_value : Value?
+  mut proto : Value?
   mut extensible : Bool
   mut is_html_dda : Bool
   mut realm_env : Env?

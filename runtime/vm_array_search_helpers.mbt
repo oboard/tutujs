@@ -1,8 +1,5 @@
 ///|
-fn array_index_of_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_index_of_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   if len <= 0L {
@@ -32,9 +29,9 @@ fn array_index_of_value(
 
 ///|
 fn array_last_index_of_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   if len <= 0L {
@@ -66,10 +63,7 @@ fn array_last_index_of_value(
 }
 
 ///|
-fn array_includes_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_includes_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   if len <= 0L {
@@ -96,10 +90,10 @@ fn array_includes_value(
 
 ///|
 fn array_find_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   kind : ArrayFindKind,
-) -> JSValue raise {
+) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let callback = if args.is_empty() { Undefined } else { args[0] }

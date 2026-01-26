@@ -1,7 +1,7 @@
 ///|
 struct ProxyData {
-  mut target : JSValue
-  mut handler : JSValue
+  mut target : Value
+  mut handler : Value
   callable : Bool
   constructable : Bool
 }
@@ -9,8 +9,8 @@ struct ProxyData {
 ///|
 pub struct ObjectValue {
   id : Int
-  props : Map[String, Property]
-  mut proto : JSValue?
+  props : Props
+  mut proto : Value?
   string_data : String?
   number_data : Double?
   bool_data : Bool?

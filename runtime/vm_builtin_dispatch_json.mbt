@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_json(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::JsonStringify => {
       let value = if args.is_empty() { Undefined } else { args[0] }

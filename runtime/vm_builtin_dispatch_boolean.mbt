@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_boolean(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::BooleanConstructor => {
       if args.is_empty() {

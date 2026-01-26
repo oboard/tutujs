@@ -1,9 +1,9 @@
 ///|
 fn property_get_from_props(
-  props : Map[String, Property],
+  props : Props,
   name : String,
-  receiver : JSValue,
-) -> JSValue? raise {
+  receiver : Value,
+) -> Value? raise {
   match property_get_from_props_raw(props, name, receiver) {
     Some(value) => Some(module_binding_deref(value))
     None => None
@@ -12,11 +12,11 @@ fn property_get_from_props(
 
 ///|
 fn property_get_from_props_raw(
-  props : Map[String, Property],
+  props : Props,
   name : String,
-  receiver : JSValue,
-) -> JSValue? raise {
-  match props.get(name) {
+  receiver : Value,
+) -> Value? raise {
+  match props_get(props, name) {
     Some(prop) =>
       Some(
         match prop.getter {
@@ -34,11 +34,11 @@ fn property_get_from_props_raw(
 
 ///|
 fn property_get_from_chain(
-  props : Map[String, Property],
-  proto : JSValue?,
+  props : Props,
+  proto : Value?,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match property_get_from_props(props, name, receiver) {
     Some(value) => value
     None =>
@@ -51,11 +51,11 @@ fn property_get_from_chain(
 
 ///|
 fn property_get_from_chain_raw(
-  props : Map[String, Property],
-  proto : JSValue?,
+  props : Props,
+  proto : Value?,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match property_get_from_props_raw(props, name, receiver) {
     Some(value) => value
     None =>
@@ -77,7 +77,7 @@ fn property_get_from_chain_raw(
 }
 
 ///|
-fn primitive_proto(value : JSValue) -> JSValue? {
+fn primitive_proto(value : Value) -> Value? {
   let env = current_env()
   match value {
     String(_) =>
@@ -131,11 +131,11 @@ fn primitive_proto(value : JSValue) -> JSValue? {
 
 ///|
 fn set_property_for_value(
-  target : JSValue,
+  target : Value,
   name : String,
-  value : JSValue,
+  value : Value,
   strict : Bool,
-) -> JSValue raise {
+) -> Value raise {
   if is_object_like(target) {
     let _ = property_set(target, name, value, strict)
     return value
@@ -161,11 +161,11 @@ fn set_property_for_value(
 
 ///|
 fn property_set(
-  target : JSValue,
+  target : Value,
   name : String,
-  value : JSValue,
+  value : Value,
   strict : Bool,
-) -> JSValue raise {
+) -> Value raise {
   match target {
     Object(obj) =>
       match obj.proxy_data {
@@ -227,7 +227,7 @@ fn property_set(
         }
       }
     Function(func) => {
-      if name == "prototype" && !func.props.contains(name) {
+      if name == "prototype" && !props_contains(func.props, name) {
         ensure_function_prototype(func)
       }
       set_property_with_proto(
@@ -235,7 +235,7 @@ fn property_set(
         func.proto,
         name,
         value,
-        JSValue::Function(func),
+        Value::Function(func),
         func.extensible,
       )
     }
@@ -245,7 +245,7 @@ fn property_set(
         bound.proto,
         name,
         value,
-        JSValue::BoundFunction(bound),
+        Value::BoundFunction(bound),
         bound.extensible,
       )
     Builtin(builtin) =>
@@ -254,7 +254,7 @@ fn property_set(
         builtin.proto,
         name,
         value,
-        JSValue::Builtin(builtin),
+        Value::Builtin(builtin),
         builtin.extensible,
       )
     Array(arr) => array_set(arr, name, value)
@@ -269,10 +269,10 @@ fn property_set(
 
 ///|
 fn set_value_with_receiver(
-  target : JSValue,
+  target : Value,
   name : String,
-  value : JSValue,
-  receiver : JSValue,
+  value : Value,
+  receiver : Value,
 ) -> Bool raise {
   if !is_object_like(target) {
     return false
@@ -357,7 +357,7 @@ fn set_value_with_receiver(
                       let desc_obj = new_object_value()
                       match desc_obj {
                         Object(obj) =>
-                          obj.props.set("value", property_data(value))
+                          props_set(obj.props, "value", property_data(value))
                         _ => ()
                       }
                       define_property_value(
@@ -422,7 +422,8 @@ fn set_value_with_receiver(
                 } else {
                   let desc_obj = new_object_value()
                   match desc_obj {
-                    Object(obj) => obj.props.set("value", property_data(value))
+                    Object(obj) =>
+                      props_set(obj.props, "value", property_data(value))
                     _ => ()
                   }
                   define_property_value(

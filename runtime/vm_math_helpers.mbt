@@ -18,7 +18,7 @@ fn imul(left : Double, right : Double) -> Int {
 }
 
 ///|
-fn math_hypot(args : Array[JSValue]) -> Double raise {
+fn math_hypot(args : Array[Value]) -> Double raise {
   if args.is_empty() {
     return 0.0
   }
@@ -80,7 +80,7 @@ fn math_cosh_value(value : Double) -> Double {
 }
 
 ///|
-fn math_max(args : Array[JSValue]) -> Double raise {
+fn math_max(args : Array[Value]) -> Double raise {
   if args.is_empty() {
     return 0.0 - inf()
   }
@@ -105,7 +105,7 @@ fn math_max(args : Array[JSValue]) -> Double raise {
 }
 
 ///|
-fn math_min(args : Array[JSValue]) -> Double raise {
+fn math_min(args : Array[Value]) -> Double raise {
   if args.is_empty() {
     return inf()
   }
@@ -412,7 +412,7 @@ fn sum_precise_get_result(state : SumPreciseState) -> Double {
 }
 
 ///|
-fn math_sum_precise(args : Array[JSValue]) -> JSValue raise {
+fn math_sum_precise(args : Array[Value]) -> Value raise {
   let value = if args.is_empty() { Undefined } else { args[0] }
   let (iterator, next_method) = get_iterator_from_value(value)
   let state = sum_precise_init()

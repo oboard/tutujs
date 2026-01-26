@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_object(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::ObjectConstructor =>
       if args.is_empty() {
@@ -15,7 +15,7 @@ fn call_builtin_object(
             if is_object_like(args[0]) {
               args[0]
             } else {
-              let env = function_realm_env_checked(JSValue::Builtin(builtin))
+              let env = function_realm_env_checked(Value::Builtin(builtin))
               coerce_this(env, args[0])
             }
         }
@@ -30,8 +30,8 @@ fn call_builtin_object(
       let result = new_object_value()
       match result {
         Object(obj) => {
-          obj.props.set("proxy", property_data(proxy))
-          obj.props.set("revoke", property_data(revoke))
+          props_set(obj.props, "proxy", property_data(proxy))
+          props_set(obj.props, "revoke", property_data(revoke))
         }
         _ => ()
       }
@@ -112,12 +112,12 @@ fn call_builtin_object(
           } else {
             to_object(target)
           }
-          let values : Array[JSValue?] = match obj {
+          let values : Array[Value?] = match obj {
             Object(raw) =>
               match raw.proxy_data {
                 Some(data) => {
                   let keys = proxy_own_keys_values(data)
-                  let items : Array[JSValue?] = []
+                  let items : Array[Value?] = []
                   for key in keys {
                     match key {
                       Symbol(_) => items.push(Some(key))
@@ -128,7 +128,7 @@ fn call_builtin_object(
                 }
                 None => {
                   let symbols = own_symbol_keys(obj, true)
-                  let items : Array[JSValue?] = []
+                  let items : Array[Value?] = []
                   for symbol in symbols {
                     items.push(Some(Symbol(symbol)))
                   }
@@ -137,7 +137,7 @@ fn call_builtin_object(
               }
             _ => {
               let symbols = own_symbol_keys(obj, true)
-              let items : Array[JSValue?] = []
+              let items : Array[Value?] = []
               for symbol in symbols {
                 items.push(Some(Symbol(symbol)))
               }
@@ -449,16 +449,7 @@ fn call_builtin_object(
       let key = if args.is_empty() { Undefined } else { args[0] }
       let name = property_key_name(key)
       let obj = to_object(target)
-      let desc = get_own_property_descriptor(obj, name)
-      match desc {
-        Undefined => Bool(false)
-        _ =>
-          if !is_object_like(desc) {
-            throw_type_error("invalid property descriptor")
-          } else {
-            Bool(is_truthy(property_get(desc, "enumerable")))
-          }
-      }
+      Bool(own_property_is_enumerable(obj, name))
     }
     BuiltinFunction::ObjectIsPrototypeOf => {
       let target = match builtin.this_value {
@@ -697,12 +688,12 @@ fn call_builtin_object(
       if !is_object_like(target) {
         return throw_type_error("not an object")
       }
-      let values : Array[JSValue?] = match target {
+      let values : Array[Value?] = match target {
         Object(raw) =>
           match raw.proxy_data {
             Some(data) => {
               let keys = proxy_own_keys_values(data)
-              let items : Array[JSValue?] = []
+              let items : Array[Value?] = []
               for key in keys {
                 items.push(Some(key))
               }
@@ -711,7 +702,7 @@ fn call_builtin_object(
             None => {
               let keys = own_string_keys(target)
               let symbols = own_symbol_keys(target, true)
-              let items : Array[JSValue?] = []
+              let items : Array[Value?] = []
               for name in keys {
                 items.push(Some(String(name)))
               }
@@ -724,7 +715,7 @@ fn call_builtin_object(
         _ => {
           let keys = own_string_keys(target)
           let symbols = own_symbol_keys(target, true)
-          let items : Array[JSValue?] = []
+          let items : Array[Value?] = []
           for name in keys {
             items.push(Some(String(name)))
           }

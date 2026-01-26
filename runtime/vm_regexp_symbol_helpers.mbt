@@ -1,5 +1,5 @@
 ///|
-fn regexp_symbol_match_value(rx : JSValue, input : String) -> JSValue raise {
+fn regexp_symbol_match_value(rx : Value, input : String) -> Value raise {
   if !is_object_like(rx) {
     return throw_type_error("not an object")
   }
@@ -11,7 +11,7 @@ fn regexp_symbol_match_value(rx : JSValue, input : String) -> JSValue raise {
   let full_unicode = string_index_of(flags, "u", 0) >= 0 ||
     string_index_of(flags, "v", 0) >= 0
   let _ = property_set(rx, "lastIndex", Number(0.0), true)
-  let matches : Array[JSValue?] = []
+  let matches : Array[Value?] = []
   while true {
     let result = regexp_exec_method(rx, String(input))
     match result {
@@ -44,7 +44,7 @@ fn regexp_symbol_match_value(rx : JSValue, input : String) -> JSValue raise {
 }
 
 ///|
-fn regexp_symbol_match_all_value(rx : JSValue, input : String) -> JSValue raise {
+fn regexp_symbol_match_all_value(rx : Value, input : String) -> Value raise {
   if !is_object_like(rx) {
     return throw_type_error("not an object")
   }
@@ -66,7 +66,7 @@ fn regexp_symbol_match_all_value(rx : JSValue, input : String) -> JSValue raise 
 }
 
 ///|
-fn regexp_symbol_search_value(rx : JSValue, input : String) -> JSValue raise {
+fn regexp_symbol_search_value(rx : Value, input : String) -> Value raise {
   if !is_object_like(rx) {
     return throw_type_error("not an object")
   }
@@ -89,10 +89,10 @@ fn regexp_symbol_search_value(rx : JSValue, input : String) -> JSValue raise {
 
 ///|
 fn regexp_symbol_replace_value(
-  rx : JSValue,
+  rx : Value,
   input : String,
-  replace_value : JSValue,
-) -> JSValue raise {
+  replace_value : Value,
+) -> Value raise {
   if !is_object_like(rx) {
     return throw_type_error("not an object")
   }
@@ -110,7 +110,7 @@ fn regexp_symbol_replace_value(
     let _ = property_set(rx, "lastIndex", Number(0.0), true)
 
   }
-  let results : Array[JSValue] = []
+  let results : Array[Value] = []
   while true {
     let result = regexp_exec_method(rx, String(input))
     match result {
@@ -167,7 +167,7 @@ fn regexp_symbol_replace_value(
     }
     let named = property_get(result, "groups")
     let replacement = if functional_replace {
-      let args : Array[JSValue] = []
+      let args : Array[Value] = []
       for capture in captures {
         match capture {
           Some(text) => args.push(String(text))
@@ -211,10 +211,10 @@ fn regexp_symbol_replace_value(
 
 ///|
 fn regexp_symbol_split_value(
-  rx : JSValue,
+  rx : Value,
   input : String,
-  limit_value : JSValue,
-) -> JSValue raise {
+  limit_value : Value,
+) -> Value raise {
   if !is_object_like(rx) {
     return throw_type_error("not an object")
   }
@@ -226,7 +226,7 @@ fn regexp_symbol_split_value(
     flags = flags + "y"
   }
   let splitter = call_constructor(ctor, [rx, String(flags)])
-  let results : Array[JSValue?] = []
+  let results : Array[Value?] = []
   let lim = if limit_value is Undefined {
     0xffffffffU
   } else {

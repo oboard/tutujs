@@ -1,34 +1,23 @@
 ///|
 fn init_core_ctors(
   object_proto_obj : ObjectValue,
-  object_proto_value : JSValue,
-  function_proto_value : JSValue,
+  object_proto_value : Value,
+  function_proto_value : Value,
   generator_function_proto_obj : ObjectValue,
   async_generator_function_proto_obj : ObjectValue,
   async_function_proto_obj : ObjectValue,
   string_proto_obj : ObjectValue,
-  string_proto_value : JSValue,
+  string_proto_value : Value,
   number_proto_obj : ObjectValue,
-  number_proto_value : JSValue,
+  number_proto_value : Value,
   bool_proto_obj : ObjectValue,
-  bool_proto_value : JSValue,
+  bool_proto_value : Value,
   bigint_proto_obj : ObjectValue,
-  bigint_proto_value : JSValue,
+  bigint_proto_value : Value,
   symbol_proto_obj : ObjectValue,
-  symbol_proto_value : JSValue,
+  symbol_proto_value : Value,
   iterator_proto_obj : ObjectValue,
-) -> (
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-) {
+) -> (Value, Value, Value, Value, Value, Value, Value, Value, Value, Value) {
   let object_ctor = init_object_ctor(object_proto_obj, object_proto_value)
   let function_ctor = init_function_ctor(function_proto_value)
   init_generator_family_ctors(

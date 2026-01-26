@@ -1,8 +1,8 @@
 ///|
-fn new_object_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_object_value_with_proto(proto : Value?) -> Value {
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto,
     string_data: None,
     number_data: None,
@@ -34,14 +34,15 @@ fn new_object_value_with_proto(proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto)
   Object(obj)
 }
 
 ///|
-fn new_object_struct(proto : JSValue?) -> ObjectValue {
+fn new_object_struct(proto : Value?) -> ObjectValue {
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto,
     string_data: None,
     number_data: None,
@@ -73,10 +74,11 @@ fn new_object_struct(proto : JSValue?) -> ObjectValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto)
   obj
 }
 
 ///|
-fn new_object_value() -> JSValue {
+fn new_object_value() -> Value {
   new_object_value_with_proto(value_from_object(object_proto()))
 }

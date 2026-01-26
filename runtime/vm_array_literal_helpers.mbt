@@ -1,7 +1,7 @@
 ///|
-fn eval_array_literal(env : Env, elems : Array[@engine.Expr?]) -> JSValue raise {
+fn eval_array_literal(env : Env, elems : Array[@engine.Expr?]) -> Value raise {
   with_gc_frame(fn() raise {
-    let values : Array[JSValue?] = []
+    let values : Array[Value?] = []
     for elem in elems {
       match elem {
         Some(@engine.Expr::Spread(inner)) => {

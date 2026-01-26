@@ -36,7 +36,7 @@ pub fn async_done_count() -> Int {
 }
 
 ///|
-pub fn Context::async_done_count(self : Context) -> Int {
+pub fn Vm::async_done_count(self : Vm) -> Int {
   let mut value = 0
   self.runtime.async_done_ref.update(fn(current) {
     value = current
@@ -46,7 +46,7 @@ pub fn Context::async_done_count(self : Context) -> Int {
 }
 
 ///|
-pub fn Context::take_print_log(self : Context) -> Array[String] {
+pub fn Vm::take_print_log(self : Vm) -> Array[String] {
   let mut out : Array[String] = []
   self.runtime.print_log_ref.update(fn(log) {
     out = log

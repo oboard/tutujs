@@ -1,5 +1,5 @@
 ///|
-fn to_int64_sat_value(value : JSValue) -> Int64 raise {
+fn to_int64_sat_value(value : Value) -> Int64 raise {
   let num = to_number(value)
   let max_i64 = 9223372036854775807L
   let min_i64 = -9223372036854775807L - 1L
@@ -21,19 +21,16 @@ fn to_int64_sat_value(value : JSValue) -> Int64 raise {
 
 ///|
 fn typed_array_set_index_or_throw(
-  target : JSValue,
+  target : Value,
   index : Int,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   let _ = property_set(target, Int::to_string(index), value, true)
 
 }
 
 ///|
-fn typed_array_at_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn typed_array_at_value(this_value : Value, args : Array[Value]) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let index = if args.is_empty() { 0 } else { to_int32_sat(to_number(args[0])) }
@@ -50,9 +47,9 @@ fn typed_array_at_value(
 
 ///|
 fn typed_array_with_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len64 = Int64::from_int(typed_array_effective_length(data))
   let max_int = 2147483647
@@ -87,9 +84,9 @@ fn typed_array_with_value(
 
 ///|
 fn typed_array_map_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (arr, data) = require_typed_array_checked(Some(this_value))
   let callback = if args.is_empty() { Undefined } else { args[0] }
   let this_arg = if args.length() > 1 { args[1] } else { Undefined }
@@ -118,9 +115,9 @@ fn typed_array_map_value(
 
 ///|
 fn typed_array_filter_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (arr, data) = require_typed_array_checked(Some(this_value))
   let callback = if args.is_empty() { Undefined } else { args[0] }
   let this_arg = if args.length() > 1 { args[1] } else { Undefined }
@@ -128,7 +125,7 @@ fn typed_array_filter_value(
     return throw_type_error("not a function")
   }
   let len = typed_array_effective_length(data)
-  let selected : Array[JSValue] = []
+  let selected : Array[Value] = []
   let mut k = 0
   while k < len {
     let value = typed_array_get_index(data, k)
@@ -158,9 +155,9 @@ fn typed_array_filter_value(
 
 ///|
 fn typed_array_slice_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let len64 = Int64::from_int(len)
@@ -222,9 +219,9 @@ fn typed_array_slice_value(
 
 ///|
 fn typed_array_subarray_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array(Some(this_value))
   let len64 = Int64::from_int(typed_array_effective_length(data))
   let mut start = 0L
@@ -257,7 +254,7 @@ fn typed_array_subarray_value(
 }
 
 ///|
-fn typed_array_reverse_value(this_value : JSValue) -> JSValue raise {
+fn typed_array_reverse_value(this_value : Value) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   if len > 1 {
@@ -276,7 +273,7 @@ fn typed_array_reverse_value(this_value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn typed_array_to_reversed_value(this_value : JSValue) -> JSValue raise {
+fn typed_array_to_reversed_value(this_value : Value) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let result = new_typed_array_value(data.kind, len)
@@ -296,8 +293,8 @@ fn typed_array_to_reversed_value(this_value : JSValue) -> JSValue raise {
 
 ///|
 fn typed_array_join_impl(
-  this_value : JSValue,
-  sep_value : JSValue?,
+  this_value : Value,
+  sep_value : Value?,
   to_locale : Bool,
 ) -> String raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
@@ -347,25 +344,25 @@ fn typed_array_join_impl(
 
 ///|
 fn typed_array_join_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
 ) -> String raise {
   let sep_value = if args.is_empty() { None } else { Some(args[0]) }
   typed_array_join_impl(this_value, sep_value, false)
 }
 
 ///|
-fn typed_array_to_locale_string_value(this_value : JSValue) -> String raise {
+fn typed_array_to_locale_string_value(this_value : Value) -> String raise {
   typed_array_join_impl(this_value, None, true)
 }
 
 ///|
 fn typed_array_iterate_value(
-  this_value : JSValue,
-  callback : JSValue,
-  this_arg : JSValue,
+  this_value : Value,
+  callback : Value,
+  this_arg : Value,
   kind : ArrayIterKind,
-) -> JSValue raise {
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   if !is_callable(callback) {
     return throw_type_error("not a function")
@@ -396,10 +393,10 @@ fn typed_array_iterate_value(
 
 ///|
 fn typed_array_reduce_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   from_right : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let callback = if args.is_empty() { Undefined } else { args[0] }
   if !is_callable(callback) {
@@ -407,7 +404,7 @@ fn typed_array_reduce_value(
   }
   let len = typed_array_effective_length(data)
   let mut k = 0
-  let mut acc : JSValue? = if args.length() > 1 { Some(args[1]) } else { None }
+  let mut acc : Value? = if args.length() > 1 { Some(args[1]) } else { None }
   if acc is None {
     if len == 0 {
       return throw_type_error("Reduce of empty array with no initial value")
@@ -435,10 +432,10 @@ fn typed_array_reduce_value(
 
 ///|
 fn typed_array_find_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   kind : ArrayFindKind,
-) -> JSValue raise {
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let callback = if args.is_empty() { Undefined } else { args[0] }
@@ -483,9 +480,9 @@ fn typed_array_find_value(
 
 ///|
 fn typed_array_index_of_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   if len <= 0 {
@@ -523,9 +520,9 @@ fn typed_array_index_of_value(
 
 ///|
 fn typed_array_last_index_of_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   if len <= 0 {
@@ -568,9 +565,9 @@ fn typed_array_last_index_of_value(
 
 ///|
 fn typed_array_includes_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   if len <= 0 {
@@ -599,9 +596,9 @@ fn typed_array_includes_value(
 
 ///|
 fn typed_array_from_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   if !is_constructor_value(this_value) {
     return throw_type_error("not a constructor")
   }
@@ -637,7 +634,7 @@ fn typed_array_from_value(
         }
       None => value_from_object(array_proto())
     }
-    let values : Array[JSValue?] = []
+    let values : Array[Value?] = []
     for {
       let (done, value) = iterator_step_value(iterator, next_method)
       if done {
@@ -672,10 +669,7 @@ fn typed_array_from_value(
 }
 
 ///|
-fn typed_array_of_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn typed_array_of_value(this_value : Value, args : Array[Value]) -> Value raise {
   if !is_constructor_value(this_value) {
     return throw_type_error("not a constructor")
   }
@@ -691,9 +685,9 @@ fn typed_array_of_value(
 
 ///|
 fn typed_array_set_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array(Some(this_value))
   if args.is_empty() {
     return Undefined
@@ -720,7 +714,7 @@ fn typed_array_set_value(
           if offset64 > target_len64 - source_len64 {
             return throw_range_error("invalid array length")
           }
-          let values : Array[JSValue] = []
+          let values : Array[Value] = []
           let mut i = 0
           while i < source_len {
             values.push(typed_array_get_index(src_data, i))
@@ -786,9 +780,9 @@ fn typed_array_set_value(
 
 ///|
 fn typed_array_copy_within_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let len64 = Int64::from_int(len)
@@ -830,9 +824,9 @@ fn typed_array_copy_within_value(
 
 ///|
 fn typed_array_fill_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let len = typed_array_effective_length(data)
   let len64 = Int64::from_int(len)

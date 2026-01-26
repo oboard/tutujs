@@ -56,10 +56,10 @@ fn string_last_index_of(value : String, search : String, from : Int) -> Int {
 ///|
 fn string_split_value(
   value : String,
-  args : Array[JSValue],
+  args : Array[Value],
   limit : UInt,
-) -> JSValue raise {
-  let result : Array[JSValue?] = []
+) -> Value raise {
+  let result : Array[Value?] = []
   let mut count : UInt = 0U
   if args.is_empty() || args[0] is Undefined {
     if limit == 0U {
@@ -172,11 +172,11 @@ fn string_pad_end(value : String, target_len : Int, fill : String) -> String {
 
 ///|
 fn string_create_html(
-  this_value : JSValue?,
-  args : Array[JSValue],
+  this_value : Value?,
+  args : Array[Value],
   tag : String,
   attr : String?,
-) -> JSValue raise {
+) -> Value raise {
   let text = this_to_string_coerce(this_value)
   let result = StringBuilder::new()
   result.write_string("<")

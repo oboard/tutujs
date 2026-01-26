@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_iterator(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::IteratorReturnSelf =>
       iterator_return_self(builtin.this_value)

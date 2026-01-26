@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_module(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::ModuleImport => {
       if args.is_empty() {
@@ -62,7 +62,7 @@ fn call_builtin_module(
     }
     BuiltinFunction::ModuleImportDynamicJob => {
       match module_import_dynamic_job_data_take(builtin.id) {
-        Some(data) =>
+        Some(data) => {
           try {
             let module_value = match data.base_path {
               Some(path) =>
@@ -112,8 +112,13 @@ fn call_builtin_module(
               let _ = call_value_with_this(data.reject, [value], Undefined)
 
             }
-            err => raise err
+            err => {
+              module_import_dynamic_job_data_release(data)
+              raise err
+            }
           }
+          module_import_dynamic_job_data_release(data)
+        }
         None => ()
       }
       Undefined
@@ -240,7 +245,7 @@ fn call_builtin_module(
             }
             _ => ()
           }
-          exports.props.set(name, Property::{
+          props_set(exports.props, name, Property::{
             value: export_value,
             writable: false,
             configurable: false,
@@ -281,9 +286,9 @@ fn call_builtin_module(
           }
           match props {
             Some(props) =>
-              for name, prop in props {
+              props_iter_raise(props, fn(name, prop) raise {
                 if name == "default" || !prop.enumerable {
-                  continue
+                  return ()
                 }
                 let mut is_ambiguous = false
                 match module_path {
@@ -300,20 +305,20 @@ fn call_builtin_module(
                   None => ()
                 }
                 if is_ambiguous {
-                  if exports.props.contains(name) {
-                    exports.props.remove(name)
+                  if props_contains(exports.props, name) {
+                    props_remove(exports.props, name)
                   }
                   match module_path {
                     Some(path) => module_namespace_remove_export(path, name)
                     None => ()
                   }
-                  continue
+                  return ()
                 }
-                if exports.props.contains(name) {
-                  continue
+                if props_contains(exports.props, name) {
+                  return ()
                 }
                 let value = new_module_binding_value(module_obj, name)
-                exports.props.set(name, Property::{
+                props_set(exports.props, name, Property::{
                   value,
                   writable: false,
                   configurable: false,
@@ -325,7 +330,7 @@ fn call_builtin_module(
                   Some(path) => module_namespace_add_export(path, exports, name)
                   None => ()
                 }
-              }
+              })
             None => ()
           }
           module_obj

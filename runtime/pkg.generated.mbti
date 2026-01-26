@@ -10,9 +10,9 @@ import {
 // Values
 pub fn async_done_count() -> Int
 
-pub fn error_name(JSValue) -> String?
+pub fn error_name(Value) -> String?
 
-pub fn format_error(JSValue) -> String
+pub fn format_error(Value) -> String
 
 pub fn reset_runtime_state() -> Unit
 
@@ -26,33 +26,33 @@ pub fn set_gc_threshold(Int) -> Unit
 
 pub fn take_print_log() -> Array[String]
 
-pub fn value_arguments(ArgumentsValue) -> JSValue
+pub fn value_arguments(ArgumentsValue) -> Value
 
-pub fn value_array(ArrayValue) -> JSValue
+pub fn value_array(ArrayValue) -> Value
 
-pub fn value_bigint(@bigint.BigInt) -> JSValue
+pub fn value_bigint(@bigint.BigInt) -> Value
 
-pub fn value_bool(Bool) -> JSValue
+pub fn value_bool(Bool) -> Value
 
-pub fn value_bound_function(BoundFunctionValue) -> JSValue
+pub fn value_bound_function(BoundFunctionValue) -> Value
 
-pub fn value_builtin(BuiltinValue) -> JSValue
+pub fn value_builtin(BuiltinValue) -> Value
 
-pub fn value_function(FunctionValue) -> JSValue
+pub fn value_function(FunctionValue) -> Value
 
-pub fn value_null() -> JSValue
+pub fn value_null() -> Value
 
-pub fn value_number(Double) -> JSValue
+pub fn value_number(Double) -> Value
 
-pub fn value_object(ObjectValue) -> JSValue
+pub fn value_object(ObjectValue) -> Value
 
-pub fn value_string(String) -> JSValue
+pub fn value_string(String) -> Value
 
-pub fn value_symbol(SymbolValue) -> JSValue
+pub fn value_symbol(SymbolValue) -> Value
 
-pub fn value_to_string(JSValue) -> String
+pub fn value_to_string(Value) -> String
 
-pub fn value_undefined() -> JSValue
+pub fn value_undefined() -> Value
 
 // Errors
 
@@ -62,9 +62,9 @@ pub struct ArgumentsValue {
   env : Env
   params : Array[String]
   mapped : Array[Bool]
-  elements : Array[JSValue?]
-  props : Map[String, Property]
-  mut proto : JSValue?
+  elements : Array[Value?]
+  props : Props
+  mut proto : Value?
   mut extensible : Bool
 }
 pub impl Show for ArgumentsValue
@@ -74,14 +74,43 @@ type ArrayBufferData
 
 pub struct ArrayValue {
   id : Int
-  elements : Array[JSValue?]
-  mut proto : JSValue?
-  props : Map[String, Property]
+  elements : Array[Value?]
+  mut proto : Value?
+  props : Props
   mut typed_array_data : TypedArrayData?
   mut extensible : Bool
 }
 pub impl Show for ArrayValue
 pub impl ToJson for ArrayValue
+
+type AssignArrayDef
+pub impl Eq for AssignArrayDef
+pub impl Show for AssignArrayDef
+pub impl ToJson for AssignArrayDef
+
+type AssignForInDef
+pub impl Eq for AssignForInDef
+pub impl Show for AssignForInDef
+pub impl ToJson for AssignForInDef
+
+type AssignInvalidDef
+pub impl Eq for AssignInvalidDef
+pub impl Show for AssignInvalidDef
+pub impl ToJson for AssignInvalidDef
+
+type AssignObjectDef
+pub impl Eq for AssignObjectDef
+pub impl Show for AssignObjectDef
+pub impl ToJson for AssignObjectDef
+
+pub(all) struct AssignOpDef {
+  op : @engine.BinaryOp
+  lhs : @engine.Expr
+  rhs : @engine.Expr
+}
+pub impl Eq for AssignOpDef
+pub impl Show for AssignOpDef
+pub impl ToJson for AssignOpDef
 
 type AsyncGeneratorData
 
@@ -91,13 +120,18 @@ pub impl Eq for AtomicsOpKind
 type AtomicsWaitStatus
 pub impl Eq for AtomicsWaitStatus
 
+type BlockEnvDef
+pub impl Eq for BlockEnvDef
+pub impl Show for BlockEnvDef
+pub impl ToJson for BlockEnvDef
+
 pub struct BoundFunctionValue {
   id : Int
-  mut target : JSValue
-  mut bound_this : JSValue
-  bound_args : Array[JSValue]
-  props : Map[String, Property]
-  mut proto : JSValue?
+  mut target : Value
+  mut bound_this : Value
+  bound_args : Array[Value]
+  props : Props
+  mut proto : Value?
   is_constructor : Bool
   mut extensible : Bool
 }
@@ -715,15 +749,39 @@ pub impl ToJson for BuiltinFunction
 pub struct BuiltinValue {
   kind : BuiltinFunction
   id : Int
-  props : Map[String, Property]
-  mut this_value : JSValue?
-  mut proto : JSValue?
+  props : Props
+  mut this_value : Value?
+  mut proto : Value?
   mut extensible : Bool
   mut is_html_dda : Bool
   mut realm_env : Env?
 }
 pub impl Show for BuiltinValue
 pub impl ToJson for BuiltinValue
+
+type BytecodeClassDef
+pub impl Eq for BytecodeClassDef
+pub impl Show for BytecodeClassDef
+pub impl ToJson for BytecodeClassDef
+
+type BytecodeDebug
+pub impl Eq for BytecodeDebug
+pub impl Show for BytecodeDebug
+pub impl ToJson for BytecodeDebug
+
+type BytecodeFunction
+pub impl Show for BytecodeFunction
+pub impl ToJson for BytecodeFunction
+
+type BytecodeInstr
+pub impl Eq for BytecodeInstr
+pub impl Show for BytecodeInstr
+pub impl ToJson for BytecodeInstr
+
+type BytecodeOp
+pub impl Eq for BytecodeOp
+pub impl Show for BytecodeOp
+pub impl ToJson for BytecodeOp
 
 pub struct ClassFieldRecord {
   is_private : Bool
@@ -735,39 +793,24 @@ pub struct ClassFieldRecord {
 type CompareOp
 pub impl Show for CompareOp
 
-pub struct Context {
-  env : Env
-  runtime : RuntimeState
-}
-pub fn Context::async_done_count(Self) -> Int
-pub fn Context::eval(Self, String) -> JSValue raise
-pub fn Context::eval_result(Self, String) -> Result[JSValue, JSValue] raise
-pub fn Context::eval_result_with_path(Self, String, String) -> Result[JSValue, JSValue] raise
-pub fn Context::eval_result_with_path_mode(Self, String, String, Bool, Bool) -> Result[JSValue, JSValue] raise
-pub fn Context::eval_with_path(Self, String, String) -> JSValue raise
-pub fn Context::eval_with_path_mode(Self, String, String, Bool, Bool) -> JSValue raise
-pub fn Context::new() -> Self
-pub fn Context::reset_runtime_state(Self) -> Unit
-pub fn Context::run_gc(Self) -> Unit
-pub fn Context::set_can_block(Self, Bool) -> Unit
-pub fn Context::set_gc_debug(Self, Bool) -> Unit
-pub fn Context::set_gc_threshold(Self, Int) -> Unit
-pub fn Context::take_print_log(Self) -> Array[String]
-pub impl Show for Context
-
 type DataViewData
+
+type DeclareBindingDef
+pub impl Eq for DeclareBindingDef
+pub impl Show for DeclareBindingDef
+pub impl ToJson for DeclareBindingDef
 
 pub struct Env {
   id : Int
   parent : Env?
-  bindings : @hashmap.HashMap[String, JSValue]
+  bindings : @hashmap.HashMap[String, Value]
   readonly_bindings : @hashmap.HashMap[String, Bool]
   deletable_bindings : @hashmap.HashMap[String, Bool]
   private_bindings : @hashmap.HashMap[String, String]
   mut strict : Bool
-  mut with_object : JSValue?
-  mut var_object : JSValue?
-  mut new_target : JSValue
+  mut with_object : Value?
+  mut var_object : Value?
+  mut new_target : Value
   mut allow_new_target : Bool
   mut allow_super : Bool
   mut allow_super_call : Bool
@@ -782,13 +825,13 @@ pub fn Env::new(Self?) -> Self
 pub impl Show for Env
 
 pub struct FinalizationEntry {
-  target : JSValue
-  held_value : JSValue
-  mut token : JSValue
+  target : Value
+  held_value : Value
+  mut token : Value
 }
 
 pub struct FinalizationRegistryData {
-  callback : JSValue
+  callback : Value
   entries : Array[FinalizationEntry]
   realm_env : Env
 }
@@ -806,13 +849,13 @@ pub struct FunctionValue {
   body : Array[@engine.Stmt]
   env : Env
   id : Int
-  props : Map[String, Property]
-  mut proto : JSValue?
-  mut home_object : JSValue?
-  mut super_constructor : JSValue?
+  props : Props
+  mut proto : Value?
+  mut home_object : Value?
+  mut super_constructor : Value?
   mut instance_fields : Array[ClassFieldRecord]
   private_instance_fields : Array[(String, @engine.Expr?)]
-  mut private_instance_props : Map[String, Property]
+  mut private_instance_props : Props
   mut is_constructor : Bool
   mut is_class_constructor : Bool
   mut is_default_constructor : Bool
@@ -828,7 +871,7 @@ pub impl ToJson for FunctionValue
 
 pub struct GcRegistry {
   envs : Map[Int, Env]
-  values : Map[Int, JSValue]
+  values : Map[Int, Value]
 }
 
 type GeneratorData
@@ -837,17 +880,17 @@ pub struct IteratorConcatData {
   mut index : Int
   count : Int
   mut running : Bool
-  mut iter : JSValue
-  mut next : JSValue
-  values : Array[(JSValue, JSValue)]
+  mut iter : Value
+  mut next : Value
+  values : Array[(Value, Value)]
 }
 
 pub struct IteratorHelperData {
-  obj : JSValue
-  next : JSValue
-  func : JSValue
-  mut inner : JSValue
-  mut inner_next : JSValue
+  obj : Value
+  next : Value
+  func : Value
+  mut inner : Value
+  mut inner_next : Value
   mut count : Int64
   kind : Int
   mut executing : Bool
@@ -855,40 +898,16 @@ pub struct IteratorHelperData {
 }
 
 pub struct IteratorWrapData {
-  wrapped_iter : JSValue
-  wrapped_next : JSValue
+  wrapped_iter : Value
+  wrapped_next : Value
 }
-
-pub enum JSValue {
-  Undefined
-  Null
-  Bool(Bool)
-  Number(Double)
-  String(String)
-  BigInt(@bigint.BigInt)
-  Symbol(SymbolValue)
-  Builtin(BuiltinValue)
-  Function(FunctionValue)
-  BoundFunction(BoundFunctionValue)
-  Object(ObjectValue)
-  Array(ArrayValue)
-  Arguments(ArgumentsValue)
-}
-pub fn JSValue::undefined() -> Self
-pub impl Add for JSValue
-pub impl Div for JSValue
-pub impl Mod for JSValue
-pub impl Mul for JSValue
-pub impl Show for JSValue
-pub impl Sub for JSValue
-pub impl ToJson for JSValue
 
 pub struct MapData {
-  entries : Array[(JSValue, JSValue)?]
+  entries : Array[(Value, Value)?]
 }
 
 pub struct MapIteratorData {
-  entries : Array[(JSValue, JSValue)?]
+  entries : Array[(Value, Value)?]
   mut index : Int
   kind : Int
   mut done : Bool
@@ -896,8 +915,8 @@ pub struct MapIteratorData {
 
 pub struct ObjectValue {
   id : Int
-  props : Map[String, Property]
-  mut proto : JSValue?
+  props : Props
+  mut proto : Value?
   string_data : String?
   number_data : Double?
   bool_data : Bool?
@@ -931,16 +950,28 @@ pub struct ObjectValue {
 pub impl Show for ObjectValue
 pub impl ToJson for ObjectValue
 
+pub(all) struct OptionalChainDef {
+  base : @engine.Expr
+  segments : Array[@engine.ChainSegment]
+}
+pub impl Eq for OptionalChainDef
+pub impl Show for OptionalChainDef
+pub impl ToJson for OptionalChainDef
+
 pub struct Property {
-  value : JSValue
+  value : Value
   writable : Bool
   configurable : Bool
   enumerable : Bool
-  getter : JSValue?
-  setter : JSValue?
+  getter : Value?
+  setter : Value?
 }
 
+type Props
+
 type ProxyData
+
+type RcMeta
 
 pub struct RegexpData {
   source : String
@@ -963,8 +994,9 @@ pub struct RuntimeState {
   gc_alloc_count_ref : Ref[Int]
   gc_threshold_ref : Ref[Int]
   gc_debug_ref : Ref[Bool]
-  gc_value_root_ref : Ref[Array[JSValue]]
+  gc_value_root_ref : Ref[Array[Value]]
   gc_pending_ref : Ref[Bool]
+  gc_rc_meta_ref : Ref[Map[Int, RcMeta]]
   print_log_ref : Ref[Array[String]]
   async_done_ref : Ref[Int]
   can_block_ref : Ref[Bool]
@@ -972,15 +1004,42 @@ pub struct RuntimeState {
 pub impl Show for RuntimeState
 
 pub struct SetData {
-  entries : Array[JSValue?]
+  entries : Array[Value?]
 }
 
 pub struct SetIteratorData {
-  entries : Array[JSValue?]
+  entries : Array[Value?]
   mut index : Int
   kind : Int
   mut done : Bool
 }
+
+pub(all) struct SuperCallDef {
+  args : Array[@engine.Expr]
+}
+pub impl Eq for SuperCallDef
+pub impl Show for SuperCallDef
+pub impl ToJson for SuperCallDef
+
+type SuperDeleteDef
+pub impl Eq for SuperDeleteDef
+pub impl Show for SuperDeleteDef
+pub impl ToJson for SuperDeleteDef
+
+type SuperMemberCallDef
+pub impl Eq for SuperMemberCallDef
+pub impl Show for SuperMemberCallDef
+pub impl ToJson for SuperMemberCallDef
+
+type SuperMemberDef
+pub impl Eq for SuperMemberDef
+pub impl Show for SuperMemberDef
+pub impl ToJson for SuperMemberDef
+
+type SuperUpdateDef
+pub impl Eq for SuperUpdateDef
+pub impl Show for SuperUpdateDef
+pub impl ToJson for SuperUpdateDef
 
 pub struct SymbolValue {
   id : Int
@@ -991,6 +1050,11 @@ pub impl Eq for SymbolValue
 pub impl Show for SymbolValue
 pub impl ToJson for SymbolValue
 
+type TaggedTemplateDef
+pub impl Eq for TaggedTemplateDef
+pub impl Show for TaggedTemplateDef
+pub impl ToJson for TaggedTemplateDef
+
 type TypedArrayData
 
 type TypedArrayKind
@@ -998,17 +1062,79 @@ pub impl Eq for TypedArrayKind
 pub impl Show for TypedArrayKind
 pub impl ToJson for TypedArrayKind
 
+#alias(JSValue)
+pub(all) enum Value {
+  Undefined
+  Null
+  Bool(Bool)
+  Number(Double)
+  String(String)
+  BigInt(@bigint.BigInt)
+  Symbol(SymbolValue)
+  Builtin(BuiltinValue)
+  Function(FunctionValue)
+  BoundFunction(BoundFunctionValue)
+  Object(ObjectValue)
+  Array(ArrayValue)
+  Arguments(ArgumentsValue)
+}
+pub fn Value::undefined() -> Self
+pub impl Add for Value
+pub impl Div for Value
+pub impl Mod for Value
+pub impl Mul for Value
+pub impl Show for Value
+pub impl Sub for Value
+pub impl ToJson for Value
+
+type VarDeclArrayDef
+pub impl Eq for VarDeclArrayDef
+pub impl Show for VarDeclArrayDef
+pub impl ToJson for VarDeclArrayDef
+
+type VarDeclObjectDef
+pub impl Eq for VarDeclObjectDef
+pub impl Show for VarDeclObjectDef
+pub impl ToJson for VarDeclObjectDef
+
+#alias(Context)
+pub struct Vm {
+  env : Env
+  runtime : RuntimeState
+}
+pub fn Vm::async_done_count(Self) -> Int
+pub fn Vm::eval(Self, String) -> Value raise
+pub fn Vm::eval_result(Self, String) -> Result[Value, Value] raise
+pub fn Vm::eval_result_with_path(Self, String, String) -> Result[Value, Value] raise
+pub fn Vm::eval_result_with_path_mode(Self, String, String, Bool, Bool) -> Result[Value, Value] raise
+pub fn Vm::eval_with_path(Self, String, String) -> Value raise
+pub fn Vm::eval_with_path_mode(Self, String, String, Bool, Bool) -> Value raise
+pub fn Vm::new() -> Self
+pub fn Vm::reset_runtime_state(Self) -> Unit
+pub fn Vm::run_gc(Self) -> Unit
+pub fn Vm::set_can_block(Self, Bool) -> Unit
+pub fn Vm::set_gc_debug(Self, Bool) -> Unit
+pub fn Vm::set_gc_threshold(Self, Int) -> Unit
+pub fn Vm::take_print_log(Self) -> Array[String]
+pub impl Show for Vm
+
 pub struct WeakMapData {
-  entries : Array[(JSValue, JSValue)]
+  entries : Array[(Value, Value)]
+  index : Map[Int, Int]
 }
 
 pub struct WeakRefData {
-  target : JSValue
+  target : Value
 }
 
 pub struct WeakSetData {
-  entries : Array[JSValue]
+  entries : Array[Value]
 }
+
+type YieldStarDef
+pub impl Eq for YieldStarDef
+pub impl Show for YieldStarDef
+pub impl ToJson for YieldStarDef
 
 // Type aliases
 

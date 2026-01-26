@@ -1,5 +1,5 @@
 ///|
-fn has_property(value : JSValue, name : String) -> Bool raise {
+fn has_property(value : Value, name : String) -> Bool raise {
   match value {
     Object(obj) =>
       match obj.proxy_data {
@@ -23,7 +23,7 @@ fn has_property(value : JSValue, name : String) -> Bool raise {
           }
       }
     Function(func) => {
-      if name == "prototype" && !func.props.contains(name) {
+      if name == "prototype" && !props_contains(func.props, name) {
         ensure_function_prototype(func)
       }
       has_property_in_chain(func.props, func.proto, name)
@@ -62,7 +62,7 @@ fn has_property(value : JSValue, name : String) -> Bool raise {
 }
 
 ///|
-fn has_property_value(value : JSValue, name : String) -> Bool raise {
+fn has_property_value(value : Value, name : String) -> Bool raise {
   match value {
     Object(obj) =>
       match obj.proxy_data {
@@ -82,7 +82,7 @@ fn arguments_has_property(args : ArgumentsValue, name : String) -> Bool raise {
       }
     None => ()
   }
-  if args.props.contains(name) {
+  if props_contains(args.props, name) {
     return true
   }
   match args.proto {
@@ -93,11 +93,11 @@ fn arguments_has_property(args : ArgumentsValue, name : String) -> Bool raise {
 
 ///|
 fn has_property_in_chain(
-  props : Map[String, Property],
-  proto : JSValue?,
+  props : Props,
+  proto : Value?,
   name : String,
 ) -> Bool raise {
-  if props.contains(name) {
+  if props_contains(props, name) {
     return true
   }
   match proto {
@@ -107,7 +107,7 @@ fn has_property_in_chain(
 }
 
 ///|
-fn get_proto_of_value(value : JSValue) -> JSValue? {
+fn get_proto_of_value(value : Value) -> Value? {
   match value {
     Object(obj) =>
       match obj.proxy_data {
@@ -124,7 +124,7 @@ fn get_proto_of_value(value : JSValue) -> JSValue? {
 }
 
 ///|
-fn get_proto_of_value_checked(value : JSValue) -> JSValue? raise {
+fn get_proto_of_value_checked(value : Value) -> Value? raise {
   match value {
     Object(obj) =>
       match obj.proxy_data {
@@ -141,7 +141,7 @@ fn get_proto_of_value_checked(value : JSValue) -> JSValue? raise {
 }
 
 ///|
-fn same_proto(left : JSValue?, right : JSValue?) -> Bool {
+fn same_proto(left : Value?, right : Value?) -> Bool {
   match (left, right) {
     (None, None) => true
     (Some(left_val), Some(right_val)) =>
@@ -154,9 +154,9 @@ fn same_proto(left : JSValue?, right : JSValue?) -> Bool {
 }
 
 ///|
-fn proto_chain_contains(start : JSValue?, target_id : Int) -> Bool {
+fn proto_chain_contains(start : Value?, target_id : Int) -> Bool {
   let seen : Map[Int, Bool] = Map::new()
-  fn walk(current : JSValue?) -> Bool {
+  fn walk(current : Value?) -> Bool {
     match current {
       None => false
       Some(value) => {
@@ -187,7 +187,7 @@ fn proto_chain_contains(start : JSValue?, target_id : Int) -> Bool {
 ///|
 fn set_proto_of_object(
   obj : ObjectValue,
-  proto : JSValue?,
+  proto : Value?,
   throw_flag : Bool,
 ) -> Bool raise {
   if same_proto(obj.proto, proto) {
@@ -214,14 +214,15 @@ fn set_proto_of_object(
     }
     return false
   }
+  rc_replace_optional_value(obj.proto, proto)
   obj.proto = proto
   true
 }
 
 ///|
 fn set_proto_of_value(
-  value : JSValue,
-  proto : JSValue?,
+  value : Value,
+  proto : Value?,
   throw_flag : Bool,
 ) -> Bool raise {
   match value {
@@ -248,6 +249,7 @@ fn set_proto_of_value(
         }
         return false
       }
+      rc_replace_optional_value(func.proto, proto)
       func.proto = proto
       true
     }
@@ -262,6 +264,7 @@ fn set_proto_of_value(
         }
         return false
       }
+      rc_replace_optional_value(bound.proto, proto)
       bound.proto = proto
       true
     }
@@ -276,6 +279,7 @@ fn set_proto_of_value(
         }
         return false
       }
+      rc_replace_optional_value(builtin.proto, proto)
       builtin.proto = proto
       true
     }
@@ -290,6 +294,7 @@ fn set_proto_of_value(
         }
         return false
       }
+      rc_replace_optional_value(arr.proto, proto)
       arr.proto = proto
       true
     }
@@ -304,6 +309,7 @@ fn set_proto_of_value(
         }
         return false
       }
+      rc_replace_optional_value(args.proto, proto)
       args.proto = proto
       true
     }

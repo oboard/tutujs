@@ -84,26 +84,39 @@ fn ranges_invert(ranges : Array[Range]) -> Array[Range] {
 }
 
 ///|
-fn entry_matches(table : String, start : Int, end : Int, name : String) -> Bool {
-  let mut seg_start = start
-  let mut i = start
-  while i <= end {
-    if i == end || UInt16::to_int(table.code_unit_at(i)) == 44 { // ','
-      if i - seg_start == name.length() {
-        let seg = table.unsafe_substring(start=seg_start, end=i)
-        if seg == name {
-          return true
-        }
-      }
-      seg_start = i + 1
-    }
-    i = i + 1
-  }
-  false
-}
+let unicode_prop_name_map_ref : Ref[Map[String, Int]?] = Ref::new(None)
 
 ///|
-fn unicode_find_name(table : String, name : String) -> Int? {
+let unicode_gc_name_map_ref : Ref[Map[String, Int]?] = Ref::new(None)
+
+///|
+let unicode_script_name_map_ref : Ref[Map[String, Int]?] = Ref::new(None)
+
+///|
+let unicode_sequence_name_map_ref : Ref[Map[String, Int]?] = Ref::new(None)
+
+///|
+let unicode_prop_set_cache_ref : Ref[Map[String, ClassSet]?] = Ref::new(None)
+
+///|
+let unicode_gc_set_cache_ref : Ref[Map[String, ClassSet]?] = Ref::new(None)
+
+///|
+let unicode_script_set_cache_ref : Ref[Map[String, ClassSet]?] = Ref::new(None)
+
+///|
+let unicode_sequence_set_cache_ref : Ref[Map[String, ClassSet]?] = Ref::new(
+  None,
+)
+
+///|
+let unicode_script_ext_set_cache_ref : Ref[Map[String, ClassSet]?] = Ref::new(
+  None,
+)
+
+///|
+fn unicode_name_map(table : String) -> Map[String, Int] {
+  let map = Map::new()
   let len = table.length()
   let mut pos = 0
   let mut entry = 0
@@ -113,13 +126,114 @@ fn unicode_find_name(table : String, name : String) -> Int? {
       pos = pos + 1
     }
     let end = pos
-    if entry_matches(table, start, end, name) {
-      return Some(entry)
+    let mut seg_start = start
+    let mut i = start
+    while i <= end {
+      if i == end || UInt16::to_int(table.code_unit_at(i)) == 44 { // ','
+        if seg_start < i {
+          let name = table.unsafe_substring(start=seg_start, end=i)
+          map.set(name, entry)
+        }
+        seg_start = i + 1
+      }
+      i = i + 1
     }
     pos = pos + 1
     entry = entry + 1
   }
-  None
+  map
+}
+
+///|
+fn unicode_name_map_from_ref(
+  cell : Ref[Map[String, Int]?],
+  table : String,
+) -> Map[String, Int] {
+  let mut result : Map[String, Int] = Map::new()
+  cell.update(fn(current) {
+    match current {
+      Some(map) => {
+        result = map
+        current
+      }
+      None => {
+        let map = unicode_name_map(table)
+        result = map
+        Some(map)
+      }
+    }
+  })
+  result
+}
+
+///|
+fn unicode_class_set_cache_get(
+  cell : Ref[Map[String, ClassSet]?],
+  name : String,
+) -> ClassSet? {
+  let mut result : ClassSet? = None
+  cell.update(fn(current) {
+    match current {
+      Some(map) =>
+        match map.get(name) {
+          Some(value) => {
+            result = Some(value)
+            current
+          }
+          None => current
+        }
+      None => None
+    }
+  })
+  result
+}
+
+///|
+fn unicode_class_set_cache_set(
+  cell : Ref[Map[String, ClassSet]?],
+  name : String,
+  value : ClassSet,
+) -> Unit {
+  cell.update(fn(current) {
+    let map : Map[String, ClassSet] = match current {
+      Some(map) => map
+      None => Map::new()
+    }
+    map.set(name, value)
+    Some(map)
+  })
+}
+
+///|
+fn unicode_prop_name_index(name : String) -> Int? {
+  let map = unicode_name_map_from_ref(
+    unicode_prop_name_map_ref, unicode_prop_name_table,
+  )
+  map.get(name)
+}
+
+///|
+fn unicode_gc_name_index(name : String) -> Int? {
+  let map = unicode_name_map_from_ref(
+    unicode_gc_name_map_ref, unicode_gc_name_table,
+  )
+  map.get(name)
+}
+
+///|
+fn unicode_script_name_index(name : String) -> Int? {
+  let map = unicode_name_map_from_ref(
+    unicode_script_name_map_ref, unicode_script_name_table,
+  )
+  map.get(name)
+}
+
+///|
+fn unicode_sequence_name_index(name : String) -> Int? {
+  let map = unicode_name_map_from_ref(
+    unicode_sequence_name_map_ref, unicode_sequence_prop_name_table,
+  )
+  map.get(name)
 }
 
 ///|
@@ -206,7 +320,11 @@ fn unicode_general_category_ranges(gc_mask : Int) -> Array[Range] {
 
 ///|
 fn unicode_general_category_set(name : String) -> ClassSet? {
-  match unicode_find_name(unicode_gc_name_table, name) {
+  match unicode_class_set_cache_get(unicode_gc_set_cache_ref, name) {
+    Some(value) => return Some(value)
+    None => ()
+  }
+  match unicode_gc_name_index(name) {
     None => None
     Some(index) => {
       let mask = if index <= UNICODE_GC_Co {
@@ -216,7 +334,9 @@ fn unicode_general_category_set(name : String) -> ClassSet? {
         masks[index - UNICODE_GC_LC]
       }
       let ranges = unicode_general_category_ranges(mask)
-      Some(ClassSet::{ ranges, strings: [] })
+      let result = ClassSet::{ ranges, strings: [] }
+      unicode_class_set_cache_set(unicode_gc_set_cache_ref, name, result)
+      Some(result)
     }
   }
 }
@@ -356,11 +476,22 @@ fn unicode_script_ranges(script_idx : Int, is_ext : Bool) -> Array[Range] {
 
 ///|
 fn unicode_script_set(name : String, is_ext : Bool) -> ClassSet? {
-  match unicode_find_name(unicode_script_name_table, name) {
+  let cache_ref = if is_ext {
+    unicode_script_ext_set_cache_ref
+  } else {
+    unicode_script_set_cache_ref
+  }
+  match unicode_class_set_cache_get(cache_ref, name) {
+    Some(value) => return Some(value)
+    None => ()
+  }
+  match unicode_script_name_index(name) {
     None => None
     Some(index) => {
       let ranges = unicode_script_ranges(index, is_ext)
-      Some(ClassSet::{ ranges, strings: [] })
+      let result = ClassSet::{ ranges, strings: [] }
+      unicode_class_set_cache_set(cache_ref, name, result)
+      Some(result)
     }
   }
 }
@@ -527,7 +658,11 @@ fn unicode_prop_ops(ops : Array[PropOp]) -> Array[Range] {
 
 ///|
 fn unicode_prop_set(name : String) -> ClassSet? {
-  let prop_index = unicode_find_name(unicode_prop_name_table, name)
+  match unicode_class_set_cache_get(unicode_prop_set_cache_ref, name) {
+    Some(value) => return Some(value)
+    None => ()
+  }
+  let prop_index = unicode_prop_name_index(name)
   match prop_index {
     None => None
     Some(index) => {
@@ -686,7 +821,9 @@ fn unicode_prop_set(name : String) -> ClassSet? {
       } else {
         return None
       }
-      Some(ClassSet::{ ranges, strings: [] })
+      let result = ClassSet::{ ranges, strings: [] }
+      unicode_class_set_cache_set(unicode_prop_set_cache_ref, name, result)
+      Some(result)
     }
   }
 }
@@ -716,7 +853,11 @@ fn add_sequence(
 
 ///|
 fn unicode_sequence_prop_set(name : String) -> ClassSet? {
-  let seq_index = unicode_find_name(unicode_sequence_prop_name_table, name)
+  match unicode_class_set_cache_get(unicode_sequence_set_cache_ref, name) {
+    Some(value) => return Some(value)
+    None => ()
+  }
+  let seq_index = unicode_sequence_name_index(name)
   match seq_index {
     None => None
     Some(index) => {
@@ -918,7 +1059,9 @@ fn unicode_sequence_prop_set(name : String) -> ClassSet? {
         }
         _ => ()
       }
-      Some(ClassSet::{ ranges: [], strings })
+      let result = ClassSet::{ ranges: [], strings }
+      unicode_class_set_cache_set(unicode_sequence_set_cache_ref, name, result)
+      Some(result)
     }
   }
 }

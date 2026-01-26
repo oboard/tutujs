@@ -2,7 +2,7 @@
 fn eval_object_literal(
   env : Env,
   props : Array[@engine.ObjectProp],
-) -> JSValue raise {
+) -> Value raise {
   with_gc_frame(fn() raise {
     let obj = new_object_value()
     match obj {
@@ -16,9 +16,14 @@ fn eval_object_literal(
                   let proto_value = eval_expr(env, expr)
                   let _ = gc_root_push(proto_value)
                   match proto_value {
-                    Null => value.proto = None
-                    _ if is_object_like(proto_value) =>
+                    Null => {
+                      rc_replace_optional_value(value.proto, None)
+                      value.proto = None
+                    }
+                    _ if is_object_like(proto_value) => {
+                      rc_replace_optional_value(value.proto, Some(proto_value))
                       value.proto = Some(proto_value)
+                    }
                     _ => ()
                   }
                 } else {
@@ -32,7 +37,7 @@ fn eval_object_literal(
                   }
                   let prop_value = eval_named_expr(env, expr, name, key_value)
                   let _ = gc_root_push(prop_value)
-                  value.props.set(name, property_data(prop_value))
+                  props_set(value.props, name, property_data(prop_value))
                 }
               @engine.ObjectProp::Method(key, func) => {
                 let (name, key_value) = obj_key_property_name(env, key)
@@ -44,20 +49,20 @@ fn eval_object_literal(
                   None => ()
                 }
                 let func_value = to_function_value(env, func, false)
-                let func = JSValue::Function(func_value)
+                let func = Value::Function(func_value)
                 let _ = gc_root_push(func)
                 func_value.is_constructor = false
                 set_function_name(
                   func_value,
                   function_name_from_key(name, key_value, None),
                 )
-                func_value.home_object = Some(JSValue::Object(value))
-                value.props.set(name, property_data(func))
+                set_function_home_object(func_value, Some(Value::Object(value)))
+                props_set(value.props, name, property_data(func))
               }
               @engine.ObjectProp::Shorthand(name) => {
                 let prop_value = env_get(env, name)
                 let _ = gc_root_push(prop_value)
-                value.props.set(name, property_data(prop_value))
+                props_set(value.props, name, property_data(prop_value))
               }
               @engine.ObjectProp::Getter(key, func) => {
                 let (name, key_value) = obj_key_property_name(env, key)
@@ -69,14 +74,14 @@ fn eval_object_literal(
                   None => ()
                 }
                 let func_value = to_function_value(env, func, false)
-                let getter = JSValue::Function(func_value)
+                let getter = Value::Function(func_value)
                 let _ = gc_root_push(getter)
                 func_value.is_constructor = false
                 set_function_name(
                   func_value,
                   function_name_from_key(name, key_value, Some("get ")),
                 )
-                func_value.home_object = Some(JSValue::Object(value))
+                set_function_home_object(func_value, Some(Value::Object(value)))
                 set_accessor_property(value.props, name, Some(getter), None)
               }
               @engine.ObjectProp::Setter(key, func) => {
@@ -89,14 +94,14 @@ fn eval_object_literal(
                   None => ()
                 }
                 let func_value = to_function_value(env, func, false)
-                let setter = JSValue::Function(func_value)
+                let setter = Value::Function(func_value)
                 let _ = gc_root_push(setter)
                 func_value.is_constructor = false
                 set_function_name(
                   func_value,
                   function_name_from_key(name, key_value, Some("set ")),
                 )
-                func_value.home_object = Some(JSValue::Object(value))
+                set_function_home_object(func_value, Some(Value::Object(value)))
                 set_accessor_property(value.props, name, None, Some(setter))
               }
               @engine.ObjectProp::Spread(expr) => {
@@ -120,7 +125,7 @@ fn eval_object_literal(
 fn gen_eval_obj_key(
   env : Env,
   key : @engine.ObjKey,
-  k : (String, JSValue?) -> GenStep raise,
+  k : (String, Value?) -> GenStep raise,
 ) -> GenStep raise {
   match key {
     @engine.ObjKey::Computed(expr) =>
@@ -138,10 +143,10 @@ fn gen_eval_object_literal(
   props : Array[@engine.ObjectProp],
   index : Int,
   target : ObjectValue,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if index >= props.length() {
-    return k(JSValue::Object(target))
+    return k(Value::Object(target))
   }
   let prop = props[index]
   match prop {
@@ -150,8 +155,14 @@ fn gen_eval_object_literal(
         gen_eval_expr_cont(env, expr, fn(value) raise {
           let _ = gen_root_push(value)
           match value {
-            Null => target.proto = None
-            _ if is_object_like(value) => target.proto = Some(value)
+            Null => {
+              rc_replace_optional_value(target.proto, None)
+              target.proto = None
+            }
+            _ if is_object_like(value) => {
+              rc_replace_optional_value(target.proto, Some(value))
+              target.proto = Some(value)
+            }
             _ => ()
           }
           gen_eval_object_literal(env, props, index + 1, target, k)
@@ -167,7 +178,7 @@ fn gen_eval_object_literal(
           }
           gen_eval_named_expr_cont(env, expr, name, key_value, fn(value) raise {
             let _ = gen_root_push(value)
-            target.props.set(name, property_data(value))
+            props_set(target.props, name, property_data(value))
             gen_eval_object_literal(env, props, index + 1, target, k)
           })
         })
@@ -182,21 +193,21 @@ fn gen_eval_object_literal(
           None => ()
         }
         let func_value = to_function_value(env, func, false)
-        let func = JSValue::Function(func_value)
+        let func = Value::Function(func_value)
         let _ = gen_root_push(func)
         func_value.is_constructor = false
         set_function_name(
           func_value,
           function_name_from_key(name, key_value, None),
         )
-        func_value.home_object = Some(JSValue::Object(target))
-        target.props.set(name, property_data(func))
+        set_function_home_object(func_value, Some(Value::Object(target)))
+        props_set(target.props, name, property_data(func))
         gen_eval_object_literal(env, props, index + 1, target, k)
       })
     @engine.ObjectProp::Shorthand(name) => {
       let value = env_get(env, name)
       let _ = gen_root_push(value)
-      target.props.set(name, property_data(value))
+      props_set(target.props, name, property_data(value))
       gen_eval_object_literal(env, props, index + 1, target, k)
     }
     @engine.ObjectProp::Getter(key, func) =>
@@ -214,8 +225,8 @@ fn gen_eval_object_literal(
           func_value,
           function_name_from_key(name, key_value, Some("get ")),
         )
-        func_value.home_object = Some(JSValue::Object(target))
-        let getter = JSValue::Function(func_value)
+        set_function_home_object(func_value, Some(Value::Object(target)))
+        let getter = Value::Function(func_value)
         let _ = gen_root_push(getter)
         set_accessor_property(target.props, name, Some(getter), None)
         gen_eval_object_literal(env, props, index + 1, target, k)
@@ -235,8 +246,8 @@ fn gen_eval_object_literal(
           func_value,
           function_name_from_key(name, key_value, Some("set ")),
         )
-        func_value.home_object = Some(JSValue::Object(target))
-        let setter = JSValue::Function(func_value)
+        set_function_home_object(func_value, Some(Value::Object(target)))
+        let setter = Value::Function(func_value)
         let _ = gen_root_push(setter)
         set_accessor_property(target.props, name, None, Some(setter))
         gen_eval_object_literal(env, props, index + 1, target, k)
@@ -274,7 +285,7 @@ fn obj_key_is_proto(key : @engine.ObjKey) -> Bool {
 fn obj_key_property_name(
   env : Env,
   key : @engine.ObjKey,
-) -> (String, JSValue?) raise {
+) -> (String, Value?) raise {
   match key {
     @engine.ObjKey::Computed(expr) => {
       let value = eval_expr(env, expr)
@@ -288,14 +299,21 @@ fn obj_key_property_name(
 fn gen_obj_key_property_name(
   env : Env,
   key : @engine.ObjKey,
-  k : (String, JSValue?) -> GenStep raise,
+  k : (String, Value?) -> GenStep raise,
 ) -> GenStep raise {
   match key {
     @engine.ObjKey::Computed(expr) =>
-      gen_eval_expr_cont(env, expr, fn(value) raise {
-        let _ = gen_root_push(value)
-        k(property_key_name(value), Some(value))
-      })
+      if bytecode_class_eval_enabled() {
+        gen_bytecode_eval_expr_cont(env, expr, fn(value) raise {
+          let _ = gen_root_push(value)
+          k(property_key_name(value), Some(value))
+        })
+      } else {
+        gen_eval_expr_cont(env, expr, fn(value) raise {
+          let _ = gen_root_push(value)
+          k(property_key_name(value), Some(value))
+        })
+      }
     _ => k(obj_key_simple_name(key), None)
   }
 }

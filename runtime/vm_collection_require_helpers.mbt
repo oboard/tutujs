@@ -1,5 +1,5 @@
 ///|
-fn require_map(this_value : JSValue?) -> (ObjectValue, MapData) raise {
+fn require_map(this_value : Value?) -> (ObjectValue, MapData) raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.map_data {
@@ -17,7 +17,7 @@ fn require_map(this_value : JSValue?) -> (ObjectValue, MapData) raise {
 }
 
 ///|
-fn require_set(this_value : JSValue?) -> (ObjectValue, SetData) raise {
+fn require_set(this_value : Value?) -> (ObjectValue, SetData) raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.set_data {
@@ -35,25 +35,25 @@ fn require_set(this_value : JSValue?) -> (ObjectValue, SetData) raise {
 }
 
 ///|
-fn require_weakmap(this_value : JSValue?) -> (ObjectValue, WeakMapData) raise {
+fn require_weakmap(this_value : Value?) -> (ObjectValue, WeakMapData) raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.weakmap_data {
         Some(data) => (obj, data)
         None => {
           let _ = throw_type_error("not a weakmap")
-          (obj, WeakMapData::{ entries: [] })
+          (obj, WeakMapData::{ entries: [], index: Map::new() })
         }
       }
     _ => {
       let _ = throw_type_error("not a weakmap")
-      (new_object_struct(None), WeakMapData::{ entries: [] })
+      (new_object_struct(None), WeakMapData::{ entries: [], index: Map::new() })
     }
   }
 }
 
 ///|
-fn require_weakset(this_value : JSValue?) -> (ObjectValue, WeakSetData) raise {
+fn require_weakset(this_value : Value?) -> (ObjectValue, WeakSetData) raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.weakset_data {
@@ -71,7 +71,7 @@ fn require_weakset(this_value : JSValue?) -> (ObjectValue, WeakSetData) raise {
 }
 
 ///|
-fn require_weakref(this_value : JSValue?) -> WeakRefData raise {
+fn require_weakref(this_value : Value?) -> WeakRefData raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.weakref_data {
@@ -89,7 +89,7 @@ fn require_weakref(this_value : JSValue?) -> WeakRefData raise {
 }
 
 ///|
-fn require_finreg(this_value : JSValue?) -> FinalizationRegistryData raise {
+fn require_finreg(this_value : Value?) -> FinalizationRegistryData raise {
   let fallback_env = match root_env() {
     Some(env) => env
     None => Env::new(None)

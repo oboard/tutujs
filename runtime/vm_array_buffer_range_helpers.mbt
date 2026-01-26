@@ -12,7 +12,7 @@ fn ensure_array_buffer_range(
 }
 
 ///|
-fn byte_from_value(value : JSValue) -> Byte {
+fn byte_from_value(value : Value) -> Byte {
   match value {
     Number(num) => Int::to_byte(to_int32(num))
     _ => 0
@@ -21,7 +21,7 @@ fn byte_from_value(value : JSValue) -> Byte {
 
 ///|
 fn array_bytes_from_value(
-  value : JSValue,
+  value : Value,
   offset : Int,
   len : Int,
 ) -> Array[Byte] raise {
@@ -39,7 +39,7 @@ fn array_bytes_from_value(
 
 ///|
 fn write_bytes_to_array(
-  value : JSValue,
+  value : Value,
   offset : Int,
   bytes : Array[Byte],
 ) -> Int raise {

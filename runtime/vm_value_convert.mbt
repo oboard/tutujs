@@ -1,5 +1,5 @@
 ///|
-fn to_object(value : JSValue) -> JSValue raise {
+fn to_object(value : Value) -> Value raise {
   let env = current_env()
   match value {
     Object(_) => value
@@ -69,8 +69,8 @@ fn to_object(value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn string_array_value(items : Array[String]) -> JSValue {
-  let elements : Array[JSValue?] = []
+fn string_array_value(items : Array[String]) -> Value {
+  let elements : Array[Value?] = []
   for item in items {
     elements.push(Some(String(item)))
   }
@@ -78,7 +78,7 @@ fn string_array_value(items : Array[String]) -> JSValue {
 }
 
 ///|
-fn value_array_to_strings(value : JSValue) -> Array[String] raise {
+fn value_array_to_strings(value : Value) -> Array[String] raise {
   let arr = require_array_buffer_array(value)
   let items : Array[String] = []
   let mut i = 0
@@ -94,7 +94,7 @@ fn value_array_to_strings(value : JSValue) -> Array[String] raise {
 }
 
 ///|
-fn call_primitive_method(value : JSValue, name : String) -> JSValue? raise {
+fn call_primitive_method(value : Value, name : String) -> Value? raise {
   let method_value = property_get(value, name)
   if is_callable(method_value) {
     let result = call_value_with_this(method_value, [], value)
@@ -106,7 +106,7 @@ fn call_primitive_method(value : JSValue, name : String) -> JSValue? raise {
 }
 
 ///|
-fn to_primitive(value : JSValue, prefer_string : Bool) -> JSValue raise {
+fn to_primitive(value : Value, prefer_string : Bool) -> Value raise {
   if !is_object_like(value) {
     return value
   }
@@ -141,7 +141,7 @@ fn to_primitive(value : JSValue, prefer_string : Bool) -> JSValue raise {
 }
 
 ///|
-fn to_primitive_default(value : JSValue) -> JSValue raise {
+fn to_primitive_default(value : Value) -> Value raise {
   if !is_object_like(value) {
     return value
   }
@@ -177,7 +177,7 @@ fn to_primitive_default(value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn to_number(value : JSValue) -> Double raise {
+fn to_number(value : Value) -> Double raise {
   match value {
     Number(v) => v
     Bool(v) => if v { 1.0 } else { 0.0 }
@@ -205,7 +205,7 @@ fn to_number(value : JSValue) -> Double raise {
 }
 
 ///|
-fn to_numeric(value : JSValue) -> JSValue raise {
+fn to_numeric(value : Value) -> Value raise {
   let prim = if is_object_like(value) {
     to_primitive(value, false)
   } else {
@@ -218,7 +218,7 @@ fn to_numeric(value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn to_string_value(value : JSValue) -> String {
+fn to_string_value(value : Value) -> String {
   match value {
     String(s) => s
     Bool(v) => if v { "true" } else { "false" }
@@ -234,7 +234,7 @@ fn to_string_value(value : JSValue) -> String {
         None => "function"
       }
     BoundFunction(bound) =>
-      match bound.props.get("name") {
+      match props_get(bound.props, "name") {
         Some(prop) =>
           match prop.value {
             String(name) =>
@@ -259,7 +259,7 @@ fn to_string_value(value : JSValue) -> String {
 }
 
 ///|
-fn to_string_strict(value : JSValue) -> String raise {
+fn to_string_strict(value : Value) -> String raise {
   if is_object_like(value) {
     let prim = to_primitive(value, true)
     return to_string_strict(prim)
@@ -274,12 +274,12 @@ fn to_string_strict(value : JSValue) -> String raise {
 }
 
 ///|
-pub fn value_to_string(value : JSValue) -> String {
+pub fn value_to_string(value : Value) -> String {
   to_string_value(value)
 }
 
 ///|
-pub fn format_error(value : JSValue) -> String {
+pub fn format_error(value : Value) -> String {
   let stack_value = property_get(value, "stack") catch { _ => Undefined }
   match stack_value {
     String(stack) =>
@@ -314,10 +314,10 @@ pub fn format_error(value : JSValue) -> String {
 }
 
 ///|
-pub fn error_name(value : JSValue) -> String? {
+pub fn error_name(value : Value) -> String? {
   match value {
     Object(obj) => {
-      fn name_from_props(value : JSValue) -> String? {
+      fn name_from_props(value : Value) -> String? {
         let name_value = property_get(value, "name") catch { _ => Undefined }
         match name_value {
           String(name) => return Some(name)

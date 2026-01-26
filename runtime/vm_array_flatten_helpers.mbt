@@ -1,12 +1,12 @@
 ///|
 fn flatten_into_array(
-  target : JSValue,
-  source : JSValue,
+  target : Value,
+  source : Value,
   source_len : Int,
   target_index : Int,
   depth : Int,
-  mapper_fn : JSValue?,
-  this_arg : JSValue,
+  mapper_fn : Value?,
+  this_arg : Value,
 ) -> Int raise {
   let mut next_index = target_index
   let mut source_index = 0
@@ -56,14 +56,14 @@ fn flatten_into_array(
 
 ///|
 fn array_flatten_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   map : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let obj = to_object(this_value)
   let source_len = array_like_length(obj)
   let mut depth = 1
-  let mut mapper : JSValue? = None
+  let mut mapper : Value? = None
   let mut this_arg = Undefined
   if map {
     let func = if args.is_empty() { Undefined } else { args[0] }

@@ -4,7 +4,7 @@ fn date_now_ms() -> Double {
 }
 
 ///|
-fn date_from_args(args : Array[JSValue]) -> Double raise {
+fn date_from_args(args : Array[Value]) -> Double raise {
   if args.is_empty() {
     return date_now_ms()
   }
@@ -15,6 +15,7 @@ fn date_from_args(args : Array[JSValue]) -> Double raise {
           Some(value) => return date_time_clip(value)
           None => ()
         }
+      Number(num) => return date_time_clip(num)
       _ => ()
     }
     let prim = to_primitive_default(args[0])
@@ -44,7 +45,7 @@ fn date_from_args(args : Array[JSValue]) -> Double raise {
 }
 
 ///|
-fn date_utc_from_args(args : Array[JSValue]) -> Double raise {
+fn date_utc_from_args(args : Array[Value]) -> Double raise {
   if args.is_empty() {
     return nan()
   }

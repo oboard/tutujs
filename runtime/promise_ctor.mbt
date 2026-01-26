@@ -13,11 +13,11 @@ fn promise_proto() -> ObjectValue? {
 fn promise_proto_for_env(env : Env) -> ObjectValue? {
   match global_object(env) {
     Some(global_obj) =>
-      match global_obj.props.get("Promise") {
+      match props_get(global_obj.props, "Promise") {
         Some(prop) =>
           match prop.value {
             Builtin(builtin) =>
-              match builtin.props.get("prototype") {
+              match props_get(builtin.props, "prototype") {
                 Some(proto_prop) =>
                   match proto_prop.value {
                     Object(proto_obj) => Some(proto_obj)
@@ -26,7 +26,7 @@ fn promise_proto_for_env(env : Env) -> ObjectValue? {
                 None => None
               }
             Function(func) =>
-              match func.props.get("prototype") {
+              match props_get(func.props, "prototype") {
                 Some(proto_prop) =>
                   match proto_prop.value {
                     Object(proto_obj) => Some(proto_obj)
@@ -54,13 +54,28 @@ fn promise_ctor_env_id(env : Env) -> Int {
 fn register_promise_ctor_for_env(env : Env, ctor : BuiltinValue) -> Unit {
   let realm_id = promise_ctor_env_id(env)
   promise_ctor_env_ref.update(fn(table) {
+    match table.get(realm_id) {
+      Some(existing) => rc_decref_value(Builtin(existing))
+      None => ()
+    }
+    rc_incref_value(Builtin(ctor))
     table.set(realm_id, ctor)
     table
   })
 }
 
 ///|
-fn promise_ctor_for_env(env : Env) -> JSValue? {
+fn promise_ctor_env_clear() -> Unit {
+  promise_ctor_env_ref.update(fn(table) {
+    for _, ctor in table {
+      rc_decref_value(Builtin(ctor))
+    }
+    Map::new()
+  })
+}
+
+///|
+fn promise_ctor_for_env(env : Env) -> Value? {
   let mut value : BuiltinValue? = None
   let realm_id = promise_ctor_env_id(env)
   promise_ctor_env_ref.update(fn(table) {
@@ -79,10 +94,10 @@ fn promise_ctor_for_env(env : Env) -> JSValue? {
 }
 
 ///|
-fn promise_ctor_from_global_env(env : Env) -> JSValue? {
+fn promise_ctor_from_global_env(env : Env) -> Value? {
   match global_object(env) {
     Some(obj) =>
-      match obj.props.get("Promise") {
+      match props_get(obj.props, "Promise") {
         Some(prop) => Some(prop.value)
         None => None
       }
@@ -99,7 +114,7 @@ fn register_promise_ctor_from_global(env : Env) -> Unit {
 }
 
 ///|
-fn promise_ctor_value_for_env(env : Env) -> JSValue {
+fn promise_ctor_value_for_env(env : Env) -> Value {
   match promise_ctor_for_env(env) {
     Some(value) => value
     None =>
@@ -111,7 +126,7 @@ fn promise_ctor_value_for_env(env : Env) -> JSValue {
 }
 
 ///|
-fn promise_ctor_value_for_current_env() -> JSValue {
+fn promise_ctor_value_for_current_env() -> Value {
   match current_env() {
     Some(env) => promise_ctor_value_for_env(env)
     None =>

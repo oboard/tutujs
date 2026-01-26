@@ -1,34 +1,38 @@
 ///|
-fn new_map_iterator(data : MapData, kind : Int) -> JSValue {
+fn new_map_iterator(data : MapData, kind : Int) -> Value {
   let iter_value = new_object_value_with_proto(
     value_from_object(map_iterator_proto()),
   )
   match iter_value {
-    Object(obj) =>
+    Object(obj) => {
+      rc_incref_map_entries(data.entries)
       obj.map_iter_data = Some(MapIteratorData::{
         entries: data.entries,
         index: 0,
         kind,
         done: false,
       })
+    }
     _ => ()
   }
   iter_value
 }
 
 ///|
-fn new_set_iterator(data : SetData, kind : Int) -> JSValue {
+fn new_set_iterator(data : SetData, kind : Int) -> Value {
   let iter_value = new_object_value_with_proto(
     value_from_object(set_iterator_proto()),
   )
   match iter_value {
-    Object(obj) =>
+    Object(obj) => {
+      rc_incref_optional_values(data.entries)
       obj.set_iter_data = Some(SetIteratorData::{
         entries: data.entries,
         index: 0,
         kind,
         done: false,
       })
+    }
     _ => ()
   }
   iter_value
@@ -36,7 +40,7 @@ fn new_set_iterator(data : SetData, kind : Int) -> JSValue {
 
 ///|
 fn require_map_iterator(
-  this_value : JSValue?,
+  this_value : Value?,
 ) -> (ObjectValue, MapIteratorData) raise {
   match this_value {
     Some(Object(obj)) =>
@@ -59,7 +63,7 @@ fn require_map_iterator(
 
 ///|
 fn require_set_iterator(
-  this_value : JSValue?,
+  this_value : Value?,
 ) -> (ObjectValue, SetIteratorData) raise {
   match this_value {
     Some(Object(obj)) =>
@@ -81,7 +85,7 @@ fn require_set_iterator(
 }
 
 ///|
-fn map_iterator_next(this_value : JSValue?) -> JSValue raise {
+fn map_iterator_next(this_value : Value?) -> Value raise {
   let (_, data) = require_map_iterator(this_value)
   if data.done {
     return iterator_result(Undefined, true)
@@ -109,7 +113,7 @@ fn map_iterator_next(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn set_iterator_next(this_value : JSValue?) -> JSValue raise {
+fn set_iterator_next(this_value : Value?) -> Value raise {
   let (_, data) = require_set_iterator(this_value)
   if data.done {
     return iterator_result(Undefined, true)

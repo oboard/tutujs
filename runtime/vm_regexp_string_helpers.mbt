@@ -4,7 +4,7 @@ fn string_get_substitution(
   input : String,
   position : Int,
   captures : Array[String?],
-  named_captures : JSValue,
+  named_captures : Value,
   replacement : String,
 ) -> String raise {
   let _ = string_get_substitution_len(
@@ -111,7 +111,7 @@ fn string_get_substitution_len(
   input : String,
   position : Int,
   captures : Array[String?],
-  named_captures : JSValue,
+  named_captures : Value,
   replacement : String,
 ) -> Int raise {
   let len = replacement.length()
@@ -187,10 +187,10 @@ fn string_get_substitution_len(
 
 ///|
 fn string_replace_internal(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   replace_all : Bool,
-) -> JSValue raise {
+) -> Value raise {
   match this_value {
     Null | Undefined => {
       let _ = throw_type_error("cannot convert to object")
@@ -283,29 +283,26 @@ fn string_replace_internal(
 }
 
 ///|
-fn string_replace_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn string_replace_value(this_value : Value, args : Array[Value]) -> Value raise {
   string_replace_internal(this_value, args, false)
 }
 
 ///|
 fn string_replace_all_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   string_replace_internal(this_value, args, true)
 }
 
 ///|
 fn string_match_symbol(
-  this_value : JSValue,
+  this_value : Value,
   value : String,
-  search : JSValue,
+  search : Value,
   symbol_key : String?,
   match_all : Bool,
-) -> JSValue raise {
+) -> Value raise {
   if is_object_like(search) {
     if match_all {
       check_regexp_g_flag(search)
@@ -319,7 +316,7 @@ fn string_match_symbol(
       None => ()
     }
   }
-  let args : Array[JSValue] = [search]
+  let args : Array[Value] = [search]
   if match_all {
     args.push(String("g"))
   }
@@ -338,28 +335,28 @@ fn string_match_symbol(
 
 ///|
 fn string_match_value(
-  this_value : JSValue,
+  this_value : Value,
   value : String,
-  search : JSValue,
-) -> JSValue raise {
+  search : Value,
+) -> Value raise {
   string_match_symbol(this_value, value, search, symbol_match_key(), false)
 }
 
 ///|
 fn string_match_all_value(
-  this_value : JSValue,
+  this_value : Value,
   value : String,
-  search : JSValue,
-) -> JSValue raise {
+  search : Value,
+) -> Value raise {
   string_match_symbol(this_value, value, search, symbol_match_all_key(), true)
 }
 
 ///|
 fn string_search_value(
-  this_value : JSValue,
+  this_value : Value,
   value : String,
-  search : JSValue,
-) -> JSValue raise {
+  search : Value,
+) -> Value raise {
   string_match_symbol(this_value, value, search, symbol_search_key(), false)
 }
 
@@ -396,7 +393,7 @@ fn to_length_int64(num : Double) -> Int64 {
 }
 
 ///|
-fn to_index_int64(value : JSValue) -> Int64 raise {
+fn to_index_int64(value : Value) -> Int64 raise {
   let num = to_number(value)
   if Double::is_nan(num) || num == 0.0 {
     return 0L
@@ -415,7 +412,7 @@ fn to_index_int64(value : JSValue) -> Int64 raise {
 
 ///|
 fn to_int64_clamp(
-  value : JSValue,
+  value : Value,
   min : Int,
   max : Int,
   neg_offset : Int,
@@ -445,7 +442,7 @@ fn to_int64_clamp(
 
 ///|
 fn to_int64_clamp64(
-  value : JSValue,
+  value : Value,
   min : Int64,
   max : Int64,
   neg_offset : Int64,

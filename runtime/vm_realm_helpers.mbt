@@ -1,7 +1,7 @@
 ///|
 fn clone_global_object(obj : ObjectValue, env : Env) -> ObjectValue {
-  let props : Map[String, Property] = Map::new()
-  for name, prop in obj.props {
+  let props = props_new()
+  props_iter(obj.props, fn(name, prop) {
     let value = clone_realm_value(prop.value, env)
     let getter = match prop.getter {
       Some(getter_value) => Some(clone_realm_value(getter_value, env))
@@ -11,7 +11,7 @@ fn clone_global_object(obj : ObjectValue, env : Env) -> ObjectValue {
       Some(setter_value) => Some(clone_realm_value(setter_value, env))
       None => None
     }
-    props.set(name, Property::{
+    props_set(props, name, Property::{
       value,
       writable: prop.writable,
       configurable: prop.configurable,
@@ -19,8 +19,8 @@ fn clone_global_object(obj : ObjectValue, env : Env) -> ObjectValue {
       getter,
       setter,
     })
-  }
-  register_object_value(ObjectValue::{
+  })
+  let clone = register_object_value(ObjectValue::{
     id: alloc_id(),
     props,
     proto: obj.proto,
@@ -54,16 +54,19 @@ fn clone_global_object(obj : ObjectValue, env : Env) -> ObjectValue {
     immutable_proto: false,
     extensible: obj.extensible,
   })
+  rc_incref_optional_value(clone.proto)
+  rc_incref_optional_env(clone.realm_env)
+  clone
 }
 
 ///|
 fn clone_object_value_for_env(
   obj : ObjectValue,
   env : Env,
-  constructor_override : JSValue?,
+  constructor_override : Value?,
 ) -> ObjectValue {
-  let props : Map[String, Property] = Map::new()
-  for name, prop in obj.props {
+  let props = props_new()
+  props_iter(obj.props, fn(name, prop) {
     let value = if name == "constructor" {
       match constructor_override {
         Some(ctor_value) => ctor_value
@@ -80,7 +83,7 @@ fn clone_object_value_for_env(
       Some(setter_value) => Some(clone_realm_value(setter_value, env))
       None => None
     }
-    props.set(name, Property::{
+    props_set(props, name, Property::{
       value,
       writable: prop.writable,
       configurable: prop.configurable,
@@ -88,8 +91,8 @@ fn clone_object_value_for_env(
       getter,
       setter,
     })
-  }
-  register_object_value(ObjectValue::{
+  })
+  let clone = register_object_value(ObjectValue::{
     id: alloc_id(),
     props,
     proto: obj.proto,
@@ -123,17 +126,116 @@ fn clone_object_value_for_env(
     immutable_proto: obj.immutable_proto,
     extensible: obj.extensible,
   })
+  rc_incref_optional_value(clone.proto)
+  rc_incref_optional_env(clone.realm_env)
+  match clone.symbol_data {
+    Some(symbol) => rc_incref_value(Symbol(symbol))
+    None => ()
+  }
+  match clone.generator_data {
+    Some(data) => {
+      rc_incref_env(data.env)
+      rc_incref_value(Function(data.func))
+      rc_incref_values(data.roots)
+    }
+    None => ()
+  }
+  match clone.async_generator_data {
+    Some(data) =>
+      for request in data.queue {
+        rc_incref_gen_resume(request.resume_state)
+        rc_incref_value(request.promise)
+        rc_incref_value(request.resolve)
+        rc_incref_value(request.reject)
+      }
+    None => ()
+  }
+  match clone.proxy_data {
+    Some(data) => {
+      rc_incref_value(data.target)
+      rc_incref_value(data.handler)
+    }
+    None => ()
+  }
+  match clone.map_data {
+    Some(data) => rc_incref_map_entries(data.entries)
+    None => ()
+  }
+  match clone.set_data {
+    Some(data) => rc_incref_optional_values(data.entries)
+    None => ()
+  }
+  match clone.map_iter_data {
+    Some(data) => rc_incref_map_entries(data.entries)
+    None => ()
+  }
+  match clone.set_iter_data {
+    Some(data) => rc_incref_optional_values(data.entries)
+    None => ()
+  }
+  match clone.iterator_wrap_data {
+    Some(data) => {
+      rc_incref_value(data.wrapped_iter)
+      rc_incref_value(data.wrapped_next)
+    }
+    None => ()
+  }
+  match clone.iterator_concat_data {
+    Some(data) => {
+      rc_incref_value(data.iter)
+      rc_incref_value(data.next)
+      for entry in data.values {
+        let (key, value) = entry
+        rc_incref_value(key)
+        rc_incref_value(value)
+      }
+    }
+    None => ()
+  }
+  match clone.iterator_helper_data {
+    Some(data) => {
+      rc_incref_value(data.obj)
+      rc_incref_value(data.next)
+      rc_incref_value(data.func)
+      rc_incref_value(data.inner)
+      rc_incref_value(data.inner_next)
+    }
+    None => ()
+  }
+  match clone.weakmap_data {
+    Some(data) =>
+      for entry in data.entries {
+        let (_, value) = entry
+        rc_incref_value(value)
+      }
+    None => ()
+  }
+  match clone.finreg_data {
+    Some(data) => {
+      rc_incref_env(data.realm_env)
+      rc_incref_value(data.callback)
+      for entry in data.entries {
+        rc_incref_value(entry.held_value)
+      }
+    }
+    None => ()
+  }
+  match clone.dataview_data {
+    Some(data) => rc_incref_value(Object(data.buffer))
+    None => ()
+  }
+  clone
 }
 
 ///|
 fn clone_function_value_for_env(
   func : FunctionValue,
   env : Env,
-  constructor_override : JSValue?,
-  proto_override : JSValue?,
+  constructor_override : Value?,
+  proto_override : Value?,
 ) -> FunctionValue {
-  let props : Map[String, Property] = Map::new()
-  for name, prop in func.props {
+  let props = props_new()
+  props_iter(func.props, fn(name, prop) {
     let value = if name == "constructor" {
       match constructor_override {
         Some(ctor_value) => ctor_value
@@ -150,7 +252,7 @@ fn clone_function_value_for_env(
       Some(setter_value) => Some(clone_realm_value(setter_value, env))
       None => None
     }
-    props.set(name, Property::{
+    props_set(props, name, Property::{
       value,
       writable: prop.writable,
       configurable: prop.configurable,
@@ -158,12 +260,12 @@ fn clone_function_value_for_env(
       getter,
       setter,
     })
-  }
+  })
   let proto = match proto_override {
     Some(value) => Some(value)
     None => func.proto
   }
-  register_function_value(FunctionValue::{
+  let clone = register_function_value(FunctionValue::{
     name: func.name,
     source: func.source,
     source_root: func.source_root,
@@ -193,10 +295,15 @@ fn clone_function_value_for_env(
     is_arrow: func.is_arrow,
     in_class_field_init: func.in_class_field_init,
   })
+  rc_incref_env(env)
+  rc_incref_optional_value(clone.proto)
+  rc_incref_optional_value(clone.home_object)
+  rc_incref_optional_value(clone.super_constructor)
+  clone
 }
 
 ///|
-fn clone_realm_value(value : JSValue, env : Env) -> JSValue {
+fn clone_realm_value(value : Value, env : Env) -> Value {
   match value {
     Builtin(builtin) => Builtin(clone_builtin_value_for_env(builtin, env))
     _ => value
@@ -208,7 +315,7 @@ fn clone_builtin_value_for_env(
   builtin : BuiltinValue,
   env : Env,
 ) -> BuiltinValue {
-  let props : Map[String, Property] = Map::new()
+  let props = props_new()
   let proto = match builtin.kind {
     BuiltinFunction::GeneratorFunctionConstructor
     | BuiltinFunction::AsyncGeneratorFunctionConstructor
@@ -253,8 +360,11 @@ fn clone_builtin_value_for_env(
     is_html_dda: builtin.is_html_dda,
     realm_env: Some(env),
   })
+  rc_incref_optional_value(clone.this_value)
+  rc_incref_optional_value(clone.proto)
+  rc_incref_optional_env(clone.realm_env)
   let clone_value = Builtin(clone)
-  for name, prop in builtin.props {
+  props_iter(builtin.props, fn(name, prop) {
     if name == "prototype" {
       match prop.value {
         Object(obj) => {
@@ -264,7 +374,7 @@ fn clone_builtin_value_for_env(
             Some(clone_value),
           )
           let proto_value = Object(proto_obj)
-          clone.props.set(name, Property::{
+          props_set(clone.props, name, Property::{
             value: proto_value,
             writable: prop.writable,
             configurable: prop.configurable,
@@ -278,7 +388,7 @@ fn clone_builtin_value_for_env(
               None => None
             },
           })
-          continue
+          return ()
         }
         Function(func) => {
           let proto_override = match object_proto_for_env(env) {
@@ -292,7 +402,7 @@ fn clone_builtin_value_for_env(
             proto_override,
           )
           let proto_value = Function(proto_func)
-          clone.props.set(name, Property::{
+          props_set(clone.props, name, Property::{
             value: proto_value,
             writable: prop.writable,
             configurable: prop.configurable,
@@ -306,12 +416,12 @@ fn clone_builtin_value_for_env(
               None => None
             },
           })
-          continue
+          return ()
         }
         _ => ()
       }
     }
-    clone.props.set(name, Property::{
+    props_set(clone.props, name, Property::{
       value: clone_realm_value(prop.value, env),
       writable: prop.writable,
       configurable: prop.configurable,
@@ -325,7 +435,7 @@ fn clone_builtin_value_for_env(
         None => None
       },
     })
-  }
+  })
   clone
 }
 
@@ -333,8 +443,8 @@ fn clone_builtin_value_for_env(
 fn builtin_proto_for_env(
   kind : BuiltinFunction,
   env : Env,
-  fallback : JSValue?,
-) -> JSValue? {
+  fallback : Value?,
+) -> Value? {
   match kind {
     BuiltinFunction::GeneratorFunctionConstructor
     | BuiltinFunction::AsyncGeneratorFunctionConstructor
@@ -373,7 +483,7 @@ fn builtin_proto_for_env(
 
 ///|
 fn fixup_realm_value(
-  value : JSValue,
+  value : Value,
   env : Env,
   seen_objects : Map[Int, Bool],
   seen_builtins : Map[Int, Bool],
@@ -388,13 +498,15 @@ fn fixup_realm_value(
         Some(realm_env) => if realm_env.id != env.id { return }
         None => ()
       }
-      builtin.proto = builtin_proto_for_env(builtin.kind, env, builtin.proto)
+      let next_proto = builtin_proto_for_env(builtin.kind, env, builtin.proto)
+      rc_replace_optional_value(builtin.proto, next_proto)
+      builtin.proto = next_proto
       match builtin.this_value {
         Some(inner) =>
           fixup_realm_value(inner, env, seen_objects, seen_builtins)
         None => ()
       }
-      for _, prop in builtin.props {
+      props_iter(builtin.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -406,7 +518,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     Function(func) => {
       if seen_objects.contains(func.id) {
@@ -418,7 +530,7 @@ fn fixup_realm_value(
           fixup_realm_value(proto_value, env, seen_objects, seen_builtins)
         None => ()
       }
-      for _, prop in func.props {
+      props_iter(func.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -430,7 +542,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     BoundFunction(bound) => {
       if seen_objects.contains(bound.id) {
@@ -446,7 +558,7 @@ fn fixup_realm_value(
       for value in bound.bound_args {
         fixup_realm_value(value, env, seen_objects, seen_builtins)
       }
-      for _, prop in bound.props {
+      props_iter(bound.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -458,7 +570,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     Object(obj) => {
       if seen_objects.contains(obj.id) {
@@ -470,7 +582,7 @@ fn fixup_realm_value(
           fixup_realm_value(proto_value, env, seen_objects, seen_builtins)
         None => ()
       }
-      for _, prop in obj.props {
+      props_iter(obj.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -482,7 +594,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     Array(arr) => {
       if seen_objects.contains(arr.id) {
@@ -501,7 +613,7 @@ fn fixup_realm_value(
           None => ()
         }
       }
-      for _, prop in arr.props {
+      props_iter(arr.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -513,7 +625,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     Arguments(args) => {
       if seen_objects.contains(args.id) {
@@ -532,7 +644,7 @@ fn fixup_realm_value(
           None => ()
         }
       }
-      for _, prop in args.props {
+      props_iter(args.props, fn(_, prop) {
         fixup_realm_value(prop.value, env, seen_objects, seen_builtins)
         match prop.getter {
           Some(getter_value) =>
@@ -544,7 +656,7 @@ fn fixup_realm_value(
             fixup_realm_value(setter_value, env, seen_objects, seen_builtins)
           None => ()
         }
-      }
+      })
     }
     _ => ()
   }
@@ -567,17 +679,21 @@ fn new_realm_env(base_env : Env) -> Env {
     Some(obj) => clone_global_object(obj, env)
     None => {
       let obj = new_object_struct(value_from_object(object_proto()))
+      rc_replace_optional_env(obj.realm_env, Some(env))
       obj.realm_env = Some(env)
       obj
     }
   }
   let global_value = Object(global_obj)
-  env.bindings.set("this", global_value)
-  global_obj.props.set("globalThis", property_data(global_value))
+  env_bindings_set(env, "this", global_value)
+  props_set(global_obj.props, "globalThis", property_data(global_value))
   match function_proto_for_env(env) {
     Some(Function(func)) =>
       match object_proto_for_env(env) {
-        Some(obj) => func.proto = Some(Object(obj))
+        Some(obj) => {
+          rc_replace_optional_value(func.proto, Some(Object(obj)))
+          func.proto = Some(Object(obj))
+        }
         None => ()
       }
     _ => ()
@@ -588,7 +704,7 @@ fn new_realm_env(base_env : Env) -> Env {
 }
 
 ///|
-fn realm_env_from_value(value : JSValue?) -> Env {
+fn realm_env_from_value(value : Value?) -> Env {
   match value {
     Some(Object(obj)) =>
       match obj.realm_env {

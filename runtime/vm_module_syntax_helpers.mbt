@@ -748,7 +748,7 @@ fn for_loop_needs_per_iteration_env(
 }
 
 ///|
-fn require_generator(this_value : JSValue?) -> ObjectValue raise {
+fn require_generator(this_value : Value?) -> ObjectValue raise {
   match this_value {
     Some(Object(obj)) =>
       match obj.generator_data {

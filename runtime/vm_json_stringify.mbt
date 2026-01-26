@@ -2,13 +2,13 @@
 priv struct JsonStringifyState {
   gap : String
   mut indent : String
-  mut replacer : JSValue
+  mut replacer : Value
   mut property_list : Array[String]?
   stack : Array[Int]
 }
 
 ///|
-fn json_gap_from_space(value : JSValue) -> String raise {
+fn json_gap_from_space(value : Value) -> String raise {
   match value {
     Number(num) =>
       if Double::is_nan(num) || Double::is_inf(num) {
@@ -63,7 +63,7 @@ fn json_gap_from_space(value : JSValue) -> String raise {
 }
 
 ///|
-fn json_replacer_item_name(value : JSValue) -> String? raise {
+fn json_replacer_item_name(value : Value) -> String? raise {
   match value {
     String(s) => Some(s)
     Number(num) => Some(to_string_value(Number(num)))
@@ -78,7 +78,7 @@ fn json_replacer_item_name(value : JSValue) -> String? raise {
 }
 
 ///|
-fn json_replacer_property_list(value : JSValue) -> Array[String] raise {
+fn json_replacer_property_list(value : Value) -> Array[String] raise {
   let list : Array[String] = []
   let seen : Map[String, Bool] = Map::new()
   let len_value = property_get(value, "length")
@@ -101,7 +101,7 @@ fn json_replacer_property_list(value : JSValue) -> Array[String] raise {
 }
 
 ///|
-fn json_unwrap_object_value(value : JSValue) -> JSValue raise {
+fn json_unwrap_object_value(value : Value) -> Value raise {
   match value {
     Object(obj) =>
       match obj.number_data {
@@ -144,7 +144,7 @@ fn json_stack_contains(stack : Array[Int], id : Int) -> Bool {
 }
 
 ///|
-fn json_stack_push(state : JsonStringifyState, value : JSValue) -> Bool raise {
+fn json_stack_push(state : JsonStringifyState, value : Value) -> Bool raise {
   match value_id(value) {
     Some(id) =>
       if json_stack_contains(state.stack, id) {
@@ -160,7 +160,7 @@ fn json_stack_push(state : JsonStringifyState, value : JSValue) -> Bool raise {
 
 ///|
 fn json_serialize_array(
-  value : JSValue,
+  value : Value,
   state : JsonStringifyState,
 ) -> String raise {
   let pushed = json_stack_push(state, value)
@@ -199,7 +199,7 @@ fn json_serialize_array(
 
 ///|
 fn json_serialize_object(
-  value : JSValue,
+  value : Value,
   state : JsonStringifyState,
 ) -> String raise {
   let pushed = json_stack_push(state, value)
@@ -245,7 +245,7 @@ fn json_serialize_object(
 ///|
 fn json_serialize_property(
   key : String,
-  holder : JSValue,
+  holder : Value,
   state : JsonStringifyState,
 ) -> String? raise {
   let mut value = property_get(holder, key)
@@ -287,10 +287,10 @@ fn json_serialize_property(
 
 ///|
 fn json_stringify_with_replacer(
-  value : JSValue,
-  replacer : JSValue,
-  space : JSValue,
-) -> JSValue raise {
+  value : Value,
+  replacer : Value,
+  space : Value,
+) -> Value raise {
   let gap = json_gap_from_space(space)
   let state = JsonStringifyState::{
     gap,
@@ -315,7 +315,7 @@ fn json_stringify_with_replacer(
 }
 
 ///|
-fn json_stringify_value(value : JSValue) -> String raise {
+fn json_stringify_value(value : Value) -> String raise {
   match value {
     Null => "null"
     Bool(v) => if v { "true" } else { "false" }
@@ -347,7 +347,7 @@ fn json_indent_prefix(indent : String, level : Int) -> String {
 
 ///|
 fn json_stringify_value_with_indent(
-  value : JSValue,
+  value : Value,
   indent : String,
   level : Int,
 ) -> String raise {
@@ -377,8 +377,8 @@ fn json_stringify_array(arr : ArrayValue) -> String raise {
   let len = arr.elements.length()
   for i = 0; i < len; i = i + 1 {
     let name = Int::to_string(i)
-    let mut value_opt : JSValue? = None
-    match arr.props.get(name) {
+    let mut value_opt : Value? = None
+    match props_get(arr.props, name) {
       Some(prop) => value_opt = Some(prop.value)
       None => ()
     }
@@ -419,8 +419,8 @@ fn json_stringify_array_with_indent(
   let len = arr.elements.length()
   for i = 0; i < len; i = i + 1 {
     let name = Int::to_string(i)
-    let mut value_opt : JSValue? = None
-    match arr.props.get(name) {
+    let mut value_opt : Value? = None
+    match props_get(arr.props, name) {
       Some(prop) => value_opt = Some(prop.value)
       None => ()
     }
@@ -519,12 +519,12 @@ fn json_stringify_arguments(args : ArgumentsValue) -> String raise {
       }
     }
   }
-  for key, prop in args.props {
+  props_iter_raise(args.props, fn(key, prop) raise {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if !prop.enumerable {
-      continue
+      return ()
     }
     match parse_array_index(key) {
       Some(index) =>
@@ -542,7 +542,7 @@ fn json_stringify_arguments(args : ArgumentsValue) -> String raise {
           None => ()
         }
     }
-  }
+  })
   "{" + parts.join(",") + "}"
 }
 
@@ -570,12 +570,12 @@ fn json_stringify_arguments_with_indent(
       }
     }
   }
-  for key, prop in args.props {
+  props_iter_raise(args.props, fn(key, prop) raise {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if !prop.enumerable {
-      continue
+      return ()
     }
     match parse_array_index(key) {
       Some(index) =>
@@ -600,7 +600,7 @@ fn json_stringify_arguments_with_indent(
           None => ()
         }
     }
-  }
+  })
   if parts.is_empty() {
     return "{}"
   }
@@ -609,7 +609,7 @@ fn json_stringify_arguments_with_indent(
 }
 
 ///|
-fn json_stringify_member(value : JSValue) -> String? raise {
+fn json_stringify_member(value : Value) -> String? raise {
   match value {
     Undefined => None
     Function(_) => None
@@ -622,7 +622,7 @@ fn json_stringify_member(value : JSValue) -> String? raise {
 
 ///|
 fn json_stringify_member_with_indent(
-  value : JSValue,
+  value : Value,
   indent : String,
   level : Int,
 ) -> String? raise {

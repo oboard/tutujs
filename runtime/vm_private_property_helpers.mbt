@@ -1,16 +1,16 @@
 ///|
 fn define_private_property(
-  target : JSValue,
+  target : Value,
   key : String,
   prop : Property,
 ) -> Unit raise {
   match props_map_for_value(target) {
     Some(props) =>
-      if props.contains(key) {
+      if props_contains(props, key) {
         let _ = throw_type_error("private class field already exists")
 
       } else {
-        props.set(key, prop)
+        props_set(props, key, prop)
       }
     None => {
       let _ = throw_type_error("invalid private access")
@@ -21,13 +21,13 @@ fn define_private_property(
 
 ///|
 fn private_property_get(
-  target : JSValue,
+  target : Value,
   key : String,
   name : String,
-) -> JSValue raise {
+) -> Value raise {
   match props_map_for_value(target) {
     Some(props) =>
-      match props.get(key) {
+      match props_get(props, key) {
         Some(prop) =>
           if prop.getter is Some(_) || prop.setter is Some(_) {
             match prop.getter {
@@ -59,14 +59,14 @@ fn private_property_get(
 
 ///|
 fn private_property_set(
-  target : JSValue,
+  target : Value,
   key : String,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   match props_map_for_value(target) {
     Some(props) =>
-      match props.get(key) {
+      match props_get(props, key) {
         Some(prop) =>
           if prop.getter is Some(_) || prop.setter is Some(_) {
             match prop.setter {
@@ -91,7 +91,7 @@ fn private_property_set(
               }
             }
           } else if prop.writable {
-            props.set(key, Property::{
+            props_set(props, key, Property::{
               value,
               writable: prop.writable,
               configurable: prop.configurable,

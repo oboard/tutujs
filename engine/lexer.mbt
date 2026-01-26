@@ -312,7 +312,10 @@ fn tokenize_from(lexer : Lexer, allow_html_comments : Bool) -> Array[Token] {
           let kind = if has_escape {
             TokenKind::Ident
           } else {
-            keyword_kind(lexeme)
+            match keyword_kind(lexeme) {
+              Some(kind) => kind
+              None => TokenKind::Ident
+            }
           }
           let raw_lexeme = if has_escape {
             Some(slice_string(chars, offset, next_offset))
@@ -1268,18 +1271,18 @@ fn scan_punct(
 
 ///|
 fn is_line_break(ch : Char) -> Bool {
-  ch is ('\n' | '\r' | '\u2028' | '\u2029')
+  ch == '\n' || ch == '\r' || ch == '\u2028' || ch == '\u2029'
 }
 
 ///|
 fn is_string_line_break(ch : Char) -> Bool {
-  ch is ('\n' | '\r')
+  ch == '\n' || ch == '\r'
 }
 
 ///|
 fn is_ident_start(ch : Char) -> Bool {
   if ch.is_ascii() {
-    ch.is_ascii_alphabetic() || ch is ('_' | '$')
+    ch.is_ascii_alphabetic() || ch == '_' || ch == '$'
   } else {
     unicode_is_ident_start(ch.to_int())
   }
@@ -1287,7 +1290,7 @@ fn is_ident_start(ch : Char) -> Bool {
 
 ///|
 fn is_ident_continue(ch : Char) -> Bool {
-  if ch is ('\u200C' | '\u200D') {
+  if ch == '\u200C' || ch == '\u200D' {
     return true
   }
   if ch.is_ascii() {
@@ -1336,11 +1339,11 @@ fn slice_string(chars : Array[Char], start : Int, end : Int) -> String {
 
 ///|
 fn hex_digit_value(ch : Char) -> Int? {
-  if ch is ('0'..='9') {
+  if ch.is_ascii_digit() {
     Some(ch.to_int() - '0'.to_int())
-  } else if ch is ('A'..='F') {
+  } else if ch >= 'A' && ch <= 'F' {
     Some(ch.to_int() - 'A'.to_int() + 10)
-  } else if ch is ('a'..='f') {
+  } else if ch >= 'a' && ch <= 'f' {
     Some(ch.to_int() - 'a'.to_int() + 10)
   } else {
     None
@@ -1350,7 +1353,10 @@ fn hex_digit_value(ch : Char) -> Int? {
 ///|
 fn parse_unicode_escape(chars : Array[Char], offset : Int) -> (Int, Int)? {
   let len = chars.length()
-  if offset + 1 >= len || chars[offset] != '\\' || chars[offset + 1] != 'u' {
+  if offset + 1 >= len {
+    return None
+  }
+  if chars[offset] != '\\' || chars[offset + 1] != 'u' {
     return None
   }
   if offset + 2 < len && chars[offset + 2] == '{' {
@@ -1804,9 +1810,9 @@ fn parse_legacy_octal_escape(chars : Array[Char], start : Int) -> (Int, Int) {
 fn hex_value(ch : Char) -> Int? {
   if ch.is_ascii_digit() {
     Some(ch.to_int() - '0'.to_int())
-  } else if ch is ('a'..='f') {
+  } else if ch >= 'a' && ch <= 'f' {
     Some(10 + ch.to_int() - 'a'.to_int())
-  } else if ch is ('A'..='F') {
+  } else if ch >= 'A' && ch <= 'F' {
     Some(10 + ch.to_int() - 'A'.to_int())
   } else {
     None
@@ -1853,7 +1859,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
   let mut i = offset
   if chars[i] == '0' {
     match chars.get(i + 1) {
-      Some('x' | 'X') => {
+      Some('x') | Some('X') => {
         i = i + 2
         while i < length && (is_hex_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1863,7 +1869,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
         }
         return (slice_string(chars, offset, i), i)
       }
-      Some('o' | 'O') => {
+      Some('o') | Some('O') => {
         i = i + 2
         while i < length && (is_oct_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1873,7 +1879,7 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
         }
         return (slice_string(chars, offset, i), i)
       }
-      Some('b' | 'B') => {
+      Some('b') | Some('B') => {
         i = i + 2
         while i < length && (is_bin_digit(chars[i]) || chars[i] == '_') {
           i = i + 1
@@ -1907,11 +1913,11 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
       }
     }
   }
-  if i < length && chars[i] is ('e' | 'E') {
+  if i < length && (chars[i] == 'e' || chars[i] == 'E') {
     has_exp = true
     i = i + 1
     match chars.get(i) {
-      Some('+' | '-') => i = i + 1
+      Some('+') | Some('-') => i = i + 1
       _ => ()
     }
     while i < length && (chars[i].is_ascii_digit() || chars[i] == '_') {
@@ -1928,9 +1934,9 @@ fn scan_number(chars : Array[Char], offset : Int) -> (String, Int) {
 fn is_hex_digit(ch : Char) -> Bool {
   if ch.is_ascii_digit() {
     true
-  } else if ch is ('a'..='f') {
+  } else if ch >= 'a' && ch <= 'f' {
     true
-  } else if ch is ('A'..='F') {
+  } else if ch >= 'A' && ch <= 'F' {
     true
   } else {
     false
@@ -1939,57 +1945,57 @@ fn is_hex_digit(ch : Char) -> Bool {
 
 ///|
 fn is_oct_digit(ch : Char) -> Bool {
-  ch is ('0'..='7')
+  ch >= '0' && ch <= '7'
 }
 
 ///|
 fn is_bin_digit(ch : Char) -> Bool {
-  ch is ('0' | '1')
+  ch == '0' || ch == '1'
 }
 
 ///|
-fn keyword_kind(ident : String) -> TokenKind {
+fn keyword_kind(ident : String) -> TokenKind? {
   match ident {
-    "null" => KeywordNull
-    "false" => KeywordFalse
-    "true" => KeywordTrue
-    "if" => KeywordIf
-    "else" => KeywordElse
-    "return" => KeywordReturn
-    "var" => KeywordVar
-    "this" => KeywordThis
-    "delete" => KeywordDelete
-    "void" => KeywordVoid
-    "typeof" => KeywordTypeof
-    "new" => KeywordNew
-    "in" => KeywordIn
-    "instanceof" => KeywordInstanceof
-    "do" => KeywordDo
-    "while" => KeywordWhile
-    "for" => KeywordFor
-    "break" => KeywordBreak
-    "continue" => KeywordContinue
-    "switch" => KeywordSwitch
-    "case" => KeywordCase
-    "default" => KeywordDefault
-    "throw" => KeywordThrow
-    "try" => KeywordTry
-    "catch" => KeywordCatch
-    "finally" => KeywordFinally
-    "function" => KeywordFunction
-    "debugger" => KeywordDebugger
-    "with" => KeywordWith
-    "class" => KeywordClass
-    "const" => KeywordConst
-    "enum" => KeywordEnum
-    "export" => KeywordExport
-    "extends" => KeywordExtends
-    "import" => KeywordImport
-    "super" => KeywordSuper
-    "let" => KeywordLet
-    "static" => KeywordStatic
-    "yield" => KeywordYield
-    "await" => KeywordAwait
-    _ => Ident
+    "null" => Some(KeywordNull)
+    "false" => Some(KeywordFalse)
+    "true" => Some(KeywordTrue)
+    "if" => Some(KeywordIf)
+    "else" => Some(KeywordElse)
+    "return" => Some(KeywordReturn)
+    "var" => Some(KeywordVar)
+    "this" => Some(KeywordThis)
+    "delete" => Some(KeywordDelete)
+    "void" => Some(KeywordVoid)
+    "typeof" => Some(KeywordTypeof)
+    "new" => Some(KeywordNew)
+    "in" => Some(KeywordIn)
+    "instanceof" => Some(KeywordInstanceof)
+    "do" => Some(KeywordDo)
+    "while" => Some(KeywordWhile)
+    "for" => Some(KeywordFor)
+    "break" => Some(KeywordBreak)
+    "continue" => Some(KeywordContinue)
+    "switch" => Some(KeywordSwitch)
+    "case" => Some(KeywordCase)
+    "default" => Some(KeywordDefault)
+    "throw" => Some(KeywordThrow)
+    "try" => Some(KeywordTry)
+    "catch" => Some(KeywordCatch)
+    "finally" => Some(KeywordFinally)
+    "function" => Some(KeywordFunction)
+    "debugger" => Some(KeywordDebugger)
+    "with" => Some(KeywordWith)
+    "class" => Some(KeywordClass)
+    "const" => Some(KeywordConst)
+    "enum" => Some(KeywordEnum)
+    "export" => Some(KeywordExport)
+    "extends" => Some(KeywordExtends)
+    "import" => Some(KeywordImport)
+    "super" => Some(KeywordSuper)
+    "let" => Some(KeywordLet)
+    "static" => Some(KeywordStatic)
+    "yield" => Some(KeywordYield)
+    "await" => Some(KeywordAwait)
+    _ => None
   }
 }

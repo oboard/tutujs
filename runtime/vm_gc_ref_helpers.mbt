@@ -1,5 +1,5 @@
 ///|
-fn gc_incref_value(state : GcState, value : JSValue) -> Unit {
+fn gc_incref_value(state : GcState, value : Value) -> Unit {
   match value_id(value) {
     Some(id) => gc_meta_incref(state, id)
     None => ()
@@ -7,7 +7,7 @@ fn gc_incref_value(state : GcState, value : JSValue) -> Unit {
 }
 
 ///|
-fn gc_decref_value(state : GcState, value : JSValue) -> Unit {
+fn gc_decref_value(state : GcState, value : Value) -> Unit {
   match value_id(value) {
     Some(id) => gc_meta_decref(state, id)
     None => ()
@@ -25,7 +25,7 @@ fn gc_decref_env(state : GcState, env : Env) -> Unit {
 }
 
 ///|
-fn gc_incref_optional_value(state : GcState, value : JSValue?) -> Unit {
+fn gc_incref_optional_value(state : GcState, value : Value?) -> Unit {
   match value {
     Some(inner) => gc_incref_value(state, inner)
     None => ()
@@ -46,7 +46,7 @@ fn gc_incref_symbol(state : GcState, symbol : SymbolValue) -> Unit {
 }
 
 ///|
-fn gc_incref_value_ref(state : GcState, cell : Ref[JSValue?]) -> Unit {
+fn gc_incref_value_ref(state : GcState, cell : Ref[Value?]) -> Unit {
   cell.update(fn(current) {
     gc_incref_optional_value(state, current)
     current

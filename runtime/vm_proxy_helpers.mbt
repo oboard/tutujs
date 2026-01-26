@@ -2,8 +2,8 @@
 fn proxy_get_value(
   data : ProxyData,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -63,9 +63,9 @@ fn proxy_get_value(
 ///|
 fn proxy_apply_value(
   data : ProxyData,
-  this_arg : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_arg : Value,
+  args : Array[Value],
+) -> Value raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -76,7 +76,7 @@ fn proxy_apply_value(
       if !is_callable(trap) {
         return throw_type_error("apply is not callable")
       }
-      let arg_values : Array[JSValue?] = []
+      let arg_values : Array[Value?] = []
       for value in args {
         arg_values.push(Some(value))
       }
@@ -89,9 +89,9 @@ fn proxy_apply_value(
 ///|
 fn proxy_construct_value(
   data : ProxyData,
-  args : Array[JSValue],
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  new_target : Value,
+) -> Value raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -102,7 +102,7 @@ fn proxy_construct_value(
       if !is_callable(trap) {
         return throw_type_error("construct is not callable")
       }
-      let arg_values : Array[JSValue?] = []
+      let arg_values : Array[Value?] = []
       for value in args {
         arg_values.push(Some(value))
       }
@@ -163,8 +163,8 @@ fn proxy_has_value(data : ProxyData, name : String) -> Bool raise {
 fn proxy_set_value(
   data : ProxyData,
   name : String,
-  value : JSValue,
-  receiver : JSValue,
+  value : Value,
+  receiver : Value,
   throw_flag : Bool,
 ) -> Bool raise {
   proxy_check_revoked(data)
@@ -448,7 +448,7 @@ fn proxy_prevent_extensions(data : ProxyData) -> Bool raise {
 }
 
 ///|
-fn proxy_get_prototype(data : ProxyData) -> JSValue? raise {
+fn proxy_get_prototype(data : ProxyData) -> Value? raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -494,7 +494,7 @@ fn proxy_get_prototype(data : ProxyData) -> JSValue? raise {
 ///|
 fn proxy_set_prototype(
   data : ProxyData,
-  proto : JSValue?,
+  proto : Value?,
   throw_flag : Bool,
 ) -> Bool raise {
   proxy_check_revoked(data)

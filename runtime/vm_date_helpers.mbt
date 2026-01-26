@@ -1,5 +1,5 @@
 ///|
-fn require_date_object(value : JSValue) -> ObjectValue raise {
+fn require_date_object(value : Value) -> ObjectValue raise {
   match value {
     Object(obj) =>
       match obj.date_data {
@@ -17,7 +17,7 @@ fn require_date_object(value : JSValue) -> ObjectValue raise {
 }
 
 ///|
-fn date_value_of(value : JSValue) -> Double raise {
+fn date_value_of(value : Value) -> Double raise {
   let obj = require_date_object(value)
   match obj.date_data {
     Some(v) => v
@@ -49,7 +49,7 @@ fn date_fields_or_none(ms : Double) -> (Int, Int, Int, Int, Int, Int, Int)? {
 ///|
 fn date_set_field_value(
   obj : ObjectValue,
-  args : Array[JSValue],
+  args : Array[Value],
   first_field : Int,
   end_field : Int,
   force : Bool,

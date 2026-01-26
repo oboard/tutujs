@@ -2,8 +2,8 @@
 fn array_get_with_receiver(
   arr : ArrayValue,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match arr.typed_array_data {
     Some(data) =>
       return typed_array_get_with_receiver(arr, data, name, receiver)
@@ -57,8 +57,8 @@ fn typed_array_get_with_receiver(
   arr : ArrayValue,
   data : TypedArrayData,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match canonical_numeric_index_string(name) {
     Some(index) =>
       if typed_array_is_valid_integer_index(data, index) {
@@ -85,7 +85,7 @@ fn arguments_has_index(args : ArgumentsValue, index : Int) -> Bool {
     return false
   }
   let name = Int::to_string(index)
-  if args.props.contains(name) {
+  if props_contains(args.props, name) {
     return true
   }
   if index >= args.elements.length() {
@@ -98,7 +98,7 @@ fn arguments_has_index(args : ArgumentsValue, index : Int) -> Bool {
 }
 
 ///|
-fn arguments_index_value(args : ArgumentsValue, index : Int) -> JSValue {
+fn arguments_index_value(args : ArgumentsValue, index : Int) -> Value {
   if index < 0 || index >= args.elements.length() {
     return Undefined
   }
@@ -112,7 +112,7 @@ fn arguments_index_value(args : ArgumentsValue, index : Int) -> JSValue {
     }
   }
   let name = Int::to_string(index)
-  match args.props.get(name) {
+  match props_get(args.props, name) {
     Some(prop) => prop.value
     None =>
       match args.elements[index] {
@@ -126,8 +126,8 @@ fn arguments_index_value(args : ArgumentsValue, index : Int) -> JSValue {
 fn arguments_get_with_receiver(
   args : ArgumentsValue,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match parse_array_index(name) {
     Some(index) =>
       if index >= 0 {

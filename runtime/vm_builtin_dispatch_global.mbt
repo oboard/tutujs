@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_global(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::Eval => {
       let eval_env = match builtin.realm_env {

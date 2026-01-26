@@ -3,7 +3,7 @@ fn eval_new(
   env : Env,
   callee : @engine.Expr,
   args : Array[@engine.Expr],
-) -> JSValue raise {
+) -> Value raise {
   let ctor = eval_expr(env, callee)
   let argv = eval_args(env, args)
   call_constructor(ctor, argv)
@@ -11,9 +11,9 @@ fn eval_new(
 
 ///|
 fn constructor_proto_from_target(
-  target : JSValue,
-  fallback : JSValue?,
-) -> JSValue? raise {
+  target : Value,
+  fallback : Value?,
+) -> Value? raise {
   let proto_value = property_get(target, "prototype")
   if is_object_like(proto_value) {
     Some(proto_value)
@@ -25,21 +25,21 @@ fn constructor_proto_from_target(
 
 ///|
 fn call_constructor(
-  callee : JSValue,
-  args : Array[JSValue],
-  new_target? : JSValue = Undefined,
-) -> JSValue raise {
+  callee : Value,
+  args : Array[Value],
+  new_target? : Value = Undefined,
+) -> Value raise {
   let target_value = if new_target is Undefined { callee } else { new_target }
   match callee {
     Function(func) => {
       if !func.is_constructor {
-        let _ = throw_not_constructor(JSValue::Function(func))
+        let _ = throw_not_constructor(Value::Function(func))
 
       }
       if func.is_default_constructor {
         match func.super_constructor {
           Some(_) => {
-            let super_ctor = match get_proto_of_value(JSValue::Function(func)) {
+            let super_ctor = match get_proto_of_value(Value::Function(func)) {
               Some(value) => value
               None => Null
             }
@@ -53,7 +53,7 @@ fn call_constructor(
             )
             if is_object_like(result) &&
               (
-                !func.private_instance_props.is_empty() ||
+                !props_is_empty(func.private_instance_props) ||
                 !func.instance_fields.is_empty()
               ) {
               let frame = Env::new(Some(func.env))
@@ -96,17 +96,17 @@ fn call_constructor(
     }
     BoundFunction(bound) => {
       if !bound.is_constructor {
-        let _ = throw_not_constructor(JSValue::BoundFunction(bound))
+        let _ = throw_not_constructor(Value::BoundFunction(bound))
         return Undefined
       }
-      let final_args : Array[JSValue] = []
+      let final_args : Array[Value] = []
       for value in bound.bound_args {
         final_args.push(value)
       }
       for value in args {
         final_args.push(value)
       }
-      let bound_self = JSValue::BoundFunction(bound)
+      let bound_self = Value::BoundFunction(bound)
       let bound_target = if new_target is Undefined {
         bound_self
       } else {
@@ -123,19 +123,19 @@ fn call_constructor(
       match obj.proxy_data {
         Some(data) => proxy_construct_value(data, args, target_value)
         None => {
-          let _ = throw_not_constructor(JSValue::Object(obj))
+          let _ = throw_not_constructor(Value::Object(obj))
           Undefined
         }
       }
     Builtin(builtin) =>
       if !is_constructor_builtin(builtin.kind) {
-        let _ = throw_not_constructor(JSValue::Builtin(builtin))
+        let _ = throw_not_constructor(Value::Builtin(builtin))
         Undefined
       } else {
         match builtin.kind {
           BuiltinFunction::ObjectConstructor =>
             if !(new_target is Undefined) &&
-              !same_value(JSValue::Builtin(builtin), new_target) {
+              !same_value(Value::Builtin(builtin), new_target) {
               let realm_env = function_realm_env_checked(new_target)
               let default_proto = match
                 value_from_object(object_proto_for_env(realm_env)) {
@@ -174,7 +174,7 @@ fn call_constructor(
             array_from_args_with_proto(args, proto)
           }
           BuiltinFunction::IteratorConstructor => {
-            if same_value(JSValue::Builtin(builtin), target_value) {
+            if same_value(Value::Builtin(builtin), target_value) {
               return throw_type_error("abstract class not constructable")
             }
             let realm_env = function_realm_env_checked(target_value)
@@ -189,7 +189,7 @@ fn call_constructor(
             new_object_value_with_proto(proto)
           }
           BuiltinFunction::FunctionConstructor => {
-            let ctor_env = match function_realm_env(JSValue::Builtin(builtin)) {
+            let ctor_env = match function_realm_env(Value::Builtin(builtin)) {
               Some(env) => env
               None =>
                 match root_env() {
@@ -208,14 +208,17 @@ fn call_constructor(
                 new_target, fallback_proto,
               )
               match func_value {
-                Function(func) => func.proto = proto
+                Function(func) => {
+                  rc_replace_optional_value(func.proto, proto)
+                  func.proto = proto
+                }
                 _ => ()
               }
             }
             func_value
           }
           BuiltinFunction::GeneratorFunctionConstructor => {
-            let ctor_env = match function_realm_env(JSValue::Builtin(builtin)) {
+            let ctor_env = match function_realm_env(Value::Builtin(builtin)) {
               Some(env) => env
               None =>
                 match root_env() {
@@ -240,14 +243,17 @@ fn call_constructor(
                 new_target, fallback_proto,
               )
               match func_value {
-                Function(func) => func.proto = proto
+                Function(func) => {
+                  rc_replace_optional_value(func.proto, proto)
+                  func.proto = proto
+                }
                 _ => ()
               }
             }
             func_value
           }
           BuiltinFunction::AsyncGeneratorFunctionConstructor => {
-            let ctor_env = match function_realm_env(JSValue::Builtin(builtin)) {
+            let ctor_env = match function_realm_env(Value::Builtin(builtin)) {
               Some(env) => env
               None =>
                 match root_env() {
@@ -272,14 +278,17 @@ fn call_constructor(
                 new_target, fallback_proto,
               )
               match func_value {
-                Function(func) => func.proto = proto
+                Function(func) => {
+                  rc_replace_optional_value(func.proto, proto)
+                  func.proto = proto
+                }
                 _ => ()
               }
             }
             func_value
           }
           BuiltinFunction::AsyncFunctionConstructor => {
-            let ctor_env = match function_realm_env(JSValue::Builtin(builtin)) {
+            let ctor_env = match function_realm_env(Value::Builtin(builtin)) {
               Some(env) => env
               None =>
                 match root_env() {
@@ -304,7 +313,10 @@ fn call_constructor(
                 new_target, fallback_proto,
               )
               match func_value {
-                Function(func) => func.proto = proto
+                Function(func) => {
+                  rc_replace_optional_value(func.proto, proto)
+                  func.proto = proto
+                }
                 _ => ()
               }
             }

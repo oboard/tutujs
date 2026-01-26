@@ -1,5 +1,5 @@
 ///|
-pub enum JSValue {
+pub(all) enum Value {
   Undefined
   Null
   Bool(Bool)
@@ -16,71 +16,71 @@ pub enum JSValue {
 } derive(ToJson)
 
 ///|
-pub fn value_undefined() -> JSValue {
-  JSValue::Undefined
+pub fn value_undefined() -> Value {
+  Value::Undefined
 }
 
 ///|
-pub fn value_null() -> JSValue {
-  JSValue::Null
+pub fn value_null() -> Value {
+  Value::Null
 }
 
 ///|
-pub fn value_bool(value : Bool) -> JSValue {
-  JSValue::Bool(value)
+pub fn value_bool(value : Bool) -> Value {
+  Value::Bool(value)
 }
 
 ///|
-pub fn value_number(value : Double) -> JSValue {
-  JSValue::Number(value)
+pub fn value_number(value : Double) -> Value {
+  Value::Number(value)
 }
 
 ///|
-pub fn value_string(value : String) -> JSValue {
-  JSValue::String(value)
+pub fn value_string(value : String) -> Value {
+  Value::String(value)
 }
 
 ///|
-pub fn value_bigint(value : @bigint.BigInt) -> JSValue {
-  JSValue::BigInt(value)
+pub fn value_bigint(value : @bigint.BigInt) -> Value {
+  Value::BigInt(value)
 }
 
 ///|
-pub fn value_symbol(value : SymbolValue) -> JSValue {
-  JSValue::Symbol(value)
+pub fn value_symbol(value : SymbolValue) -> Value {
+  Value::Symbol(value)
 }
 
 ///|
-pub fn value_builtin(value : BuiltinValue) -> JSValue {
-  JSValue::Builtin(value)
+pub fn value_builtin(value : BuiltinValue) -> Value {
+  Value::Builtin(value)
 }
 
 ///|
-pub fn value_function(value : FunctionValue) -> JSValue {
-  JSValue::Function(value)
+pub fn value_function(value : FunctionValue) -> Value {
+  Value::Function(value)
 }
 
 ///|
-pub fn value_bound_function(value : BoundFunctionValue) -> JSValue {
-  JSValue::BoundFunction(value)
+pub fn value_bound_function(value : BoundFunctionValue) -> Value {
+  Value::BoundFunction(value)
 }
 
 ///|
-pub fn value_object(value : ObjectValue) -> JSValue {
-  JSValue::Object(value)
+pub fn value_object(value : ObjectValue) -> Value {
+  Value::Object(value)
 }
 
 ///|
-pub fn value_array(value : ArrayValue) -> JSValue {
-  JSValue::Array(value)
+pub fn value_array(value : ArrayValue) -> Value {
+  Value::Array(value)
 }
 
 ///|
-pub fn value_arguments(value : ArgumentsValue) -> JSValue {
-  JSValue::Arguments(value)
+pub fn value_arguments(value : ArgumentsValue) -> Value {
+  Value::Arguments(value)
 }
 
 ///|
-pub fn JSValue::undefined() -> JSValue {
+pub fn Value::undefined() -> Value {
   Undefined
 }

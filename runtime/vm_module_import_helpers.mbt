@@ -1,9 +1,9 @@
 ///|
 fn module_import_from_specifier(
   specifier : String,
-  attributes : JSValue,
+  attributes : Value,
   record_import : Bool,
-) -> JSValue raise {
+) -> Value raise {
   match module_builtin_value(specifier) {
     Some(value) => value
     None => {
@@ -80,7 +80,7 @@ fn module_import_from_specifier(
               Object(obj) => obj
               _ => new_object_struct(None)
             }
-            exports_obj.props.set("default", property_data(json_value))
+            props_set(exports_obj.props, "default", property_data(json_value))
             exports_obj.extensible = false
             let mut module_ns : ObjectValue? = None
             match module_namespace_from_value(Object(exports_obj)) {
@@ -132,7 +132,7 @@ fn module_import_from_specifier(
 ///|
 fn module_cache_key_from_specifier(
   specifier : String,
-  attributes : JSValue,
+  attributes : Value,
 ) -> String? raise {
   match module_builtin_value(specifier) {
     Some(_) => None
@@ -274,7 +274,7 @@ fn module_resolve_export_name_inner(
 }
 
 ///|
-fn module_namespace_from_value(value : JSValue) -> ObjectValue? raise {
+fn module_namespace_from_value(value : Value) -> ObjectValue? raise {
   let target = to_object(value)
   let namespace_value = new_object_value_with_proto(None)
   match namespace_value {
@@ -286,7 +286,7 @@ fn module_namespace_from_value(value : JSValue) -> ObjectValue? raise {
           let names = module_namespace_prop_keys(props, false)
           for name in names {
             let prop_value = new_module_binding_value(target, name)
-            namespace_obj.props.set(name, Property::{
+            props_set(namespace_obj.props, name, Property::{
               value: prop_value,
               writable: false,
               configurable: false,
@@ -300,7 +300,11 @@ fn module_namespace_from_value(value : JSValue) -> ObjectValue? raise {
       }
       match symbol_to_string_tag_key() {
         Some(key) =>
-          namespace_obj.props.set(key, property_data_const(String("Module")))
+          props_set(
+            namespace_obj.props,
+            key,
+            property_data_const(String("Module")),
+          )
         None => ()
       }
       namespace_obj.extensible = false
@@ -320,9 +324,9 @@ fn module_namespace_add_export(
     Some(record) =>
       match record.module_ns {
         Some(namespace_obj) =>
-          if !namespace_obj.props.contains(name) {
+          if !props_contains(namespace_obj.props, name) {
             let prop_value = new_module_binding_value(Object(exports), name)
-            namespace_obj.props.set(name, Property::{
+            props_set(namespace_obj.props, name, Property::{
               value: prop_value,
               writable: false,
               configurable: false,
@@ -343,8 +347,8 @@ fn module_namespace_remove_export(path : String, name : String) -> Unit {
     Some(record) =>
       match record.module_ns {
         Some(namespace_obj) =>
-          if namespace_obj.props.contains(name) {
-            namespace_obj.props.remove(name)
+          if props_contains(namespace_obj.props, name) {
+            props_remove(namespace_obj.props, name)
           }
         None => ()
       }
@@ -353,7 +357,7 @@ fn module_namespace_remove_export(path : String, name : String) -> Unit {
 }
 
 ///|
-fn module_builtin_value(name : String) -> JSValue? raise {
+fn module_builtin_value(name : String) -> Value? raise {
   let mapped = if name == "std" ||
     name == "os" ||
     name == "bjson" ||
@@ -420,13 +424,13 @@ fn module_builtin_value(name : String) -> JSValue? raise {
 }
 
 ///|
-fn module_check_attributes(attributes : JSValue) -> Unit {
+fn module_check_attributes(attributes : Value) -> Unit {
   let _ = attributes
 
 }
 
 ///|
-fn module_attributes_from_object(attributes_obj : JSValue) -> JSValue raise {
+fn module_attributes_from_object(attributes_obj : Value) -> Value raise {
   let attrs_value = new_object_value_with_proto(None)
   let keys = own_enumerable_string_keys(attributes_obj)
   for key in keys {
@@ -439,7 +443,7 @@ fn module_attributes_from_object(attributes_obj : JSValue) -> JSValue raise {
       }
     }
     match attrs_value {
-      Object(obj) => obj.props.set(key, property_data(value))
+      Object(obj) => props_set(obj.props, key, property_data(value))
       _ => ()
     }
   }
@@ -448,7 +452,7 @@ fn module_attributes_from_object(attributes_obj : JSValue) -> JSValue raise {
 }
 
 ///|
-fn module_attributes_from_value(attributes : JSValue) -> JSValue raise {
+fn module_attributes_from_value(attributes : Value) -> Value raise {
   match attributes {
     Undefined | Null => Undefined
     _ =>
@@ -461,7 +465,7 @@ fn module_attributes_from_value(attributes : JSValue) -> JSValue raise {
 }
 
 ///|
-fn module_attributes_from_options(options : JSValue) -> JSValue raise {
+fn module_attributes_from_options(options : Value) -> Value raise {
   if options is Undefined {
     return Undefined
   }
@@ -479,7 +483,7 @@ fn module_attributes_from_options(options : JSValue) -> JSValue raise {
 }
 
 ///|
-fn module_test_json(attributes : JSValue) -> Int raise {
+fn module_test_json(attributes : Value) -> Int raise {
   if attributes is Undefined {
     return 0
   }

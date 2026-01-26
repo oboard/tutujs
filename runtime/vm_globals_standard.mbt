@@ -1,7 +1,7 @@
 ///|
 fn init_standard_objects(
   object_proto_obj : ObjectValue,
-) -> (JSValue, JSValue, JSValue, JSValue) {
+) -> (Value, Value, Value, Value) {
   let json_obj = init_json_object(object_proto_obj)
   let reflect_obj = init_reflect_object(object_proto_obj)
   let atomics_obj = init_atomics_object(object_proto_obj)

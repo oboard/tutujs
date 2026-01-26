@@ -2,8 +2,8 @@
 fn destructure_array_pattern(
   env : Env,
   pattern : Array[@engine.ArrayPatternElem],
-  value : JSValue,
-  assign : (String, JSValue) -> Unit raise,
+  value : Value,
+  assign : (String, Value) -> Unit raise,
 ) -> Unit raise {
   let _ = with_gc_frame(fn() raise {
     let (iterator, next_method) = get_iterator_from_value(value)
@@ -18,7 +18,7 @@ fn destructure_array_pattern(
             done = is_done
           }
         @engine.ArrayPatternElem::Bind(binding, default) => {
-          let mut target_info : (Array[JSValue], (JSValue) -> Unit raise)? = None
+          let mut target_info : (Array[Value], (Value) -> Unit raise)? = None
           match binding {
             @engine.VarBinding::Target(expr) =>
               target_info = Some(
@@ -99,7 +99,7 @@ fn destructure_array_pattern(
           }
         }
         @engine.ArrayPatternElem::Rest(binding) => {
-          let mut target_info : (Array[JSValue], (JSValue) -> Unit raise)? = None
+          let mut target_info : (Array[Value], (Value) -> Unit raise)? = None
           match binding {
             @engine.VarBinding::Target(expr) =>
               target_info = Some(
@@ -114,7 +114,7 @@ fn destructure_array_pattern(
               )
             _ => ()
           }
-          let rest_values : Array[JSValue?] = []
+          let rest_values : Array[Value?] = []
           if !done {
             for {
               let (is_done, item) = iterator_step_value(iterator, next_method)
@@ -172,7 +172,7 @@ fn destructure_array_pattern(
 }
 
 ///|
-fn own_enumerable_string_keys(target : JSValue) -> Array[String] raise {
+fn own_enumerable_string_keys(target : Value) -> Array[String] raise {
   let names_value = object_keys(target)
   match names_value {
     Array(arr) => {
@@ -190,7 +190,7 @@ fn own_enumerable_string_keys(target : JSValue) -> Array[String] raise {
 }
 
 ///|
-fn own_string_keys(target : JSValue) -> Array[String] raise {
+fn own_string_keys(target : Value) -> Array[String] raise {
   let names_value = object_get_own_property_names(target)
   match names_value {
     Array(arr) => {
@@ -208,7 +208,7 @@ fn own_string_keys(target : JSValue) -> Array[String] raise {
 }
 
 ///|
-fn enumerable_string_keys_in_chain(target : JSValue) -> Array[String] raise {
+fn enumerable_string_keys_in_chain(target : Value) -> Array[String] raise {
   let mut current = to_object(target)
   let names : Array[String] = []
   let seen : Map[String, Bool] = Map::new()
@@ -236,7 +236,7 @@ fn enumerable_string_keys_in_chain(target : JSValue) -> Array[String] raise {
 }
 
 ///|
-fn is_enumerable_key_in_chain(target : JSValue, key : String) -> Bool raise {
+fn is_enumerable_key_in_chain(target : Value, key : String) -> Bool raise {
   let mut current = to_object(target)
   while true {
     let desc = get_own_property_descriptor(current, key)
@@ -264,8 +264,8 @@ fn is_enumerable_key_in_chain(target : JSValue, key : String) -> Bool raise {
 fn destructure_object_pattern(
   env : Env,
   pattern : Array[@engine.ObjectPatternElem],
-  value : JSValue,
-  assign : (String, JSValue) -> Unit raise,
+  value : Value,
+  assign : (String, Value) -> Unit raise,
 ) -> Unit raise {
   let _ = with_gc_frame(fn() raise {
     let obj = to_object(value)
@@ -293,7 +293,7 @@ fn destructure_object_pattern(
             _ => obj_key_simple_name(key)
           }
           bound.push(key_name)
-          let mut target_info : (Array[JSValue], (JSValue) -> Unit raise)? = None
+          let mut target_info : (Array[Value], (Value) -> Unit raise)? = None
           match binding {
             @engine.VarBinding::Target(expr) =>
               target_info = Some(
@@ -301,7 +301,7 @@ fn destructure_object_pattern(
               )
             _ => ()
           }
-          let mut with_obj : JSValue? = None
+          let mut with_obj : Value? = None
           let mut with_has : Bool? = None
           match binding {
             @engine.VarBinding::Name(name) =>
@@ -395,7 +395,7 @@ fn destructure_object_pattern(
           }
         }
         @engine.ObjectPatternElem::Rest(binding) => {
-          let mut target_info : (Array[JSValue], (JSValue) -> Unit raise)? = None
+          let mut target_info : (Array[Value], (Value) -> Unit raise)? = None
           match binding {
             @engine.VarBinding::Target(expr) =>
               target_info = Some(

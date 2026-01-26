@@ -51,7 +51,7 @@ fn bjson_number_from_string(text : String) -> Double {
 }
 
 ///|
-fn bjson_value_id(value : JSValue) -> Int {
+fn bjson_value_id(value : Value) -> Int {
   match value {
     Array(arr) => arr.id
     Object(obj) => obj.id
@@ -60,7 +60,7 @@ fn bjson_value_id(value : JSValue) -> Int {
 }
 
 ///|
-fn bjson_encode_value(value : JSValue, use_refs : Bool) -> Json raise {
+fn bjson_encode_value(value : Value, use_refs : Bool) -> Json raise {
   let state = BjsonWriteState::{
     use_refs,
     refs: [],
@@ -79,7 +79,7 @@ fn bjson_encode_value(value : JSValue, use_refs : Bool) -> Json raise {
 }
 
 ///|
-fn bjson_encode_node(value : JSValue, state : BjsonWriteState) -> Json raise {
+fn bjson_encode_node(value : Value, state : BjsonWriteState) -> Json raise {
   match value {
     Undefined => bjson_tag("undef", [])
     Null => bjson_tag("null", [])
@@ -108,11 +108,11 @@ fn bjson_encode_node(value : JSValue, state : BjsonWriteState) -> Json raise {
       Json::null()
     }
     Array(arr) =>
-      bjson_encode_ref(JSValue::Array(arr), state, fn() raise {
+      bjson_encode_ref(Value::Array(arr), state, fn() raise {
         bjson_encode_array(arr, state)
       })
     Object(obj) =>
-      bjson_encode_ref(JSValue::Object(obj), state, fn() raise {
+      bjson_encode_ref(Value::Object(obj), state, fn() raise {
         bjson_encode_object(obj, state)
       })
   }
@@ -120,7 +120,7 @@ fn bjson_encode_node(value : JSValue, state : BjsonWriteState) -> Json raise {
 
 ///|
 fn bjson_encode_ref(
-  value : JSValue,
+  value : Value,
   state : BjsonWriteState,
   encode_entry : () -> Json raise,
 ) -> Json raise {
@@ -228,16 +228,16 @@ fn bjson_encode_object(
                             }
                             _ => {
                               let entries : Array[Json] = []
-                              for key, prop in obj.props {
+                              props_iter_raise(obj.props, fn(key, prop) raise {
                                 if is_symbol_prop_key(key) || !prop.enumerable {
-                                  continue
+                                  return ()
                                 }
                                 let pair : Array[Json] = [
                                   Json::string(key),
                                   bjson_encode_node(prop.value, state),
                                 ]
                                 entries.push(Json::array(pair))
-                              }
+                              })
                               bjson_tag("obj", [Json::array(entries)])
                             }
                           }
@@ -256,7 +256,7 @@ fn bjson_encode_array_buffer(obj : ObjectValue, data : ArrayBufferData) -> Json 
     bytes.push(Json::number(Double::from_int(Byte::to_int(b))))
   }
   let mut max_len = data.bytes.length()
-  match obj.props.get("maxByteLength") {
+  match props_get(obj.props, "maxByteLength") {
     Some(prop) =>
       match prop.value {
         Number(value) => max_len = to_int32(Double::trunc(value))
@@ -265,7 +265,7 @@ fn bjson_encode_array_buffer(obj : ObjectValue, data : ArrayBufferData) -> Json 
     None => ()
   }
   let mut resizable = false
-  match obj.props.get("resizable") {
+  match props_get(obj.props, "resizable") {
     Some(prop) =>
       match prop.value {
         Bool(value) => resizable = value
@@ -358,13 +358,13 @@ fn bjson_parse_tag(value : Json) -> (String, Array[Json])? {
 }
 
 ///|
-fn bjson_invalid_value() -> JSValue raise {
+fn bjson_invalid_value() -> Value raise {
   let _ = throw_type_error("invalid bjson")
   Undefined
 }
 
 ///|
-fn bjson_decode_value(value : Json, use_refs : Bool) -> JSValue raise {
+fn bjson_decode_value(value : Json, use_refs : Bool) -> Value raise {
   if use_refs {
     match value {
       Json::Object(entries) =>
@@ -385,9 +385,9 @@ fn bjson_decode_value(value : Json, use_refs : Bool) -> JSValue raise {
 ///|
 fn bjson_decode_node(
   value : Json,
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
-) -> JSValue raise {
+) -> Value raise {
   match bjson_parse_tag(value) {
     Some((tag, fields)) =>
       match tag {
@@ -470,8 +470,8 @@ fn bjson_decode_node(
 }
 
 ///|
-fn bjson_decode_refs(ref_nodes : Array[Json]) -> Array[JSValue] raise {
-  let refs : Array[JSValue] = []
+fn bjson_decode_refs(ref_nodes : Array[Json]) -> Array[Value] raise {
+  let refs : Array[Value] = []
   let mut i = 0
   while i < ref_nodes.length() {
     refs.push(Undefined)
@@ -562,9 +562,9 @@ fn bjson_decode_refs(ref_nodes : Array[Json]) -> Array[JSValue] raise {
 ///|
 fn bjson_decode_array_inline(
   fields : Array[Json],
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let len = match fields.get(0) {
     Some(Json::Number(value, ..)) => to_int32(Double::trunc(value))
     _ => 0
@@ -589,9 +589,9 @@ fn bjson_decode_array_inline(
 ///|
 fn bjson_decode_object_inline(
   fields : Array[Json],
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let value = new_object_value()
   bjson_fill_object(value, fields, refs, use_refs)
   value
@@ -599,9 +599,9 @@ fn bjson_decode_object_inline(
 
 ///|
 fn bjson_fill_object(
-  value : JSValue,
+  value : Value,
   fields : Array[Json],
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
 ) -> Unit raise {
   match value {
@@ -615,7 +615,7 @@ fn bjson_fill_object(
                   match pair[0] {
                     Json::String(key) => {
                       let val = bjson_decode_node(pair[1], refs, use_refs)
-                      obj.props.set(key, property_data(val))
+                      props_set(obj.props, key, property_data(val))
                     }
                     _ => ()
                   }
@@ -631,9 +631,9 @@ fn bjson_fill_object(
 
 ///|
 fn bjson_fill_array(
-  value : JSValue,
+  value : Value,
   fields : Array[Json],
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
 ) -> Unit raise {
   match value {
@@ -644,10 +644,11 @@ fn bjson_fill_array(
           while i < items.length() && i < arr.elements.length() {
             match bjson_parse_tag(items[i]) {
               Some((tag, _)) if tag == "hole" => ()
-              _ =>
-                arr.elements[i] = Some(
-                  bjson_decode_node(items[i], refs, use_refs),
-                )
+              _ => {
+                let decoded = bjson_decode_node(items[i], refs, use_refs)
+                rc_replace_optional_value(arr.elements[i], Some(decoded))
+                arr.elements[i] = Some(decoded)
+              }
             }
             i = i + 1
           }
@@ -659,7 +660,7 @@ fn bjson_fill_array(
 }
 
 ///|
-fn bjson_decode_array_buffer_node(fields : Array[Json]) -> JSValue {
+fn bjson_decode_array_buffer_node(fields : Array[Json]) -> Value {
   let bytes : Array[Byte] = []
   match fields.get(0) {
     Some(Json::Array(items)) =>
@@ -698,9 +699,9 @@ fn bjson_decode_array_buffer_node(fields : Array[Json]) -> JSValue {
 ///|
 fn bjson_decode_typed_array_node(
   fields : Array[Json],
-  refs : Array[JSValue],
+  refs : Array[Value],
   use_refs : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let kind = match fields.get(0) {
     Some(Json::String(name)) =>
       match typed_array_kind_from_name(name) {
@@ -726,7 +727,7 @@ fn bjson_decode_typed_array_node(
 }
 
 ///|
-fn bjson_read_value(args : Array[JSValue]) -> JSValue raise {
+fn bjson_read_value(args : Array[Value]) -> Value raise {
   if args.length() < 3 {
     return throw_type_error("invalid arguments")
   }
@@ -766,7 +767,7 @@ fn bjson_read_value(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn bjson_write_value(args : Array[JSValue]) -> JSValue raise {
+fn bjson_write_value(args : Array[Value]) -> Value raise {
   if args.is_empty() {
     return throw_type_error("invalid arguments")
   }

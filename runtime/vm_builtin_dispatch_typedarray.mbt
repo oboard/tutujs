@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_typedarray(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::TypedArrayFrom => {
       let this_value = match builtin.this_value {

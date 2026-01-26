@@ -37,7 +37,7 @@ fn hoist_functions(
               env_declare_var(target_env, name, configurable)
             }
           } else {
-            let value = JSValue::Function(to_function_value(env, func, false))
+            let value = Value::Function(to_function_value(env, func, false))
             let is_new = target_env.bindings.get(name) is None
             match target_env.parent {
               None =>

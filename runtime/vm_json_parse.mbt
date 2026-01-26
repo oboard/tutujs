@@ -1,5 +1,5 @@
 ///|
-fn std_parse_ext_json(text : String) -> JSValue raise {
+fn std_parse_ext_json(text : String) -> Value raise {
   let normalized = normalize_ext_json(text)
   let json = @json5.parse(normalized) catch {
     err => {
@@ -156,7 +156,7 @@ fn normalize_ext_json(text : String) -> String {
 }
 
 ///|
-fn json_to_value(value : Json) -> JSValue {
+fn json_to_value(value : Json) -> Value {
   match value {
     Json::Null => Null
     Json::True => Bool(true)
@@ -164,7 +164,7 @@ fn json_to_value(value : Json) -> JSValue {
     Json::Number(num, ..) => Number(num)
     Json::String(text) => String(text)
     Json::Array(items) => {
-      let elements : Array[JSValue?] = []
+      let elements : Array[Value?] = []
       for item in items {
         elements.push(Some(json_to_value(item)))
       }
@@ -175,7 +175,7 @@ fn json_to_value(value : Json) -> JSValue {
       match obj {
         Object(object) =>
           for key, entry in entries {
-            object.props.set(key, property_data(json_to_value(entry)))
+            props_set(object.props, key, property_data(json_to_value(entry)))
           }
         _ => ()
       }
@@ -345,7 +345,7 @@ fn json_to_value_with_number_flags(
   value : Json,
   flags : Array[Bool],
   index : Int,
-) -> (JSValue, Int) {
+) -> (Value, Int) {
   match value {
     Json::Null => (Null, index)
     Json::True => (Bool(true), index)
@@ -357,7 +357,7 @@ fn json_to_value_with_number_flags(
     }
     Json::String(text) => (String(text), index)
     Json::Array(items) => {
-      let elements : Array[JSValue?] = []
+      let elements : Array[Value?] = []
       let mut current = index
       for item in items {
         let (value_item, next) = json_to_value_with_number_flags(
@@ -378,7 +378,7 @@ fn json_to_value_with_number_flags(
               entry, flags, current,
             )
             current = next
-            object.props.set(key, property_data(value_entry))
+            props_set(object.props, key, property_data(value_entry))
           }
         _ => ()
       }
@@ -388,7 +388,7 @@ fn json_to_value_with_number_flags(
 }
 
 ///|
-fn json_parse_text(text : String) -> JSValue raise {
+fn json_parse_text(text : String) -> Value raise {
   json_validate_whitespace(text)
   let json = @json.parse(text[:]) catch {
     err => {
@@ -411,10 +411,10 @@ fn json_parse_text(text : String) -> JSValue raise {
 
 ///|
 fn json_internalize_property(
-  holder : JSValue,
+  holder : Value,
   name : String,
-  reviver : JSValue,
-) -> JSValue raise {
+  reviver : Value,
+) -> Value raise {
   let val = property_get(holder, name)
   if is_object_like(val) {
     let is_array = is_array_value(val)
@@ -452,10 +452,7 @@ fn json_internalize_property(
 }
 
 ///|
-fn json_parse_with_reviver(
-  text_value : JSValue,
-  reviver : JSValue,
-) -> JSValue raise {
+fn json_parse_with_reviver(text_value : Value, reviver : Value) -> Value raise {
   let text = to_string_strict(text_value)
   let parsed = json_parse_text(text)
   if is_callable(reviver) {
@@ -467,6 +464,6 @@ fn json_parse_with_reviver(
 }
 
 ///|
-fn json_parse_value(text : String) -> JSValue raise {
+fn json_parse_value(text : String) -> Value raise {
   json_parse_text(text)
 }

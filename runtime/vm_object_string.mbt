@@ -1,5 +1,5 @@
 ///|
-fn object_builtin_tag(value : JSValue) -> String raise {
+fn object_builtin_tag(value : Value) -> String raise {
   match value {
     Undefined => "Undefined"
     Null => "Null"
@@ -52,7 +52,7 @@ fn object_builtin_tag(value : JSValue) -> String raise {
 }
 
 ///|
-fn function_to_string_value(value : JSValue) -> String raise {
+fn function_to_string_value(value : Value) -> String raise {
   if !is_callable(value) {
     let _ = throw_type_error("not a function")
     return ""
@@ -86,7 +86,7 @@ fn function_to_string_value(value : JSValue) -> String raise {
 }
 
 ///|
-fn object_to_string(value : JSValue) -> String raise {
+fn object_to_string(value : Value) -> String raise {
   match value {
     Undefined => "[object Undefined]"
     Null => "[object Null]"

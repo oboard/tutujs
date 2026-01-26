@@ -1,12 +1,12 @@
 ///|
-fn new_map_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_map_value_with_proto(proto : Value?) -> Value {
   let final_proto = match proto {
     Some(value) => Some(value)
     None => value_from_object(map_proto())
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: final_proto,
     string_data: None,
     number_data: None,
@@ -38,18 +38,19 @@ fn new_map_value_with_proto(proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(final_proto)
   Object(obj)
 }
 
 ///|
-fn new_set_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_set_value_with_proto(proto : Value?) -> Value {
   let final_proto = match proto {
     Some(value) => Some(value)
     None => value_from_object(set_proto())
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: final_proto,
     string_data: None,
     number_data: None,
@@ -81,23 +82,24 @@ fn new_set_value_with_proto(proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(final_proto)
   Object(obj)
 }
 
 ///|
-fn new_set_value() -> JSValue {
+fn new_set_value() -> Value {
   new_set_value_with_proto(None)
 }
 
 ///|
-fn new_weakmap_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_weakmap_value_with_proto(proto : Value?) -> Value {
   let final_proto = match proto {
     Some(value) => Some(value)
     None => value_from_object(weakmap_proto())
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: final_proto,
     string_data: None,
     number_data: None,
@@ -115,7 +117,7 @@ fn new_weakmap_value_with_proto(proto : JSValue?) -> JSValue {
     iterator_wrap_data: None,
     iterator_concat_data: None,
     iterator_helper_data: None,
-    weakmap_data: Some(WeakMapData::{ entries: [] }),
+    weakmap_data: Some(WeakMapData::{ entries: [], index: Map::new() }),
     weakset_data: None,
     weakref_data: None,
     finreg_data: None,
@@ -129,18 +131,19 @@ fn new_weakmap_value_with_proto(proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(final_proto)
   Object(obj)
 }
 
 ///|
-fn new_weakset_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_weakset_value_with_proto(proto : Value?) -> Value {
   let final_proto = match proto {
     Some(value) => Some(value)
     None => value_from_object(weakset_proto())
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: final_proto,
     string_data: None,
     number_data: None,
@@ -172,18 +175,19 @@ fn new_weakset_value_with_proto(proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(final_proto)
   Object(obj)
 }
 
 ///|
-fn new_weakref_value(target : JSValue, proto : JSValue?) -> JSValue {
+fn new_weakref_value(target : Value, proto : Value?) -> Value {
   let proto_value = match proto {
     Some(value) => Some(value)
     None => value_from_object(weakref_proto())
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: proto_value,
     string_data: None,
     number_data: None,
@@ -215,15 +219,12 @@ fn new_weakref_value(target : JSValue, proto : JSValue?) -> JSValue {
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto_value)
   Object(obj)
 }
 
 ///|
-fn new_finreg_value(
-  callback : JSValue,
-  realm_env : Env,
-  proto : JSValue?,
-) -> JSValue {
+fn new_finreg_value(callback : Value, realm_env : Env, proto : Value?) -> Value {
   let proto_value = match proto {
     Some(value) => Some(value)
     None => value_from_object(finreg_proto())
@@ -231,7 +232,7 @@ fn new_finreg_value(
   let realm_root = realm_env_from_env(realm_env)
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: proto_value,
     string_data: None,
     number_data: None,
@@ -267,5 +268,8 @@ fn new_finreg_value(
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto_value)
+  rc_incref_env(realm_root)
+  rc_incref_value(callback)
   Object(obj)
 }

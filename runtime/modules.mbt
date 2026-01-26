@@ -18,7 +18,7 @@ priv struct ModuleRecord {
   state : ModuleState
   module_ns : ObjectValue?
   meta_obj : ObjectValue?
-  eval_promise : JSValue?
+  eval_promise : Value?
 }
 
 ///|
@@ -36,9 +36,9 @@ priv struct ModuleEvalInfo {
   mut async_evaluation : Bool
   mut cycle_root : String?
   mut eval_has_exception : Bool
-  mut eval_exception : JSValue?
-  mut resolve : JSValue?
-  mut reject : JSValue?
+  mut eval_exception : Value?
+  mut resolve : Value?
+  mut reject : Value?
 }
 
 ///|
@@ -57,11 +57,84 @@ priv struct ModuleResolveExportResult {
 
 ///|
 priv struct ModuleImportDynamicJobData {
-  resolve : JSValue
-  reject : JSValue
+  resolve : Value
+  reject : Value
   specifier : String
-  attributes : JSValue
+  attributes : Value
   base_path : String?
+}
+
+///|
+fn rc_incref_module_record(record : ModuleRecord) -> Unit {
+  rc_incref_value(Object(record.exports))
+  match record.module_ns {
+    Some(obj) => rc_incref_value(Object(obj))
+    None => ()
+  }
+  match record.meta_obj {
+    Some(obj) => rc_incref_value(Object(obj))
+    None => ()
+  }
+  rc_incref_optional_value(record.eval_promise)
+}
+
+///|
+fn rc_decref_module_record(record : ModuleRecord) -> Unit {
+  rc_decref_value(Object(record.exports))
+  match record.module_ns {
+    Some(obj) => rc_decref_value(Object(obj))
+    None => ()
+  }
+  match record.meta_obj {
+    Some(obj) => rc_decref_value(Object(obj))
+    None => ()
+  }
+  rc_decref_optional_value(record.eval_promise)
+}
+
+///|
+fn rc_replace_optional_object(
+  old_value : ObjectValue?,
+  new_value : ObjectValue?,
+) -> Unit {
+  match (old_value, new_value) {
+    (None, None) => ()
+    (Some(old), Some(new)) => rc_replace_value(Object(old), Object(new))
+    (Some(old), None) => rc_decref_value(Object(old))
+    (None, Some(new)) => rc_incref_value(Object(new))
+  }
+}
+
+///|
+fn rc_incref_module_eval_info(info : ModuleEvalInfo) -> Unit {
+  rc_incref_optional_value(info.eval_exception)
+  rc_incref_optional_value(info.resolve)
+  rc_incref_optional_value(info.reject)
+}
+
+///|
+fn rc_decref_module_eval_info(info : ModuleEvalInfo) -> Unit {
+  rc_decref_optional_value(info.eval_exception)
+  rc_decref_optional_value(info.resolve)
+  rc_decref_optional_value(info.reject)
+}
+
+///|
+fn rc_incref_module_import_dynamic_job_data(
+  data : ModuleImportDynamicJobData,
+) -> Unit {
+  rc_incref_value(data.resolve)
+  rc_incref_value(data.reject)
+  rc_incref_value(data.attributes)
+}
+
+///|
+fn rc_decref_module_import_dynamic_job_data(
+  data : ModuleImportDynamicJobData,
+) -> Unit {
+  rc_decref_value(data.resolve)
+  rc_decref_value(data.reject)
+  rc_decref_value(data.attributes)
 }
 
 ///|
@@ -124,7 +197,80 @@ let module_env_export_uninitialized_ref : Ref[Map[Int, Map[String, Bool]]] = Ref
 let module_env_ref : Ref[Map[Int, Env]] = Ref::new(Map::new())
 
 ///|
+fn module_table_clear() -> Unit {
+  module_table_ref.update(fn(table) {
+    for _, record in table {
+      rc_decref_module_record(record)
+    }
+    Map::new()
+  })
+}
+
+///|
+fn module_exports_stack_clear() -> Unit {
+  module_exports_stack_ref.update(fn(stack) {
+    for exports in stack {
+      rc_decref_value(Object(exports))
+    }
+    []
+  })
+}
+
+///|
+fn module_eval_info_clear() -> Unit {
+  module_eval_info_ref.update(fn(table) {
+    for _, info in table {
+      rc_decref_module_eval_info(info)
+    }
+    Map::new()
+  })
+}
+
+///|
+fn module_import_dynamic_job_data_clear() -> Unit {
+  module_import_dynamic_job_data_ref.update(fn(table) {
+    for _, data in table {
+      rc_decref_module_import_dynamic_job_data(data)
+    }
+    Map::new()
+  })
+}
+
+///|
+fn module_builtin_namespace_clear() -> Unit {
+  module_builtin_namespace_ref.update(fn(table) {
+    for _, namespaces in table {
+      for _, obj in namespaces {
+        rc_decref_value(Object(obj))
+      }
+    }
+    Map::new()
+  })
+}
+
+///|
+fn module_env_exports_clear() -> Unit {
+  module_env_exports_ref.update(fn(table) {
+    for _, exports in table {
+      rc_decref_value(Object(exports))
+    }
+    Map::new()
+  })
+}
+
+///|
+fn module_env_clear() -> Unit {
+  module_env_ref.update(fn(table) {
+    for _, env in table {
+      rc_decref_env(env)
+    }
+    Map::new()
+  })
+}
+
+///|
 fn push_module_exports(exports : ObjectValue) -> Unit {
+  rc_incref_value(Object(exports))
   module_exports_stack_ref.update(fn(current) {
     current.push(exports)
     current
@@ -135,8 +281,10 @@ fn push_module_exports(exports : ObjectValue) -> Unit {
 fn pop_module_exports() -> Unit {
   module_exports_stack_ref.update(fn(current) {
     if !current.is_empty() {
-      let _ = current.pop()
-
+      match current.pop() {
+        Some(exports) => rc_decref_value(Object(exports))
+        None => ()
+      }
     }
     current
   })
@@ -157,8 +305,8 @@ fn current_module_exports() -> ObjectValue? {
 ///|
 fn with_module_exports(
   exports : ObjectValue,
-  f : () -> JSValue raise,
-) -> JSValue raise {
+  f : () -> Value raise,
+) -> Value raise {
   push_module_exports(exports)
   try {
     let result = f()
@@ -252,7 +400,7 @@ fn record_module_import(cache_key : String) -> Unit {
 }
 
 ///|
-fn with_module_env_id(env_id : Int, f : () -> JSValue raise) -> JSValue raise {
+fn with_module_env_id(env_id : Int, f : () -> Value raise) -> Value raise {
   push_module_env_id(env_id)
   try {
     let result = f()
@@ -287,6 +435,10 @@ fn with_module_env_id_step(
 ///|
 fn module_env_exports_set(env_id : Int, exports : ObjectValue) -> Unit {
   module_env_exports_ref.update(fn(table) {
+    match table.get(env_id) {
+      Some(existing) => rc_replace_value(Object(existing), Object(exports))
+      None => rc_incref_value(Object(exports))
+    }
     table.set(env_id, exports)
     table
   })
@@ -301,7 +453,10 @@ fn module_env_exports_remove(env_id : Int) -> Unit {
   let mut exports_id : Int? = None
   module_env_exports_ref.update(fn(table) {
     match table.get(env_id) {
-      Some(exports) => exports_id = Some(exports.id)
+      Some(exports) => {
+        exports_id = Some(exports.id)
+        rc_decref_value(Object(exports))
+      }
       None => ()
     }
     table.remove(env_id)
@@ -339,6 +494,10 @@ fn module_env_id_for_exports_obj(exports : ObjectValue) -> Int? {
 ///|
 fn module_env_set(env : Env) -> Unit {
   module_env_ref.update(fn(table) {
+    match table.get(env.id) {
+      Some(existing) => rc_replace_optional_env(Some(existing), Some(env))
+      None => rc_incref_env(env)
+    }
     table.set(env.id, env)
     table
   })
@@ -357,7 +516,11 @@ fn module_env_get(env_id : Int) -> Env? {
 ///|
 fn module_env_remove(env_id : Int) -> Unit {
   module_env_ref.update(fn(table) {
-    table.remove(env_id)
+    match table.get(env_id) {
+      Some(existing) => rc_decref_env(existing)
+      None => ()
+    }
+    let _ = table.remove(env_id)
     table
   })
 }
@@ -515,16 +678,16 @@ fn module_env_export_names_remove(env_id : Int) -> Unit {
 fn update_module_export_binding(
   env : Env,
   binding : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit {
   match module_env_exports_get(env.id) {
     Some(exports) =>
       match module_env_export_names_get(env.id, binding) {
         Some(names) =>
           for export_name in names {
-            match exports.props.get(export_name) {
+            match props_get(exports.props, export_name) {
               Some(prop) =>
-                exports.props.set(export_name, Property::{
+                props_set(exports.props, export_name, Property::{
                   value,
                   writable: prop.writable,
                   configurable: prop.configurable,
@@ -554,13 +717,22 @@ fn module_record_get(path : String) -> ModuleRecord? {
 ///|
 fn module_record_set(path : String, record : ModuleRecord) -> Unit {
   module_table_ref.update(fn(table) {
+    match table.get(path) {
+      Some(existing) => {
+        rc_replace_value(Object(existing.exports), Object(record.exports))
+        rc_replace_optional_object(existing.module_ns, record.module_ns)
+        rc_replace_optional_object(existing.meta_obj, record.meta_obj)
+        rc_replace_optional_value(existing.eval_promise, record.eval_promise)
+      }
+      None => rc_incref_module_record(record)
+    }
     table.set(path, record)
     table
   })
 }
 
 ///|
-fn module_eval_promise_get(path : String) -> JSValue? {
+fn module_eval_promise_get(path : String) -> Value? {
   match module_record_get(path) {
     Some(record) => record.eval_promise
     None => None
@@ -568,7 +740,7 @@ fn module_eval_promise_get(path : String) -> JSValue? {
 }
 
 ///|
-fn module_eval_promise_set(path : String, promise : JSValue?) -> Unit {
+fn module_eval_promise_set(path : String, promise : Value?) -> Unit {
   match module_record_get(path) {
     Some(record) =>
       module_record_set(path, ModuleRecord::{
@@ -595,6 +767,14 @@ fn module_eval_info_get(path : String) -> ModuleEvalInfo? {
 ///|
 fn module_eval_info_set(path : String, info : ModuleEvalInfo) -> Unit {
   module_eval_info_ref.update(fn(table) {
+    match table.get(path) {
+      Some(existing) => {
+        rc_replace_optional_value(existing.eval_exception, info.eval_exception)
+        rc_replace_optional_value(existing.resolve, info.resolve)
+        rc_replace_optional_value(existing.reject, info.reject)
+      }
+      None => rc_incref_module_eval_info(info)
+    }
     table.set(path, info)
     table
   })
@@ -603,7 +783,11 @@ fn module_eval_info_set(path : String, info : ModuleEvalInfo) -> Unit {
 ///|
 fn module_eval_info_remove(path : String) -> Unit {
   module_eval_info_ref.update(fn(table) {
-    table.remove(path)
+    match table.get(path) {
+      Some(info) => rc_decref_module_eval_info(info)
+      None => ()
+    }
+    let _ = table.remove(path)
     table
   })
 }
@@ -637,7 +821,11 @@ fn module_export_info_remove(path : String) -> Unit {
 ///|
 fn module_record_remove(path : String) -> Unit {
   module_table_ref.update(fn(table) {
-    table.remove(path)
+    match table.get(path) {
+      Some(record) => rc_decref_module_record(record)
+      None => ()
+    }
+    let _ = table.remove(path)
     table
   })
   module_export_info_remove(path)
@@ -666,6 +854,10 @@ fn module_builtin_namespace_set(
     let namespaces = match table.get(env_id) {
       Some(existing) => existing
       None => Map::new()
+    }
+    match namespaces.get(name) {
+      Some(existing) => rc_replace_value(Object(existing), Object(value))
+      None => rc_incref_value(Object(value))
     }
     namespaces.set(name, value)
     table.set(env_id, namespaces)

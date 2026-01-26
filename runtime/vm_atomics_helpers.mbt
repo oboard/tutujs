@@ -35,7 +35,7 @@ fn atomics_kind_is_waitable(kind : TypedArrayKind) -> Bool {
 
 ///|
 fn atomics_require_typed_array(
-  target : JSValue,
+  target : Value,
   waitable_only : Bool,
 ) -> (ArrayValue, TypedArrayData) raise {
   match target {
@@ -71,15 +71,17 @@ fn atomics_require_typed_array(
         Some(data) => atomics_require_typed_array(data.target, waitable_only)
         None => {
           let _ = throw_type_error("integer TypedArray expected")
+          let fallback = register_array_value(ArrayValue::{
+            id: alloc_id(),
+            elements: [],
+            proto: value_from_object(array_proto()),
+            props: props_new(),
+            typed_array_data: None,
+            extensible: true,
+          })
+          rc_incref_optional_value(fallback.proto)
           (
-            register_array_value(ArrayValue::{
-              id: alloc_id(),
-              elements: [],
-              proto: value_from_object(array_proto()),
-              props: Map::new(),
-              typed_array_data: None,
-              extensible: true,
-            }),
+            fallback,
             TypedArrayData::{
               kind: TypedArrayKind::Uint8,
               buffer: new_object_struct(None),
@@ -93,15 +95,17 @@ fn atomics_require_typed_array(
       }
     _ => {
       let _ = throw_type_error("integer TypedArray expected")
+      let fallback = register_array_value(ArrayValue::{
+        id: alloc_id(),
+        elements: [],
+        proto: value_from_object(array_proto()),
+        props: props_new(),
+        typed_array_data: None,
+        extensible: true,
+      })
+      rc_incref_optional_value(fallback.proto)
       (
-        register_array_value(ArrayValue::{
-          id: alloc_id(),
-          elements: [],
-          proto: value_from_object(array_proto()),
-          props: Map::new(),
-          typed_array_data: None,
-          extensible: true,
-        }),
+        fallback,
         TypedArrayData::{
           kind: TypedArrayKind::Uint8,
           buffer: new_object_struct(None),
@@ -117,8 +121,8 @@ fn atomics_require_typed_array(
 
 ///|
 fn atomics_get_op_data(
-  target : JSValue,
-  index_value : JSValue,
+  target : Value,
+  index_value : Value,
 ) -> (TypedArrayData, Int) raise {
   let (_, data) = atomics_require_typed_array(target, false)
   match data.buffer.array_buffer_data {
@@ -152,8 +156,8 @@ fn atomics_get_op_data(
 
 ///|
 fn atomics_get_wait_data(
-  target : JSValue,
-  index_value : JSValue,
+  target : Value,
+  index_value : Value,
   allow_non_shared : Bool,
 ) -> (TypedArrayData, Int, Bool, Bool) raise {
   let (_, data) = atomics_require_typed_array(target, true)
@@ -203,7 +207,7 @@ fn atomics_byte_index(data : TypedArrayData, index : Int) -> Int {
 }
 
 ///|
-fn atomics_value_from_bits(kind : TypedArrayKind, bits : UInt) -> JSValue {
+fn atomics_value_from_bits(kind : TypedArrayKind, bits : UInt) -> Value {
   match kind {
     TypedArrayKind::Int8 => {
       let value = if bits >= 0x80U {
@@ -293,7 +297,7 @@ fn atomics_write_bits(data : TypedArrayData, index : Int, bits : UInt) -> Unit {
 }
 
 ///|
-fn atomics_op_value(args : Array[JSValue], op : AtomicsOpKind) -> JSValue raise {
+fn atomics_op_value(args : Array[Value], op : AtomicsOpKind) -> Value raise {
   let target = if args.is_empty() { Undefined } else { args[0] }
   let index_value = if args.length() > 1 { args[1] } else { Undefined }
   let value_arg = if args.length() > 2 { args[2] } else { Undefined }
@@ -453,7 +457,7 @@ fn atomics_op_value(args : Array[JSValue], op : AtomicsOpKind) -> JSValue raise 
 }
 
 ///|
-fn atomics_to_integer(value : JSValue) -> Double raise {
+fn atomics_to_integer(value : Value) -> Double raise {
   let num = to_number(value)
   if Double::is_nan(num) {
     0.0
@@ -465,7 +469,7 @@ fn atomics_to_integer(value : JSValue) -> Double raise {
 }
 
 ///|
-fn atomics_store_value(args : Array[JSValue]) -> JSValue raise {
+fn atomics_store_value(args : Array[Value]) -> Value raise {
   let target = if args.is_empty() { Undefined } else { args[0] }
   let index_value = if args.length() > 1 { args[1] } else { Undefined }
   let value_arg = if args.length() > 2 { args[2] } else { Undefined }
@@ -514,13 +518,13 @@ fn atomics_store_value(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn atomics_is_lock_free_value(args : Array[JSValue]) -> JSValue raise {
+fn atomics_is_lock_free_value(args : Array[Value]) -> Value raise {
   let size = if args.is_empty() { 0 } else { to_int32_sat(to_number(args[0])) }
   Bool(size == 1 || size == 2 || size == 4 || size == 8)
 }
 
 ///|
-fn atomics_pause_value(args : Array[JSValue]) -> JSValue raise {
+fn atomics_pause_value(args : Array[Value]) -> Value raise {
   if !args.is_empty() {
     match args[0] {
       Undefined => ()
@@ -535,7 +539,7 @@ fn atomics_pause_value(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn atomics_timeout_ms(value : JSValue) -> (Int64, Bool) raise {
+fn atomics_timeout_ms(value : Value) -> (Int64, Bool) raise {
   let num = to_number(value)
   let max_double = 9.223372036854776e18
   if Double::is_nan(num) || num >= max_double {
@@ -548,7 +552,7 @@ fn atomics_timeout_ms(value : JSValue) -> (Int64, Bool) raise {
 }
 
 ///|
-fn atomics_wait_value(args : Array[JSValue]) -> JSValue raise {
+fn atomics_wait_value(args : Array[Value]) -> Value raise {
   let target = if args.is_empty() { Undefined } else { args[0] }
   let index_value = if args.length() > 1 { args[1] } else { Undefined }
   let value_arg = if args.length() > 2 { args[2] } else { Undefined }
@@ -594,6 +598,10 @@ fn atomics_wait_value(args : Array[JSValue]) -> JSValue raise {
       }
       let now = agent_clock_now()
       let deadline = if infinite { None } else { Some(now + timeout_ms) }
+      if !infinite {
+        let _ = agent_local_clock_advance_to(agent_id, now + timeout_ms)
+
+      }
       let waiter_id = atomics_next_waiter_id()
       let waiter = AtomicsWaiter::{
         id: waiter_id,
@@ -613,7 +621,7 @@ fn atomics_wait_value(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn atomics_notify_value(args : Array[JSValue]) -> JSValue raise {
+fn atomics_notify_value(args : Array[Value]) -> Value raise {
   let target = if args.is_empty() { Undefined } else { args[0] }
   let index_value = if args.length() > 1 { args[1] } else { Undefined }
   let count_value = if args.length() > 2 { args[2] } else { Undefined }

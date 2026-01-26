@@ -1,9 +1,9 @@
 ///|
 pub struct ArrayValue {
   id : Int
-  elements : Array[JSValue?]
-  mut proto : JSValue?
-  props : Map[String, Property]
+  elements : Array[Value?]
+  mut proto : Value?
+  props : Props
   mut typed_array_data : TypedArrayData?
   mut extensible : Bool
 }
@@ -26,9 +26,9 @@ pub struct ArgumentsValue {
   env : Env
   params : Array[String]
   mapped : Array[Bool]
-  elements : Array[JSValue?]
-  props : Map[String, Property]
-  mut proto : JSValue?
+  elements : Array[Value?]
+  props : Props
+  mut proto : Value?
   mut extensible : Bool
 }
 

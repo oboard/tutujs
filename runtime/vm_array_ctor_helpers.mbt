@@ -1,8 +1,5 @@
 ///|
-fn array_from_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_from_value(this_value : Value, args : Array[Value]) -> Value raise {
   let items = if args.is_empty() { Undefined } else { args[0] }
   let mapfn = if args.length() > 1 { args[1] } else { Undefined }
   let this_arg = if args.length() > 2 { args[2] } else { Undefined }
@@ -111,7 +108,7 @@ fn array_from_value(
 }
 
 ///|
-fn array_of_value(this_value : JSValue, args : Array[JSValue]) -> JSValue raise {
+fn array_of_value(this_value : Value, args : Array[Value]) -> Value raise {
   let len = args.length()
   let result = if is_constructor_value(this_value) {
     call_constructor(this_value, [Number(Double::from_int(len))])

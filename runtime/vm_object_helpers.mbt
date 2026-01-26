@@ -1,5 +1,5 @@
 ///|
-fn object_get_own_property_names(target : JSValue) -> JSValue raise {
+fn object_get_own_property_names(target : Value) -> Value raise {
   match target {
     Object(obj) =>
       match obj.proxy_data {
@@ -29,7 +29,32 @@ fn object_get_own_property_names(target : JSValue) -> JSValue raise {
 }
 
 ///|
-fn object_keys(target : JSValue) -> JSValue raise {
+fn own_enumerable_property_names(target : Value) -> Array[String] raise {
+  let names : Array[String] = []
+  let keys = own_property_keys_values(target)
+  for key in keys {
+    match key {
+      String(name) => {
+        let desc = get_own_property_descriptor(target, name)
+        match desc {
+          Undefined => ()
+          _ =>
+            if !is_object_like(desc) {
+              let _ = throw_type_error("invalid property descriptor")
+
+            } else if is_truthy(property_get(desc, "enumerable")) {
+              names.push(name)
+            }
+        }
+      }
+      _ => ()
+    }
+  }
+  names
+}
+
+///|
+fn object_keys(target : Value) -> Value raise {
   match target {
     Object(obj) =>
       match obj.proxy_data {
@@ -56,65 +81,9 @@ fn object_keys(target : JSValue) -> JSValue raise {
           }
           names_to_array_value(names)
         }
-        None => {
-          let names_value = object_get_own_property_names(target)
-          match names_value {
-            Array(arr) => {
-              let names : Array[String] = []
-              for entry in arr.elements {
-                match entry {
-                  Some(String(name)) => {
-                    let desc = get_own_property_descriptor(target, name)
-                    match desc {
-                      Undefined => ()
-                      _ =>
-                        if !is_object_like(desc) {
-                          let _ = throw_type_error(
-                            "invalid property descriptor",
-                          )
-
-                        } else if is_truthy(property_get(desc, "enumerable")) {
-                          names.push(name)
-                        }
-                    }
-                  }
-                  _ => ()
-                }
-              }
-              names_to_array_value(names)
-            }
-            _ => new_array_value([])
-          }
-        }
+        None => names_to_array_value(own_enumerable_property_names(target))
       }
-    _ => {
-      let names_value = object_get_own_property_names(target)
-      match names_value {
-        Array(arr) => {
-          let names : Array[String] = []
-          for entry in arr.elements {
-            match entry {
-              Some(String(name)) => {
-                let desc = get_own_property_descriptor(target, name)
-                match desc {
-                  Undefined => ()
-                  _ =>
-                    if !is_object_like(desc) {
-                      let _ = throw_type_error("invalid property descriptor")
-
-                    } else if is_truthy(property_get(desc, "enumerable")) {
-                      names.push(name)
-                    }
-                }
-              }
-              _ => ()
-            }
-          }
-          names_to_array_value(names)
-        }
-        _ => new_array_value([])
-      }
-    }
+    _ => names_to_array_value(own_enumerable_property_names(target))
   }
 }
 
@@ -128,12 +97,12 @@ const OBJECT_KEYS_KIND_VALUES : Int = 1
 const OBJECT_KEYS_KIND_ENTRIES : Int = 2
 
 ///|
-fn object_key_values(target : JSValue, kind : Int) -> JSValue raise {
-  let entries : Array[JSValue?] = []
+fn object_key_values(target : Value, kind : Int) -> Value raise {
+  let entries : Array[Value?] = []
   fn push_entry(
-    entries : Array[JSValue?],
+    entries : Array[Value?],
     name : String,
-    value : JSValue,
+    value : Value,
     kind : Int,
   ) -> Unit {
     match kind {
@@ -176,45 +145,10 @@ fn object_key_values(target : JSValue, kind : Int) -> JSValue raise {
           }
         }
         None => {
-          let names_value = object_get_own_property_names(target)
-          match names_value {
-            Array(arr) =>
-              for entry in arr.elements {
-                match entry {
-                  Some(String(name)) => {
-                    let desc = get_own_property_descriptor(target, name)
-                    match desc {
-                      Undefined => ()
-                      _ =>
-                        if !is_object_like(desc) {
-                          let _ = throw_type_error(
-                            "invalid property descriptor",
-                          )
-
-                        } else if is_truthy(property_get(desc, "enumerable")) {
-                          if kind == OBJECT_KEYS_KIND_KEYS {
-                            entries.push(Some(String(name)))
-                          } else {
-                            let value = property_get(target, name)
-                            push_entry(entries, name, value, kind)
-                          }
-                        }
-                    }
-                  }
-                  _ => ()
-                }
-              }
-            _ => ()
-          }
-        }
-      }
-    _ => {
-      let names_value = object_get_own_property_names(target)
-      match names_value {
-        Array(arr) =>
-          for entry in arr.elements {
-            match entry {
-              Some(String(name)) => {
+          let keys = own_property_keys_values(target)
+          for key in keys {
+            match key {
+              String(name) => {
                 let desc = get_own_property_descriptor(target, name)
                 match desc {
                   Undefined => ()
@@ -235,7 +169,32 @@ fn object_key_values(target : JSValue, kind : Int) -> JSValue raise {
               _ => ()
             }
           }
-        _ => ()
+        }
+      }
+    _ => {
+      let keys = own_property_keys_values(target)
+      for key in keys {
+        match key {
+          String(name) => {
+            let desc = get_own_property_descriptor(target, name)
+            match desc {
+              Undefined => ()
+              _ =>
+                if !is_object_like(desc) {
+                  let _ = throw_type_error("invalid property descriptor")
+
+                } else if is_truthy(property_get(desc, "enumerable")) {
+                  if kind == OBJECT_KEYS_KIND_KEYS {
+                    entries.push(Some(String(name)))
+                  } else {
+                    let value = property_get(target, name)
+                    push_entry(entries, name, value, kind)
+                  }
+                }
+            }
+          }
+          _ => ()
+        }
       }
     }
   }
@@ -243,11 +202,11 @@ fn object_key_values(target : JSValue, kind : Int) -> JSValue raise {
 }
 
 ///|
-fn object_get_own_property_descriptors(target : JSValue) -> JSValue raise {
+fn object_get_own_property_descriptors(target : Value) -> Value raise {
   let result = new_object_value()
   match result {
     Object(obj) => {
-      let mut keys : Array[JSValue] = []
+      let mut keys : Array[Value] = []
       match target {
         Object(raw) =>
           match raw.proxy_data {
@@ -317,8 +276,8 @@ fn object_get_own_property_descriptors(target : JSValue) -> JSValue raise {
 }
 
 ///|
-fn own_property_keys_values(target : JSValue) -> Array[JSValue] raise {
-  let mut keys : Array[JSValue] = []
+fn own_property_keys_values(target : Value) -> Array[Value] raise {
+  let mut keys : Array[Value] = []
   match target {
     Object(raw) =>
       match raw.proxy_data {
@@ -363,7 +322,7 @@ fn own_property_keys_values(target : JSValue) -> Array[JSValue] raise {
 }
 
 ///|
-fn object_from_entries(iterable : JSValue) -> JSValue raise {
+fn object_from_entries(iterable : Value) -> Value raise {
   let obj = new_object_value()
   let (iterator, next_method) = get_iterator_from_value(iterable)
   while true {
@@ -393,7 +352,7 @@ fn object_from_entries(iterable : JSValue) -> JSValue raise {
 }
 
 ///|
-fn object_group_by(iterable : JSValue, callback : JSValue) -> JSValue raise {
+fn object_group_by(iterable : Value, callback : Value) -> Value raise {
   if !is_callable(callback) {
     let _ = throw_type_error("not a function")
     return Undefined
@@ -445,7 +404,7 @@ fn object_group_by(iterable : JSValue, callback : JSValue) -> JSValue raise {
 }
 
 ///|
-fn map_group_by(iterable : JSValue, callback : JSValue) -> JSValue raise {
+fn map_group_by(iterable : Value, callback : Value) -> Value raise {
   if !is_callable(callback) {
     let _ = throw_type_error("not a function")
     return Undefined
@@ -521,11 +480,11 @@ fn map_group_by(iterable : JSValue, callback : JSValue) -> JSValue raise {
 
 ///|
 fn object_define_accessor(
-  this_value : JSValue,
-  name_value : JSValue,
-  func_value : JSValue,
+  this_value : Value,
+  name_value : Value,
+  func_value : Value,
   is_setter : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let obj = to_object(this_value)
   if !is_callable(func_value) {
     let _ = throw_type_error("not a function")
@@ -536,12 +495,12 @@ fn object_define_accessor(
   match desc {
     Object(desc_obj) => {
       if is_setter {
-        desc_obj.props.set("set", property_data(func_value))
+        props_set(desc_obj.props, "set", property_data(func_value))
       } else {
-        desc_obj.props.set("get", property_data(func_value))
+        props_set(desc_obj.props, "get", property_data(func_value))
       }
-      desc_obj.props.set("enumerable", property_data(Bool(true)))
-      desc_obj.props.set("configurable", property_data(Bool(true)))
+      props_set(desc_obj.props, "enumerable", property_data(Bool(true)))
+      props_set(desc_obj.props, "configurable", property_data(Bool(true)))
     }
     _ => ()
   }
@@ -551,13 +510,13 @@ fn object_define_accessor(
 
 ///|
 fn object_lookup_accessor(
-  this_value : JSValue,
-  name_value : JSValue,
+  this_value : Value,
+  name_value : Value,
   is_setter : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let obj = to_object(this_value)
   let name = property_key_name(name_value)
-  let mut current : JSValue? = Some(obj)
+  let mut current : Value? = Some(obj)
   while true {
     match current {
       Some(value) => {
@@ -583,7 +542,7 @@ fn object_lookup_accessor(
 }
 
 ///|
-fn object_proto_get(this_value : JSValue) -> JSValue raise {
+fn object_proto_get(this_value : Value) -> Value raise {
   let obj = to_object(this_value)
   match get_proto_of_value_checked(obj) {
     Some(proto) => proto
@@ -592,10 +551,7 @@ fn object_proto_get(this_value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn object_proto_set(
-  this_value : JSValue,
-  proto_value : JSValue,
-) -> JSValue raise {
+fn object_proto_set(this_value : Value, proto_value : Value) -> Value raise {
   match this_value {
     Undefined | Null => {
       let _ = throw_type_error("not an object")
@@ -628,9 +584,9 @@ fn string_own_keys(obj : ObjectValue, include_non_enum : Bool) -> Array[String] 
         seen.set(index, true)
         indices.push(index)
       }
-      for key, prop in obj.props {
+      props_iter(obj.props, fn(key, prop) {
         if is_symbol_prop_key(key) || is_private_prop_key(key) {
-          continue
+          return ()
         }
         if include_non_enum || prop.enumerable {
           match array_index_from_name(key) {
@@ -642,13 +598,13 @@ fn string_own_keys(obj : ObjectValue, include_non_enum : Bool) -> Array[String] 
             None => non_indices.push(key)
           }
         }
-      }
+      })
       sort_int64s(indices)
       let names : Array[String] = []
       for index in indices {
         names.push(Int64::to_string(index))
       }
-      if include_non_enum && !obj.props.contains("length") {
+      if include_non_enum && !props_contains(obj.props, "length") {
         names.push("length")
       }
       for name in non_indices {
@@ -680,7 +636,7 @@ fn array_own_keys(arr : ArrayValue, include_non_enum : Bool) -> Array[String] {
       indices.push(index)
     } else {
       let name = Int::to_string(i)
-      match arr.props.get(name) {
+      match props_get(arr.props, name) {
         Some(prop) =>
           if include_non_enum || prop.enumerable {
             let index = Int64::from_int(i)
@@ -699,9 +655,9 @@ fn array_own_keys(arr : ArrayValue, include_non_enum : Bool) -> Array[String] {
       }
     }
   }
-  for key, prop in arr.props {
+  props_iter(arr.props, fn(key, prop) {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if include_non_enum || prop.enumerable {
       match array_index_from_name(key) {
@@ -713,7 +669,7 @@ fn array_own_keys(arr : ArrayValue, include_non_enum : Bool) -> Array[String] {
         None => non_indices.push(key)
       }
     }
-  }
+  })
   sort_int64s(indices)
   let names : Array[String] = []
   for index in indices {
@@ -736,7 +692,7 @@ fn arguments_own_keys(
   let len = args.elements.length()
   for i = 0; i < len; i = i + 1 {
     let name = Int::to_string(i)
-    match args.props.get(name) {
+    match props_get(args.props, name) {
       Some(prop) =>
         if include_non_enum || prop.enumerable {
           let index = Int64::from_int(i)
@@ -751,9 +707,9 @@ fn arguments_own_keys(
         }
     }
   }
-  for key, prop in args.props {
+  props_iter(args.props, fn(key, prop) {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if include_non_enum || prop.enumerable {
       match array_index_from_name(key) {
@@ -765,7 +721,7 @@ fn arguments_own_keys(
         None => non_indices.push(key)
       }
     }
-  }
+  })
   sort_int64s(indices)
   let names : Array[String] = []
   for index in indices {

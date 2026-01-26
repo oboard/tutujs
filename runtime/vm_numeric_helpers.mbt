@@ -30,7 +30,7 @@ fn to_uint32(value : Double) -> UInt {
 }
 
 ///|
-fn shift_count(value : JSValue) -> Int raise {
+fn shift_count(value : Value) -> Int raise {
   let count = to_int32(to_number(value))
   Int::land(count, 0x1f)
 }

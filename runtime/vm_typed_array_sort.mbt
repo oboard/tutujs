@@ -1,7 +1,7 @@
 ///|
-fn typed_array_collect_values(data : TypedArrayData) -> Array[JSValue] {
+fn typed_array_collect_values(data : TypedArrayData) -> Array[Value] {
   let len = typed_array_effective_length(data)
-  let values : Array[JSValue] = []
+  let values : Array[Value] = []
   let mut i = 0
   while i < len {
     values.push(typed_array_get_index(data, i))
@@ -12,10 +12,10 @@ fn typed_array_collect_values(data : TypedArrayData) -> Array[JSValue] {
 
 ///|
 fn typed_array_compare_values(
-  left : JSValue,
-  right : JSValue,
+  left : Value,
+  right : Value,
   kind : TypedArrayKind,
-  compare_fn : JSValue?,
+  compare_fn : Value?,
 ) -> Int raise {
   match compare_fn {
     Some(func) => {
@@ -78,9 +78,9 @@ fn typed_array_compare_values(
 
 ///|
 fn typed_array_counting_sort_16(
-  values : Array[JSValue],
+  values : Array[Value],
   signed : Bool,
-) -> Array[JSValue] raise {
+) -> Array[Value] raise {
   let len = values.length()
   let counts : Array[Int] = Array::make(65536, 0)
   let mut i = 0
@@ -97,7 +97,7 @@ fn typed_array_counting_sort_16(
     counts[idx] = counts[idx] + 1
     i = i + 1
   }
-  let sorted : Array[JSValue] = Array::make(len, Undefined)
+  let sorted : Array[Value] = Array::make(len, Undefined)
   let mut out = 0
   let mut v = 0
   while v < 65536 {
@@ -119,8 +119,8 @@ fn typed_array_counting_sort_16(
 
 ///|
 fn typed_array_counting_sort_float16(
-  values : Array[JSValue],
-) -> Array[JSValue] raise {
+  values : Array[Value],
+) -> Array[Value] raise {
   let len = values.length()
   let counts : Array[Int] = Array::make(65537, 0)
   let mut i = 0
@@ -144,7 +144,7 @@ fn typed_array_counting_sort_float16(
     counts[key] = counts[key] + 1
     i = i + 1
   }
-  let sorted : Array[JSValue] = Array::make(len, Undefined)
+  let sorted : Array[Value] = Array::make(len, Undefined)
   let mut out = 0
   let mut key = 0
   while key < 65536 {
@@ -279,9 +279,9 @@ fn typed_array_counting_sort_float16_data(data : TypedArrayData) -> Unit {
 
 ///|
 fn typed_array_quick_sort_values(
-  values : Array[JSValue],
+  values : Array[Value],
   kind : TypedArrayKind,
-  compare_fn : JSValue?,
+  compare_fn : Value?,
 ) -> Unit raise {
   let len = values.length()
   if len < 2 {
@@ -327,9 +327,9 @@ fn typed_array_quick_sort_values(
 
 ///|
 fn typed_array_compare_indices(
-  values : Array[JSValue],
+  values : Array[Value],
   kind : TypedArrayKind,
-  compare_fn : JSValue,
+  compare_fn : Value,
   left : Int,
   right : Int,
 ) -> Int raise {
@@ -355,9 +355,9 @@ fn typed_array_compare_indices(
 ///|
 fn typed_array_quick_sort_indices(
   indices : Array[Int],
-  values : Array[JSValue],
+  values : Array[Value],
   kind : TypedArrayKind,
-  compare_fn : JSValue,
+  compare_fn : Value,
 ) -> Unit raise {
   let len = indices.length()
   if len < 2 {
@@ -417,10 +417,10 @@ fn typed_array_quick_sort_indices(
 
 ///|
 fn typed_array_sort_values(
-  values : Array[JSValue],
+  values : Array[Value],
   kind : TypedArrayKind,
-  compare_fn : JSValue?,
-) -> Array[JSValue] raise {
+  compare_fn : Value?,
+) -> Array[Value] raise {
   match compare_fn {
     Some(func) => {
       let indices : Array[Int] = []
@@ -430,7 +430,7 @@ fn typed_array_sort_values(
         i = i + 1
       }
       typed_array_quick_sort_indices(indices, values, kind, func)
-      let sorted : Array[JSValue] = []
+      let sorted : Array[Value] = []
       for index in indices {
         sorted.push(values[index])
       }
@@ -458,9 +458,9 @@ fn typed_array_sort_values(
 
 ///|
 fn typed_array_sort_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (arr, data) = require_typed_array_checked(Some(this_value))
   let compare_arg = if args.is_empty() { Undefined } else { args[0] }
   let compare_fn = if compare_arg is Undefined {
@@ -506,9 +506,9 @@ fn typed_array_sort_value(
 
 ///|
 fn typed_array_to_sorted_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let (_, data) = require_typed_array_checked(Some(this_value))
   let compare_arg = if args.is_empty() { Undefined } else { args[0] }
   let compare_fn = if compare_arg is Undefined {

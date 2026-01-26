@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_file(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::FilePuts => {
       let fd = require_file_fd(builtin.this_value)

@@ -1,10 +1,10 @@
 ///|
 fn array_iterate(
-  obj : JSValue,
-  callback : JSValue,
-  this_arg : JSValue,
+  obj : Value,
+  callback : Value,
+  this_arg : Value,
   kind : ArrayIterKind,
-) -> JSValue raise {
+) -> Value raise {
   let len = array_like_length_int64(obj)
   if !is_callable(callback) {
     return throw_type_error("not a function")
@@ -16,10 +16,44 @@ fn array_iterate(
   }
   let mut out_index = 0L
   let mut k = 0L
+  let mut fast_array : ArrayValue? = None
+  match obj {
+    Array(arr) => if arr.typed_array_data is None { fast_array = Some(arr) }
+    _ => ()
+  }
   while k < len {
     let key = Int64::to_string(k)
-    if has_property_value(obj, key) {
-      let value = property_get(obj, key)
+    let mut present = false
+    let mut value = Undefined
+    match fast_array {
+      Some(arr) =>
+        if props_contains(arr.props, key) {
+          present = true
+          value = property_get(obj, key)
+        } else {
+          let elements_len = Int64::from_int(arr.elements.length())
+          if k < elements_len {
+            let index = Int64::to_int(k)
+            match arr.elements[index] {
+              Some(found) => {
+                present = true
+                value = found
+              }
+              None => ()
+            }
+          }
+          if !present && has_property_value(obj, key) {
+            present = true
+            value = property_get(obj, key)
+          }
+        }
+      None =>
+        if has_property_value(obj, key) {
+          present = true
+          value = property_get(obj, key)
+        }
+    }
+    if present {
       let res = call_value_with_this(
         callback,
         [value, Number(Int64::to_double(k)), obj],
@@ -52,17 +86,17 @@ fn array_iterate(
 
 ///|
 fn array_reduce_impl(
-  obj : JSValue,
-  callback : JSValue,
-  initial : JSValue?,
+  obj : Value,
+  callback : Value,
+  initial : Value?,
   from_right : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let len = array_like_length_int64(obj)
   if !is_callable(callback) {
     return throw_type_error("not a function")
   }
   let mut k = 0L
-  let mut acc : JSValue? = initial
+  let mut acc : Value? = initial
   if acc is None {
     for {
       if k >= len {

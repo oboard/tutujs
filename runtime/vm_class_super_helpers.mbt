@@ -1,5 +1,5 @@
 ///|
-fn resolve_super_base() -> JSValue raise {
+fn resolve_super_base() -> Value raise {
   match current_super_function() {
     Some(func) =>
       match func.home_object {
@@ -19,7 +19,7 @@ fn resolve_super_base() -> JSValue raise {
 }
 
 ///|
-fn super_base_and_receiver(env : Env) -> (JSValue, JSValue) raise {
+fn super_base_and_receiver(env : Env) -> (Value, Value) raise {
   let receiver = env_get(env, "this")
   let base = resolve_super_base()
   (base, receiver)
@@ -28,10 +28,10 @@ fn super_base_and_receiver(env : Env) -> (JSValue, JSValue) raise {
 ///|
 fn super_set_property(
   env : Env,
-  base : JSValue,
-  receiver : JSValue,
+  base : Value,
+  receiver : Value,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   let ok = match base {
     Object(obj) =>
@@ -79,7 +79,7 @@ fn super_set_property(
 }
 
 ///|
-fn eval_super_member(env : Env, key : @engine.MemberKey) -> JSValue raise {
+fn eval_super_member(env : Env, key : @engine.MemberKey) -> Value raise {
   match key {
     @engine.MemberKey::Private(_) =>
       return throw_syntax_error("private class field forbidden after super")
@@ -96,7 +96,7 @@ fn eval_super_member_call(
   env : Env,
   key : @engine.MemberKey,
   args : Array[@engine.Expr],
-) -> JSValue raise {
+) -> Value raise {
   match key {
     @engine.MemberKey::Private(_) =>
       return throw_syntax_error("private class field forbidden after super")
@@ -111,11 +111,11 @@ fn eval_super_member_call(
 }
 
 ///|
-fn eval_super_call(env : Env, args : Array[@engine.Expr]) -> JSValue raise {
-  let super_ctor = match current_super_function() {
+fn resolve_super_constructor() -> Value raise {
+  match current_super_function() {
     Some(func) =>
       if func.is_class_constructor && func.super_constructor is Some(_) {
-        match get_proto_of_value(JSValue::Function(func)) {
+        match get_proto_of_value(Value::Function(func)) {
           Some(value) => value
           None => Null
         }
@@ -127,7 +127,14 @@ fn eval_super_call(env : Env, args : Array[@engine.Expr]) -> JSValue raise {
       }
     None => throw_reference_error("super is not defined")
   }
-  let argv = eval_args(env, args)
+}
+
+///|
+fn super_call_with_ctor(
+  env : Env,
+  super_ctor : Value,
+  argv : Array[Value],
+) -> Value raise {
   if !is_constructor_value(super_ctor) {
     return throw_not_constructor(super_ctor)
   }
@@ -151,4 +158,11 @@ fn eval_super_call(env : Env, args : Array[@engine.Expr]) -> JSValue raise {
     }
   }
   result
+}
+
+///|
+fn eval_super_call(env : Env, args : Array[@engine.Expr]) -> Value raise {
+  let super_ctor = resolve_super_constructor()
+  let argv = eval_args(env, args)
+  super_call_with_ctor(env, super_ctor, argv)
 }

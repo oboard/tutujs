@@ -2,9 +2,9 @@
 fn new_regexp_value(
   pattern : String,
   flags : String,
-  proto : JSValue?,
+  proto : Value?,
   offset? : Int = -1,
-) -> JSValue raise {
+) -> Value raise {
   let data = try regexp_data_from_pattern(pattern, flags) catch {
     ThrowSignal(value) => {
       if offset >= 0 {
@@ -31,8 +31,8 @@ fn new_regexp_value(
   } noraise {
     value => value
   }
-  let props = Map::new()
-  props.set("lastIndex", property_data_non_enum_non_config(Number(0.0)))
+  let props = props_new()
+  props_set(props, "lastIndex", property_data_non_enum_non_config(Number(0.0)))
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
     props,
@@ -67,5 +67,6 @@ fn new_regexp_value(
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto)
   Object(obj)
 }

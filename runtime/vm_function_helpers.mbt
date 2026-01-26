@@ -2,19 +2,16 @@
 fn function_property_get_with_receiver(
   func : FunctionValue,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
-  if name == "prototype" && !func.props.contains(name) {
+  receiver : Value,
+) -> Value raise {
+  if name == "prototype" && !props_contains(func.props, name) {
     ensure_function_prototype(func)
   }
   property_get_from_chain(func.props, func.proto, name, receiver)
 }
 
 ///|
-fn function_debug_location(
-  this_value : JSValue?,
-  want_column : Bool,
-) -> JSValue {
+fn function_debug_location(this_value : Value?, want_column : Bool) -> Value {
   match this_value {
     Some(Function(func)) => {
       let slot = if want_column { func.column_number } else { func.line_number }
@@ -32,7 +29,7 @@ fn ensure_function_prototype(func : FunctionValue) -> Unit {
   if !func.is_constructor && !func.is_generator {
     return
   }
-  if func.props.contains("prototype") {
+  if props_contains(func.props, "prototype") {
     return
   }
   let proto = if func.is_generator {
@@ -59,9 +56,10 @@ fn ensure_function_prototype(func : FunctionValue) -> Unit {
   match proto {
     Object(obj) =>
       if !func.is_generator {
-        obj.props.set(
+        props_set(
+          obj.props,
           "constructor",
-          property_data_non_enum(JSValue::Function(func)),
+          property_data_non_enum(Value::Function(func)),
         )
       }
     _ => ()
@@ -71,7 +69,7 @@ fn ensure_function_prototype(func : FunctionValue) -> Unit {
   } else {
     property_data_non_enum_non_config(proto)
   }
-  func.props.set("prototype", proto_prop)
+  props_set(func.props, "prototype", proto_prop)
 }
 
 ///|
@@ -80,7 +78,7 @@ fn to_function_value(
   func : @engine.FunctionDef,
   local_name_binding : Bool,
 ) -> FunctionValue {
-  let props = Map::new()
+  let props = props_new()
   let mut len = 0
   for i = 0; i < func.params.length(); i = i + 1 {
     if func.params[i].is_rest {
@@ -91,12 +89,16 @@ fn to_function_value(
       None => len = len + 1
     }
   }
-  props.set("length", property_data_readonly(Number(Double::from_int(len))))
+  props_set(
+    props,
+    "length",
+    property_data_readonly(Number(Double::from_int(len))),
+  )
   let name = match func.name {
     Some(value) => value
     None => ""
   }
-  props.set("name", property_data_readonly(String(name)))
+  props_set(props, "name", property_data_readonly(String(name)))
   let mut source_text : String? = None
   let mut source_root : String? = None
   let mut source_path : String? = None
@@ -135,8 +137,8 @@ fn to_function_value(
       }
   }
   let mut in_class_field_init = false
-  let mut home_object : JSValue? = None
-  let mut super_constructor : JSValue? = None
+  let mut home_object : Value? = None
+  let mut super_constructor : Value? = None
   if func.is_arrow {
     match current_function() {
       Some(current) => in_class_field_init = current.in_class_field_init
@@ -150,7 +152,7 @@ fn to_function_value(
       None => ()
     }
   }
-  register_function_value(FunctionValue::{
+  let func_value = register_function_value(FunctionValue::{
     name: func.name,
     source: source_text,
     source_root,
@@ -189,7 +191,7 @@ fn to_function_value(
     super_constructor,
     instance_fields: [],
     private_instance_fields: [],
-    private_instance_props: Map::new(),
+    private_instance_props: props_new(),
     is_constructor: !func.is_generator && !func.is_async && !func.is_arrow,
     is_class_constructor: false,
     is_default_constructor: false,
@@ -202,14 +204,19 @@ fn to_function_value(
     is_arrow: func.is_arrow,
     in_class_field_init,
   })
+  rc_incref_env(env)
+  rc_incref_optional_value(func_value.proto)
+  rc_incref_optional_value(func_value.home_object)
+  rc_incref_optional_value(func_value.super_constructor)
+  func_value
 }
 
 ///|
 fn new_bound_function(
-  target : JSValue,
-  bound_this : JSValue,
-  bound_args : Array[JSValue],
-) -> JSValue raise {
+  target : Value,
+  bound_this : Value,
+  bound_args : Array[Value],
+) -> Value raise {
   let mut target_len = 0.0
   if has_own_property(target, "length") {
     let len_value = property_get(target, "length")
@@ -247,9 +254,9 @@ fn new_bound_function(
     String(s) => s
     _ => ""
   }
-  let props = Map::new()
-  props.set("length", property_data_readonly(Number(new_len_num)))
-  props.set("name", property_data_readonly(String("bound " + name)))
+  let props = props_new()
+  props_set(props, "length", property_data_readonly(Number(new_len_num)))
+  props_set(props, "name", property_data_readonly(String("bound " + name)))
   let proto = match function_realm_env(target) {
     Some(env) =>
       match function_proto_for_env(env) {
@@ -268,6 +275,10 @@ fn new_bound_function(
     is_constructor: is_constructor_value(target),
     extensible: true,
   })
+  rc_incref_value(target)
+  rc_incref_value(bound_this)
+  rc_incref_values(bound_args)
+  rc_incref_optional_value(proto)
   BoundFunction(bound)
 }
 
@@ -476,11 +487,11 @@ fn declare_param_bindings_uninitialized(
 ///|
 fn class_constructor_result(
   func : FunctionValue,
-  result : JSValue,
+  result : Value,
   frame : Env,
-  this_bound : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  this_bound : Value,
+  new_target : Value,
+) -> Value raise {
   if !func.is_class_constructor || new_target is Undefined {
     return result
   }
@@ -515,13 +526,12 @@ fn class_constructor_result(
 fn init_instance_fields(
   func : FunctionValue,
   env : Env,
-  this_value : JSValue,
+  this_value : Value,
 ) -> Unit raise {
-  if !func.private_instance_props.is_empty() {
-    for entry in func.private_instance_props {
-      let (key, prop) = entry
+  if !props_is_empty(func.private_instance_props) {
+    props_iter_raise(func.private_instance_props, fn(key, prop) raise {
       define_private_property(this_value, key, prop)
-    }
+    })
   }
   if !func.instance_fields.is_empty() {
     for field in func.instance_fields {
@@ -561,7 +571,7 @@ fn prepare_function_body_env(var_env : Env, func : FunctionValue) -> Env raise {
 }
 
 ///|
-fn function_from_args(args : Array[JSValue]) -> JSValue raise {
+fn function_from_args(args : Array[Value]) -> Value raise {
   let base_env = match root_env() {
     Some(root) => root
     None => Env::new(None)
@@ -570,7 +580,7 @@ fn function_from_args(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn generator_function_from_args(args : Array[JSValue]) -> JSValue raise {
+fn generator_function_from_args(args : Array[Value]) -> Value raise {
   let base_env = match root_env() {
     Some(root) => root
     None => Env::new(None)
@@ -579,7 +589,7 @@ fn generator_function_from_args(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn async_generator_function_from_args(args : Array[JSValue]) -> JSValue raise {
+fn async_generator_function_from_args(args : Array[Value]) -> Value raise {
   let base_env = match root_env() {
     Some(root) => root
     None => Env::new(None)
@@ -588,7 +598,7 @@ fn async_generator_function_from_args(args : Array[JSValue]) -> JSValue raise {
 }
 
 ///|
-fn async_function_from_args(args : Array[JSValue]) -> JSValue raise {
+fn async_function_from_args(args : Array[Value]) -> Value raise {
   let base_env = match root_env() {
     Some(root) => root
     None => Env::new(None)
@@ -598,19 +608,19 @@ fn async_function_from_args(args : Array[JSValue]) -> JSValue raise {
 
 ///|
 fn function_from_args_with_env(
-  args : Array[JSValue],
+  args : Array[Value],
   base_env : Env,
-) -> JSValue raise {
+) -> Value raise {
   function_from_args_with_env_kind(args, base_env, false, false)
 }
 
 ///|
 fn function_from_args_with_env_kind(
-  args : Array[JSValue],
+  args : Array[Value],
   base_env : Env,
   is_generator : Bool,
   is_async : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let mut params_source = ""
   if args.length() > 1 {
     let parts : Array[String] = []
@@ -658,18 +668,13 @@ fn function_from_args_with_env_kind(
     let func_value = to_function_value(func_env, func_def, false)
     match func_def.name {
       Some(name) =>
-        env_define_readonly(
-          func_env,
-          name,
-          JSValue::Function(func_value),
-          false,
-        )
+        env_define_readonly(func_env, name, Value::Function(func_value), false)
       None => ()
     }
     if !is_async || is_generator {
       ensure_function_prototype(func_value)
     }
-    JSValue::Function(func_value)
+    Value::Function(func_value)
   })
 }
 
@@ -677,10 +682,10 @@ fn function_from_args_with_env_kind(
 fn new_arguments_value(
   func : FunctionValue,
   env : Env,
-  args : Array[JSValue],
+  args : Array[Value],
   is_strict : Bool,
   mapped_allowed : Bool,
-) -> JSValue {
+) -> Value {
   let param_names = if mapped_allowed {
     let names : Array[String] = []
     for param in func.params {
@@ -696,7 +701,7 @@ fn new_arguments_value(
   } else {
     []
   }
-  let elements : Array[JSValue?] = []
+  let elements : Array[Value?] = []
   for value in args {
     elements.push(Some(value))
   }
@@ -723,27 +728,31 @@ fn new_arguments_value(
       i = i - 1
     }
   }
-  let props : Map[String, Property] = Map::new()
-  props.set("length", property_data_non_enum(Number(Double::from_int(arg_len))))
+  let props = props_new()
+  props_set(
+    props,
+    "length",
+    property_data_non_enum(Number(Double::from_int(arg_len))),
+  )
   if is_strict || !mapped_allowed {
     let thrower = throw_type_error_value_for_env(env)
-    props.set("callee", property_accessor_non_config(thrower, thrower))
+    props_set(props, "callee", property_accessor_non_config(thrower, thrower))
   } else {
-    props.set("callee", property_data_non_enum(JSValue::Function(func)))
+    props_set(props, "callee", property_data_non_enum(Value::Function(func)))
   }
-  let mut array_iterator_value : JSValue? = None
+  let mut array_iterator_value : Value? = None
   match array_proto_for_env(env) {
     Some(array_proto_obj) => {
       match symbol_iterator_key() {
         Some(key) =>
-          match array_proto_obj.props.get(key) {
+          match props_get(array_proto_obj.props, key) {
             Some(prop) => array_iterator_value = Some(prop.value)
             None => ()
           }
         None => ()
       }
       if array_iterator_value is None {
-        match array_proto_obj.props.get("values") {
+        match props_get(array_proto_obj.props, "values") {
           Some(prop) => array_iterator_value = Some(prop.value)
           None => ()
         }
@@ -754,9 +763,10 @@ fn new_arguments_value(
   match symbol_iterator_key() {
     Some(key) =>
       match array_iterator_value {
-        Some(value) => props.set(key, property_data_non_enum(value))
+        Some(value) => props_set(props, key, property_data_non_enum(value))
         None =>
-          props.set(
+          props_set(
+            props,
             key,
             property_data_non_enum(
               new_builtin_value(BuiltinFunction::ArrayValues),
@@ -765,6 +775,10 @@ fn new_arguments_value(
       }
     None => ()
   }
+  rc_incref_optional_values(elements)
+  rc_incref_env(env)
+  let proto_value = value_from_object(object_proto())
+  rc_incref_optional_value(proto_value)
   let args_value = register_arguments_value(ArgumentsValue::{
     id: alloc_id(),
     env,
@@ -772,7 +786,7 @@ fn new_arguments_value(
     mapped,
     elements,
     props,
-    proto: value_from_object(object_proto()),
+    proto: proto_value,
     extensible: true,
   })
   Arguments(args_value)
@@ -781,7 +795,7 @@ fn new_arguments_value(
 ///|
 fn function_name_from_key(
   name : String,
-  key_value : JSValue?,
+  key_value : Value?,
   prefix : String?,
 ) -> String {
   let base = match key_value {
@@ -804,20 +818,32 @@ fn function_name_from_key(
 
 ///|
 fn set_function_name(func : FunctionValue, name : String) -> Unit {
-  func.props.set("name", property_data_readonly(String(name)))
+  props_set(func.props, "name", property_data_readonly(String(name)))
+}
+
+///|
+fn set_function_home_object(func : FunctionValue, value : Value?) -> Unit {
+  rc_replace_optional_value(func.home_object, value)
+  func.home_object = value
+}
+
+///|
+fn set_function_super_constructor(func : FunctionValue, value : Value?) -> Unit {
+  rc_replace_optional_value(func.super_constructor, value)
+  func.super_constructor = value
 }
 
 ///|
 fn set_anonymous_function_name(
-  value : JSValue,
+  value : Value,
   name : String,
-  key_value : JSValue?,
+  key_value : Value?,
 ) -> Unit {
   match value {
     Function(func) =>
       if func.name is None {
         let mut allow = true
-        match func.props.get("name") {
+        match props_get(func.props, "name") {
           Some(prop) =>
             match prop.value {
               String(value) => allow = value == ""
@@ -838,8 +864,8 @@ fn eval_named_expr(
   env : Env,
   expr : @engine.Expr,
   name : String,
-  key_value : JSValue?,
-) -> JSValue raise {
+  key_value : Value?,
+) -> Value raise {
   let hint_name = function_name_from_key(name, key_value, None)
   match unwrap_paren(expr) {
     @engine.Expr::ClassExpr(class_def) =>

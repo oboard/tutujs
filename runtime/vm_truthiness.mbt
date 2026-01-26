@@ -1,5 +1,5 @@
 ///|
-fn is_html_dda_value(value : JSValue) -> Bool {
+fn is_html_dda_value(value : Value) -> Bool {
   match value {
     Builtin(builtin) => builtin.is_html_dda
     Object(obj) => obj.is_html_dda
@@ -8,7 +8,7 @@ fn is_html_dda_value(value : JSValue) -> Bool {
 }
 
 ///|
-fn is_truthy(value : JSValue) -> Bool {
+fn is_truthy(value : Value) -> Bool {
   if is_html_dda_value(value) {
     return false
   }
@@ -30,7 +30,7 @@ fn is_truthy(value : JSValue) -> Bool {
 }
 
 ///|
-fn is_nullish(value : JSValue) -> Bool {
+fn is_nullish(value : Value) -> Bool {
   match value {
     Undefined => true
     Null => true

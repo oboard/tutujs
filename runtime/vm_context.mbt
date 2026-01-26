@@ -41,7 +41,7 @@ fn root_env() -> Env? {
 }
 
 ///|
-fn with_root_env(env : Env, f : () -> JSValue raise) -> JSValue raise {
+fn with_root_env(env : Env, f : () -> Value raise) -> Value raise {
   let prev = root_env()
   set_root_env(env)
   try f() catch {
@@ -194,7 +194,7 @@ fn current_source_path() -> String? {
 }
 
 ///|
-fn with_source_value(source : String, f : () -> JSValue raise) -> JSValue raise {
+fn with_source_value(source : String, f : () -> Value raise) -> Value raise {
   push_source(source)
   try {
     let result = f()
@@ -229,8 +229,8 @@ fn with_source_value_step(
 ///|
 fn with_function_source(
   func : FunctionValue,
-  f : () -> JSValue raise,
-) -> JSValue raise {
+  f : () -> Value raise,
+) -> Value raise {
   match func.source_root {
     Some(source) => with_source_value(source, f)
     None => f()
@@ -249,7 +249,7 @@ fn with_function_source_step(
 }
 
 ///|
-fn with_source_path(path : String, f : () -> JSValue raise) -> JSValue raise {
+fn with_source_path(path : String, f : () -> Value raise) -> Value raise {
   push_source_path(path)
   try {
     let result = f()
@@ -351,7 +351,7 @@ fn expr_pos_stack() -> Array[Int] {
 }
 
 ///|
-fn with_expr_pos(offset : Int, f : () -> JSValue raise) -> JSValue raise {
+fn with_expr_pos(offset : Int, f : () -> Value raise) -> Value raise {
   push_expr_pos(offset)
   try {
     let result = f()
@@ -368,8 +368,8 @@ fn with_expr_pos(offset : Int, f : () -> JSValue raise) -> JSValue raise {
 ///|
 fn with_expr_pos_call_ref(
   offset : Int,
-  f : () -> (JSValue, JSValue) raise,
-) -> (JSValue, JSValue) raise {
+  f : () -> (Value, Value) raise,
+) -> (Value, Value) raise {
   push_expr_pos(offset)
   try {
     let result = f()
@@ -452,8 +452,8 @@ fn current_super_function() -> FunctionValue? {
 ///|
 fn with_current_function(
   func : FunctionValue,
-  f : () -> JSValue raise,
-) -> JSValue raise {
+  f : () -> Value raise,
+) -> Value raise {
   let mut depth = 0
   current_function_stack_ref.update(fn(current) {
     depth = current.length()
@@ -557,11 +557,28 @@ fn gen_root_depth() -> Int {
 }
 
 ///|
-fn gen_root_push(value : JSValue) -> Int {
+fn gen_root_snapshot() -> Array[Value] {
+  let roots : Array[Value] = []
+  current_generator_data_ref.update(fn(current) {
+    match current {
+      Some(data) =>
+        for value in data.roots {
+          roots.push(value)
+        }
+      None => ()
+    }
+    current
+  })
+  roots
+}
+
+///|
+fn gen_root_push(value : Value) -> Int {
   let mut depth = 0
   current_generator_data_ref.update(fn(current) {
     match current {
       Some(data) => {
+        rc_incref_value(value)
         data.roots.push(value)
         depth = data.roots.length()
       }
@@ -578,9 +595,28 @@ fn gen_root_pop_to(depth : Int) -> Unit {
     match current {
       Some(data) =>
         while data.roots.length() > depth {
-          let _ = data.roots.pop()
-
+          match data.roots.pop() {
+            Some(value) => rc_decref_value(value)
+            None => ()
+          }
         }
+      None => ()
+    }
+    current
+  })
+}
+
+///|
+fn gen_root_replace(values : Array[Value]) -> Unit {
+  current_generator_data_ref.update(fn(current) {
+    match current {
+      Some(data) => {
+        rc_clear_values(data.roots)
+        for value in values {
+          rc_incref_value(value)
+          data.roots.push(value)
+        }
+      }
       None => ()
     }
     current
@@ -620,7 +656,7 @@ fn gen_with_root_frame(f : () -> GenStep raise) -> GenStep raise {
 }
 
 ///|
-fn with_env_value(env : Env, f : () -> JSValue raise) -> JSValue raise {
+fn with_env_value(env : Env, f : () -> Value raise) -> Value raise {
   push_env(env)
   try {
     let result = f()

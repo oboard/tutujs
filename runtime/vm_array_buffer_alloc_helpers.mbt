@@ -1,5 +1,5 @@
 ///|
-fn require_array_buffer_array(value : JSValue) -> ArrayValue raise {
+fn require_array_buffer_array(value : Value) -> ArrayValue raise {
   match value {
     Array(arr) => arr
     _ => {
@@ -17,8 +17,8 @@ fn new_array_buffer_value_with_options(
   byte_length : Int,
   max_byte_length : Int,
   resizable : Bool,
-  proto? : JSValue? = None,
-) -> JSValue {
+  proto? : Value? = None,
+) -> Value {
   let proto_value = match proto {
     Some(value) => Some(value)
     None => value_from_object(array_buffer_proto())
@@ -41,7 +41,7 @@ fn new_array_buffer_value_with_options(
 }
 
 ///|
-fn new_array_buffer_value(byte_length : Int) -> JSValue {
+fn new_array_buffer_value(byte_length : Int) -> Value {
   new_array_buffer_value_with_options(byte_length, byte_length, false)
 }
 
@@ -50,8 +50,8 @@ fn new_shared_array_buffer_value_with_options(
   byte_length : Int,
   max_byte_length : Int,
   resizable : Bool,
-  proto : JSValue?,
-) -> JSValue {
+  proto : Value?,
+) -> Value {
   let proto_value = match proto {
     Some(value) => Some(value)
     None => value_from_object(shared_array_buffer_proto())
@@ -79,8 +79,8 @@ fn new_dataview_value_with_proto(
   byte_offset : Int,
   byte_length : Int,
   length_tracking : Bool,
-  proto : JSValue?,
-) -> JSValue {
+  proto : Value?,
+) -> Value {
   let value = new_object_value_with_proto(proto)
   match value {
     Object(obj) =>
@@ -97,9 +97,9 @@ fn new_dataview_value_with_proto(
 
 ///|
 fn new_dataview_from_args(
-  args : Array[JSValue],
-  target_value : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  target_value : Value,
+) -> Value raise {
   let buffer_value = if args.is_empty() { Undefined } else { args[0] }
   let (buffer_obj, data) = require_array_buffer(Some(buffer_value))
   let offset64 = if args.length() > 1 { to_index_int64(args[1]) } else { 0L }

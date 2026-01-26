@@ -27,7 +27,7 @@ fn eval_module_script(
     None => Env::new(None)
   }
   module_env.strict = true
-  module_env.bindings.set("this", Undefined)
+  env_bindings_set(module_env, "this", Undefined)
   module_env.var_env = Some(module_env)
   module_env_exports_set(module_env.id, exports_obj)
   module_env_set(module_env)
@@ -124,7 +124,7 @@ fn module_has_top_level_await(script : @engine.Script) -> Bool {
 }
 
 ///|
-fn module_syntax_error_value(env : Env, message : String) -> JSValue {
+fn module_syntax_error_value(env : Env, message : String) -> Value {
   let proto = match syntax_error_proto_for_env(env) {
     Some(value) => Some(value)
     None => syntax_error_proto()

@@ -1,5 +1,5 @@
 ///|
-fn iterator_constructor_value() -> JSValue raise {
+fn iterator_constructor_value() -> Value raise {
   match current_env() {
     Some(env) =>
       match global_object(env) {
@@ -19,7 +19,7 @@ fn iterator_constructor_value() -> JSValue raise {
 }
 
 ///|
-fn iterator_from_value(value : JSValue) -> JSValue raise {
+fn iterator_from_value(value : Value) -> Value raise {
   let obj = match value {
     String(_) => value
     _ =>
@@ -55,19 +55,22 @@ fn iterator_from_value(value : JSValue) -> JSValue raise {
     value_from_object(iterator_wrap_proto()),
   )
   match wrapper {
-    Object(obj) =>
+    Object(obj) => {
+      rc_incref_value(iterator)
+      rc_incref_value(next_method)
       obj.iterator_wrap_data = Some(IteratorWrapData::{
         wrapped_iter: iterator,
         wrapped_next: next_method,
       })
+    }
     _ => ()
   }
   wrapper
 }
 
 ///|
-fn iterator_concat_value(args : Array[JSValue]) -> JSValue raise {
-  let values : Array[(JSValue, JSValue)] = []
+fn iterator_concat_value(args : Array[Value]) -> Value raise {
+  let values : Array[(Value, Value)] = []
   for value in args {
     if !is_object_like(value) {
       return throw_type_error("not an object")
@@ -89,7 +92,12 @@ fn iterator_concat_value(args : Array[JSValue]) -> JSValue raise {
     value_from_object(iterator_concat_proto()),
   )
   match iterator {
-    Object(obj) =>
+    Object(obj) => {
+      for entry in values {
+        let (iterable, iter_method) = entry
+        rc_incref_value(iterable)
+        rc_incref_value(iter_method)
+      }
       obj.iterator_concat_data = Some(IteratorConcatData::{
         index: 0,
         count: values.length(),
@@ -98,6 +106,7 @@ fn iterator_concat_value(args : Array[JSValue]) -> JSValue raise {
         next: Undefined,
         values,
       })
+    }
     _ => ()
   }
   iterator

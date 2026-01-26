@@ -20,13 +20,13 @@ pub struct FunctionValue {
   body : Array[@engine.Stmt]
   env : Env
   id : Int
-  props : Map[String, Property]
-  mut proto : JSValue?
-  mut home_object : JSValue?
-  mut super_constructor : JSValue?
+  props : Props
+  mut proto : Value?
+  mut home_object : Value?
+  mut super_constructor : Value?
   mut instance_fields : Array[ClassFieldRecord]
   private_instance_fields : Array[(String, @engine.Expr?)]
-  mut private_instance_props : Map[String, Property]
+  mut private_instance_props : Props
   mut is_constructor : Bool
   mut is_class_constructor : Bool
   mut is_default_constructor : Bool
@@ -58,24 +58,24 @@ pub impl ToJson for FunctionValue with to_json(self) {
 
 ///|
 priv enum GenControl {
-  Normal(JSValue)
-  Return(JSValue)
-  Break(String?, JSValue?)
-  Continue(String?, JSValue?)
-  Throw(JSValue)
+  Normal(Value)
+  Return(Value)
+  Break(String?, Value?)
+  Continue(String?, Value?)
+  Throw(Value)
 }
 
 ///|
 priv enum GenResume {
-  Next(JSValue)
-  Return(JSValue)
-  Throw(JSValue)
+  Next(Value)
+  Return(Value)
+  Throw(Value)
 }
 
 ///|
 priv enum GenStep {
-  Yield(JSValue, (GenResume) -> GenStep raise)
-  Await(JSValue, (GenResume) -> GenStep raise)
+  Yield(Value, (GenResume) -> GenStep raise)
+  Await(Value, (GenResume) -> GenStep raise)
   Done(GenControl)
 }
 
@@ -99,9 +99,9 @@ priv enum AsyncGeneratorState {
 ///|
 priv struct AsyncGeneratorRequest {
   resume_state : GenResume
-  promise : JSValue
-  resolve : JSValue
-  reject : JSValue
+  promise : Value
+  resolve : Value
+  reject : Value
 }
 
 ///|
@@ -117,17 +117,17 @@ struct GeneratorData {
   env : Env
   func : FunctionValue
   mut next_step : (GenResume) -> GenStep raise
-  roots : Array[JSValue]
+  roots : Array[Value]
 }
 
 ///|
 pub struct BoundFunctionValue {
   id : Int
-  mut target : JSValue
-  mut bound_this : JSValue
-  bound_args : Array[JSValue]
-  props : Map[String, Property]
-  mut proto : JSValue?
+  mut target : Value
+  mut bound_this : Value
+  bound_args : Array[Value]
+  props : Props
+  mut proto : Value?
   is_constructor : Bool
   mut extensible : Bool
 }

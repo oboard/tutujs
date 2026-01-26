@@ -1,5 +1,5 @@
 ///|
-fn new_promise_value_with_proto(proto : JSValue?) -> JSValue {
+fn new_promise_value_with_proto(proto : Value?) -> Value {
   let value = new_object_value_with_proto(proto)
   match value {
     Object(obj) => {
@@ -8,12 +8,8 @@ fn new_promise_value_with_proto(proto : JSValue?) -> JSValue {
         value: Undefined,
         fulfill_reactions: [],
         reject_reactions: [],
-        is_handled: false,
       }
-      promise_table_ref.update(fn(table) {
-        table.set(obj.id, data)
-        table
-      })
+      promise_table_set(obj.id, data)
     }
     _ => ()
   }
@@ -24,25 +20,28 @@ fn new_promise_value_with_proto(proto : JSValue?) -> JSValue {
 fn promise_settle(
   data : PromiseData,
   state : PromiseState,
-  value : JSValue,
+  value : Value,
 ) -> Unit {
-  let _ = data.is_handled
   match data.state {
     PromiseState::Pending => ()
     _ => return
   }
   data.state = state
+  rc_replace_value(data.value, value)
   data.value = value
+  let fulfill_items = data.fulfill_reactions
+  let reject_items = data.reject_reactions
+  data.fulfill_reactions = []
+  data.reject_reactions = []
   let reactions = if state is PromiseState::Fulfilled {
-    let items = data.fulfill_reactions
-    data.fulfill_reactions = []
-    data.reject_reactions = []
-    items
+    fulfill_items
   } else {
-    let items = data.reject_reactions
-    data.fulfill_reactions = []
-    data.reject_reactions = []
-    items
+    reject_items
+  }
+  let discarded = if state is PromiseState::Fulfilled {
+    reject_items
+  } else {
+    fulfill_items
   }
   for reaction in reactions {
     enqueue_job(new_builtin_value(BuiltinFunction::PromiseReactionJob), [
@@ -52,17 +51,21 @@ fn promise_settle(
       Bool(state is PromiseState::Rejected),
       value,
     ])
+    rc_decref_promise_reaction(reaction)
+  }
+  for reaction in discarded {
+    rc_decref_promise_reaction(reaction)
   }
 }
 
 ///|
 fn perform_promise_then(
-  promise : JSValue,
+  promise : Value,
   data : PromiseData,
-  on_fulfilled : JSValue,
-  on_rejected : JSValue,
-  resolve : JSValue,
-  reject : JSValue,
+  on_fulfilled : Value,
+  on_rejected : Value,
+  resolve : Value,
+  reject : Value,
 ) -> Unit {
   let fulfill_handler = if is_callable(on_fulfilled) {
     on_fulfilled
@@ -76,16 +79,20 @@ fn perform_promise_then(
   }
   match data.state {
     PromiseState::Pending => {
-      data.fulfill_reactions.push(PromiseReaction::{
+      let fulfill_reaction = PromiseReaction::{
         resolve,
         reject,
         handler: fulfill_handler,
-      })
-      data.reject_reactions.push(PromiseReaction::{
+      }
+      rc_incref_promise_reaction(fulfill_reaction)
+      data.fulfill_reactions.push(fulfill_reaction)
+      let reject_reaction = PromiseReaction::{
         resolve,
         reject,
         handler: reject_handler,
-      })
+      }
+      rc_incref_promise_reaction(reject_reaction)
+      data.reject_reactions.push(reject_reaction)
     }
     PromiseState::Fulfilled =>
       enqueue_job(new_builtin_value(BuiltinFunction::PromiseReactionJob), [
@@ -104,7 +111,6 @@ fn perform_promise_then(
         data.value,
       ])
   }
-  data.is_handled = true
   let _ = promise
 
 }
@@ -119,7 +125,7 @@ fn promise_all_remaining_add(
 }
 
 ///|
-fn promise_species_constructor(promise : JSValue) -> JSValue raise {
+fn promise_species_constructor(promise : Value) -> Value raise {
   let default_ctor = promise_ctor_value_for_current_env()
   let ctor = property_get(promise, "constructor")
   match ctor {
@@ -146,7 +152,7 @@ fn promise_species_constructor(promise : JSValue) -> JSValue raise {
 }
 
 ///|
-fn create_promise_resolving_functions(promise : JSValue) -> (JSValue, JSValue) {
+fn create_promise_resolving_functions(promise : Value) -> (Value, Value) {
   let shared = PromiseResolveShared::{ already_resolved: false }
   let resolve = new_builtin_value(BuiltinFunction::PromiseResolveFunction)
   let reject = new_builtin_value(BuiltinFunction::PromiseRejectFunction)
@@ -172,7 +178,7 @@ fn create_promise_resolving_functions(promise : JSValue) -> (JSValue, JSValue) {
 }
 
 ///|
-fn new_promise_capability_executor() -> JSValue {
+fn new_promise_capability_executor() -> Value {
   let executor = new_builtin_value(BuiltinFunction::PromiseCapabilityExecutor)
   match executor {
     Builtin(builtin) =>
@@ -186,7 +192,7 @@ fn new_promise_capability_executor() -> JSValue {
 }
 
 ///|
-fn new_promise_capability(ctor : JSValue) -> (JSValue, JSValue, JSValue) raise {
+fn new_promise_capability(ctor : Value) -> (Value, Value, Value) raise {
   let executor = new_promise_capability_executor()
   let promise = if ctor is Undefined {
     let default_ctor = promise_ctor_value_for_current_env()
@@ -222,10 +228,10 @@ fn new_promise_capability(ctor : JSValue) -> (JSValue, JSValue, JSValue) raise {
 
 ///|
 fn promise_resolve_value(
-  this_value : JSValue,
-  value : JSValue,
+  this_value : Value,
+  value : Value,
   is_reject : Bool,
-) -> JSValue raise {
+) -> Value raise {
   if !is_object_like(this_value) {
     return throw_type_error("not an object")
   }
@@ -247,7 +253,7 @@ fn promise_resolve_value(
 }
 
 ///|
-fn new_promise_all_element_function(data : PromiseAllElementData) -> JSValue {
+fn new_promise_all_element_function(data : PromiseAllElementData) -> Value {
   let func = new_builtin_value(BuiltinFunction::PromiseAllResolveElement)
   match func {
     Builtin(builtin) => promise_all_element_data_set(builtin.id, data)
@@ -257,7 +263,7 @@ fn new_promise_all_element_function(data : PromiseAllElementData) -> JSValue {
 }
 
 ///|
-fn new_promise_then_finally_function(data : PromiseThenFinallyData) -> JSValue {
+fn new_promise_then_finally_function(data : PromiseThenFinallyData) -> Value {
   let func = new_builtin_value(BuiltinFunction::PromiseThenFinally)
   match func {
     Builtin(builtin) => promise_then_finally_data_set(builtin.id, data)
@@ -267,7 +273,7 @@ fn new_promise_then_finally_function(data : PromiseThenFinallyData) -> JSValue {
 }
 
 ///|
-fn new_promise_finally_value_thunk(value : JSValue) -> JSValue {
+fn new_promise_finally_value_thunk(value : Value) -> Value {
   let func = new_builtin_value(BuiltinFunction::PromiseFinallyValueThunk)
   match func {
     Builtin(builtin) => promise_finally_value_data_set(builtin.id, value)
@@ -277,7 +283,7 @@ fn new_promise_finally_value_thunk(value : JSValue) -> JSValue {
 }
 
 ///|
-fn new_promise_finally_thrower(value : JSValue) -> JSValue {
+fn new_promise_finally_thrower(value : Value) -> Value {
   let func = new_builtin_value(BuiltinFunction::PromiseFinallyThrower)
   match func {
     Builtin(builtin) => promise_finally_value_data_set(builtin.id, value)
@@ -287,21 +293,17 @@ fn new_promise_finally_thrower(value : JSValue) -> JSValue {
 }
 
 ///|
-fn set_array_index(
-  values : JSValue,
-  index : Int,
-  value : JSValue,
-) -> Unit raise {
+fn set_array_index(values : Value, index : Int, value : Value) -> Unit raise {
   let name = Int::to_string(index)
   create_data_property_or_throw(values, name, value)
 }
 
 ///|
 fn promise_invoke_then(
-  promise : JSValue,
-  on_fulfilled : JSValue,
-  on_rejected : JSValue,
-) -> JSValue raise {
+  promise : Value,
+  on_fulfilled : Value,
+  on_rejected : Value,
+) -> Value raise {
   let then_method = property_get(promise, "then")
   if !is_callable(then_method) {
     return throw_type_error("not a function")
@@ -310,17 +312,17 @@ fn promise_invoke_then(
 }
 
 ///|
-fn promise_then_value(promise : JSValue, value : JSValue) -> JSValue raise {
+fn promise_then_value(promise : Value, value : Value) -> Value raise {
   let on_fulfilled = new_promise_finally_value_thunk(value)
   promise_invoke_then(promise, on_fulfilled, Undefined)
 }
 
 ///|
 fn promise_all_value(
-  this_value : JSValue,
-  iterable : JSValue,
+  this_value : Value,
+  iterable : Value,
   mode : Int,
-) -> JSValue raise {
+) -> Value raise {
   if !is_object_like(this_value) {
     return throw_type_error("not an object")
   }
@@ -410,7 +412,7 @@ fn promise_all_value(
           is_reject: false,
         }
         let mut resolve_element = new_promise_all_element_function(resolve_data)
-        let mut reject_element : JSValue = Undefined
+        let mut reject_element : Value = Undefined
         if mode == 1 {
           let reject_data = PromiseAllElementData::{
             shared,
@@ -479,10 +481,7 @@ fn promise_all_value(
 }
 
 ///|
-fn promise_race_value(
-  this_value : JSValue,
-  iterable : JSValue,
-) -> JSValue raise {
+fn promise_race_value(this_value : Value, iterable : Value) -> Value raise {
   if !is_object_like(this_value) {
     return throw_type_error("not an object")
   }
@@ -586,15 +585,12 @@ fn promise_race_value(
 }
 
 ///|
-fn promise_try_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn promise_try_value(this_value : Value, args : Array[Value]) -> Value raise {
   if !is_object_like(this_value) {
     return throw_type_error("not an object")
   }
   let (result_promise, resolve, reject) = new_promise_capability(this_value)
-  let call_args : Array[JSValue] = []
+  let call_args : Array[Value] = []
   let func = if args.is_empty() { Undefined } else { args[0] }
   let mut i = 1
   while i < args.length() {
@@ -618,7 +614,7 @@ fn promise_try_value(
 }
 
 ///|
-fn promise_with_resolvers_value(this_value : JSValue) -> JSValue raise {
+fn promise_with_resolvers_value(this_value : Value) -> Value raise {
   if !is_object_like(this_value) {
     return throw_type_error("not an object")
   }

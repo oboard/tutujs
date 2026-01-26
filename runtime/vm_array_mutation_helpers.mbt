@@ -1,8 +1,5 @@
 ///|
-fn array_fill_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_fill_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let start = if args.length() > 1 && !(args[1] is Undefined) {
@@ -26,9 +23,9 @@ fn array_fill_value(
 
 ///|
 fn array_copy_within_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value,
+  args : Array[Value],
+) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let to_value = if args.is_empty() { Undefined } else { args[0] }
@@ -67,10 +64,7 @@ fn array_copy_within_value(
 }
 
 ///|
-fn array_splice_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_splice_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let mut start = 0L
@@ -159,10 +153,7 @@ fn array_splice_value(
 }
 
 ///|
-fn array_slice_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_slice_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len64 = array_like_length_int64(obj)
   let mut start = 0L
@@ -196,7 +187,7 @@ fn array_slice_value(
 }
 
 ///|
-fn array_reverse_value(this_value : JSValue) -> JSValue raise {
+fn array_reverse_value(this_value : Value) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   if len <= 1L {
@@ -239,10 +230,7 @@ fn array_reverse_value(this_value : JSValue) -> JSValue raise {
 }
 
 ///|
-fn array_unshift_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_unshift_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let item_count = args.length()
@@ -280,10 +268,7 @@ fn array_unshift_value(
 }
 
 ///|
-fn array_push_value(
-  this_value : JSValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn array_push_value(this_value : Value, args : Array[Value]) -> Value raise {
   let obj = to_object(this_value)
   let len = array_like_length_int64(obj)
   let item_count = args.length()

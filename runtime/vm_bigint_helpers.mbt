@@ -31,7 +31,7 @@ fn bigint_from_double(value : Double) -> @bigint.BigInt? {
 }
 
 ///|
-fn bigint_from_value(value : JSValue) -> @bigint.BigInt raise {
+fn bigint_from_value(value : Value) -> @bigint.BigInt raise {
   match value {
     BigInt(b) => b
     Bool(v) => @bigint.BigInt::from_int(if v { 1 } else { 0 })
@@ -68,7 +68,7 @@ fn bigint_from_value(value : JSValue) -> @bigint.BigInt raise {
 }
 
 ///|
-fn to_bigint(value : JSValue) -> @bigint.BigInt raise {
+fn to_bigint(value : Value) -> @bigint.BigInt raise {
   match value {
     BigInt(b) => b
     Bool(v) => @bigint.BigInt::from_int(if v { 1 } else { 0 })
@@ -91,10 +91,10 @@ fn to_bigint(value : JSValue) -> @bigint.BigInt raise {
 
 ///|
 fn bigint_as_n(
-  bits_value : JSValue,
-  bigint_value : JSValue,
+  bits_value : Value,
+  bigint_value : Value,
   as_int : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let bits64 = to_index_int64(bits_value)
   let value = to_bigint(bigint_value)
   let max_int = 2147483647
@@ -357,7 +357,7 @@ fn bigint_bitwise_op(
 }
 
 ///|
-fn bigint_to_uint64_bits(value : JSValue, as_int : Bool) -> UInt64 raise {
+fn bigint_to_uint64_bits(value : Value, as_int : Bool) -> UInt64 raise {
   let big = to_bigint(value)
   let modulus = @bigint.BigInt::from_int(1) << 64
   let mut result = big.mod(modulus)
@@ -377,7 +377,7 @@ fn bigint_to_uint64_bits(value : JSValue, as_int : Bool) -> UInt64 raise {
 }
 
 ///|
-fn bigint_property_get(value : @bigint.BigInt, name : String) -> JSValue raise {
+fn bigint_property_get(value : @bigint.BigInt, name : String) -> Value raise {
   match bigint_proto() {
     Some(proto) =>
       property_get_from_chain(proto.props, proto.proto, name, BigInt(value))

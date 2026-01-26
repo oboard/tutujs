@@ -33,7 +33,7 @@ fn eval_block_control_stmts(
 fn eval_block_raw_control_with_last(
   env : Env,
   body : Array[@engine.Stmt],
-) -> (GenControl, JSValue) raise {
+) -> (GenControl, Value) raise {
   let mut last = Undefined
   for stmt in body {
     try {
@@ -62,7 +62,7 @@ fn eval_block_raw_control_with_last(
 fn eval_block_control_with_last_stmts(
   env : Env,
   body : Array[@engine.Stmt],
-) -> (GenControl, JSValue) raise {
+) -> (GenControl, Value) raise {
   if current_module_env_id() is Some(_) && block_is_export_wrapper(body) {
     return eval_block_raw_control_with_last(env, body)
   }

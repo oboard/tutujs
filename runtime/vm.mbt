@@ -2,14 +2,14 @@
 pub struct Env {
   id : Int
   parent : Env?
-  bindings : @hashmap.HashMap[String, JSValue]
+  bindings : @hashmap.HashMap[String, Value]
   readonly_bindings : @hashmap.HashMap[String, Bool]
   deletable_bindings : @hashmap.HashMap[String, Bool]
   private_bindings : @hashmap.HashMap[String, String]
   mut strict : Bool
-  mut with_object : JSValue?
-  mut var_object : JSValue?
-  mut new_target : JSValue
+  mut with_object : Value?
+  mut var_object : Value?
+  mut new_target : Value
   mut allow_new_target : Bool
   mut allow_super : Bool
   mut allow_super_call : Bool
@@ -28,39 +28,39 @@ pub impl Show for Env with output(self, logger) {
 }
 
 ///|
-pub struct Context {
+pub struct Vm {
   env : Env
   runtime : RuntimeState
 } derive(Show)
 
 ///|
 priv suberror ReturnSignal {
-  ReturnSignal(JSValue)
+  ReturnSignal(Value)
 }
 
 ///|
 priv suberror BreakSignal {
-  BreakSignal((String?, JSValue?))
+  BreakSignal((String?, Value?))
 }
 
 ///|
 priv suberror ContinueSignal {
-  ContinueSignal((String?, JSValue?))
+  ContinueSignal((String?, Value?))
 }
 
 ///|
 priv suberror ThrowSignal {
-  ThrowSignal(JSValue)
+  ThrowSignal(Value)
 }
 
 ///|
 let id_ref : Ref[Int] = Ref::new(1)
 
 ///|
-let throw_type_error_ref : Ref[Map[Int, JSValue]] = Ref::new(Map::new())
+let throw_type_error_ref : Ref[Map[Int, Value]] = Ref::new(Map::new())
 
 ///|
-let template_registry_ref : Ref[Map[Int, Map[Int, JSValue]]] = Ref::new(
+let template_registry_ref : Ref[Map[Int, Map[Int, Value]]] = Ref::new(
   Map::new(),
 )
 
@@ -119,6 +119,7 @@ pub fn Env::new(parent : Env?) -> Env {
     var_env: None,
   }
   register_env(env)
+  rc_incref_optional_env(parent)
   env
 }
 
@@ -126,28 +127,31 @@ pub fn Env::new(parent : Env?) -> Env {
 pub fn reset_runtime_state() -> Unit {
   run_gc_without_weak()
   gc_release_all()
+  bytecode_cache_clear()
+  props_shape_cache_clear()
   gc_alloc_count_ref().update(fn(_) { 0 })
   gc_threshold_ref().update(fn(_) { gc_default_threshold })
   gc_value_root_ref().update(fn(_) { [] })
   gc_pending_ref().update(fn(_) { false })
+  gc_rc_meta_ref().update(fn(_) { Map::new() })
   id_ref.update(fn(_) { 1 })
-  symbol_registry_ref.update(fn(_) { Map::new() })
-  symbol_table_ref.update(fn(_) { Map::new() })
-  symbol_iterator_ref.update(fn(_) { None })
-  symbol_to_string_tag_ref.update(fn(_) { None })
-  symbol_async_iterator_ref.update(fn(_) { None })
-  symbol_has_instance_ref.update(fn(_) { None })
-  symbol_is_concat_spreadable_ref.update(fn(_) { None })
-  symbol_match_ref.update(fn(_) { None })
-  symbol_match_all_ref.update(fn(_) { None })
-  symbol_replace_ref.update(fn(_) { None })
-  symbol_search_ref.update(fn(_) { None })
-  symbol_species_ref.update(fn(_) { None })
-  symbol_split_ref.update(fn(_) { None })
-  symbol_to_primitive_ref.update(fn(_) { None })
-  symbol_unscopables_ref.update(fn(_) { None })
-  throw_type_error_ref.update(fn(_) { Map::new() })
-  template_registry_ref.update(fn(_) { Map::new() })
+  symbol_registry_clear()
+  symbol_table_clear()
+  set_symbol_ref(symbol_iterator_ref, None)
+  set_symbol_ref(symbol_to_string_tag_ref, None)
+  set_symbol_ref(symbol_async_iterator_ref, None)
+  set_symbol_ref(symbol_has_instance_ref, None)
+  set_symbol_ref(symbol_is_concat_spreadable_ref, None)
+  set_symbol_ref(symbol_match_ref, None)
+  set_symbol_ref(symbol_match_all_ref, None)
+  set_symbol_ref(symbol_replace_ref, None)
+  set_symbol_ref(symbol_search_ref, None)
+  set_symbol_ref(symbol_species_ref, None)
+  set_symbol_ref(symbol_split_ref, None)
+  set_symbol_ref(symbol_to_primitive_ref, None)
+  set_symbol_ref(symbol_unscopables_ref, None)
+  throw_type_error_clear()
+  template_registry_clear()
   annex_b_var_func_decls_ref.update(fn(_) { [] })
   top_level_func_decls_ref.update(fn(_) { [] })
   object_proto_ref.update(fn(_) { None })
@@ -184,13 +188,13 @@ pub fn reset_runtime_state() -> Unit {
   iterator_proto_ref.update(fn(_) { None })
   async_iterator_proto_ref.update(fn(_) { None })
   async_from_sync_iterator_proto_ref.update(fn(_) { None })
-  generator_proto_env_ref.update(fn(_) { Map::new() })
-  async_generator_proto_env_ref.update(fn(_) { Map::new() })
-  generator_function_ctor_env_ref.update(fn(_) { Map::new() })
-  async_generator_function_ctor_env_ref.update(fn(_) { Map::new() })
-  async_function_ctor_env_ref.update(fn(_) { Map::new() })
-  promise_ctor_env_ref.update(fn(_) { Map::new() })
-  async_iterator_proto_env_ref.update(fn(_) { Map::new() })
+  generator_proto_env_clear()
+  async_generator_proto_env_clear()
+  generator_function_ctor_env_clear()
+  async_generator_function_ctor_env_clear()
+  async_function_ctor_env_clear()
+  promise_ctor_env_clear()
+  async_iterator_proto_env_clear()
   iterator_concat_proto_ref.update(fn(_) { None })
   iterator_helper_proto_ref.update(fn(_) { None })
   iterator_wrap_proto_ref.update(fn(_) { None })
@@ -224,50 +228,51 @@ pub fn reset_runtime_state() -> Unit {
   current_generator_data_ref.update(fn(_) { None })
   print_log_ref().update(fn(_) { [] })
   async_done_ref().update(fn(_) { 0 })
-  promise_table_ref.update(fn(_) { Map::new() })
-  promise_resolve_func_data_ref.update(fn(_) { Map::new() })
-  promise_executor_data_ref.update(fn(_) { Map::new() })
-  promise_all_element_data_ref.update(fn(_) { Map::new() })
-  promise_then_finally_data_ref.update(fn(_) { Map::new() })
+  promise_table_clear()
+  promise_resolve_func_data_clear_all()
+  promise_executor_data_clear_all()
+  promise_all_element_data_clear_all()
+  promise_then_finally_data_clear_all()
   async_from_sync_unwrap_data_ref.update(fn(_) { Map::new() })
-  async_from_sync_close_wrap_data_ref.update(fn(_) { Map::new() })
-  async_generator_resolve_func_data_ref.update(fn(_) { Map::new() })
-  async_function_resolve_func_data_ref.update(fn(_) { Map::new() })
-  async_function_data_ref.update(fn(_) { Map::new() })
-  promise_finally_value_data_ref.update(fn(_) { Map::new() })
-  job_queue_ref.update(fn(_) { [] })
-  timer_queue_ref.update(fn(_) { [] })
+  async_from_sync_close_wrap_data_clear_all()
+  async_generator_resolve_func_data_clear_all()
+  async_function_resolve_func_data_clear_all()
+  async_function_data_clear_all()
+  promise_finally_value_data_clear_all()
+  job_queue_clear()
+  timer_queue_clear()
   next_timer_id_ref.update(fn(_) { 1 })
-  worker_table_ref.update(fn(_) { Map::new() })
+  worker_table_clear()
   next_worker_id_ref.update(fn(_) { 1 })
-  agent_table_ref.update(fn(_) { Map::new() })
+  agent_table_clear()
   agent_report_queue_ref.update(fn(_) { [] })
   agent_lock_queue_ref.update(fn(_) { [] })
   agent_spin_load_ref.update(fn(_) { Map::new() })
   next_agent_id_ref.update(fn(_) { 1 })
   current_agent_id_ref.update(fn(_) { None })
   agent_clock_ref.update(fn(_) { 0 })
+  agent_local_clock_ref.update(fn(_) { Map::new() })
   can_block_ref().update(fn(_) { true })
   atomics_waiter_table_ref.update(fn(_) { Map::new() })
   atomics_waiter_list_ref.update(fn(_) { [] })
   atomics_waiter_next_id_ref.update(fn(_) { 1 })
   atomics_waiter_stack_ref.update(fn(_) { Map::new() })
   atomics_notify_time_ref.update(fn(_) { Map::new() })
-  module_table_ref.update(fn(_) { Map::new() })
-  module_exports_stack_ref.update(fn(_) { [] })
+  module_table_clear()
+  module_exports_stack_clear()
   module_export_info_ref.update(fn(_) { Map::new() })
-  module_eval_info_ref.update(fn(_) { Map::new() })
+  module_eval_info_clear()
   module_async_eval_timestamp_ref.update(fn(_) { 1 })
   module_async_callback_data_ref.update(fn(_) { Map::new() })
-  module_import_dynamic_job_data_ref.update(fn(_) { Map::new() })
-  module_builtin_namespace_ref.update(fn(_) { Map::new() })
+  module_import_dynamic_job_data_clear()
+  module_builtin_namespace_clear()
   module_env_stack_ref.update(fn(_) { [] })
   module_import_stack_ref.update(fn(_) { [] })
-  module_env_exports_ref.update(fn(_) { Map::new() })
+  module_env_exports_clear()
   module_env_exports_by_obj_ref.update(fn(_) { Map::new() })
   module_env_export_names_ref.update(fn(_) { Map::new() })
   module_env_export_uninitialized_ref.update(fn(_) { Map::new() })
-  module_env_ref.update(fn(_) { Map::new() })
+  module_env_clear()
 }
 
 ///|
@@ -286,7 +291,7 @@ fn can_block() -> Bool {
 }
 
 ///|
-pub fn Context::new() -> Context {
+pub fn Vm::new() -> Vm {
   let runtime = RuntimeState::new()
   let _ = set_current_runtime_state(runtime)
   let env = Env::new(None)
@@ -428,46 +433,45 @@ pub fn Context::new() -> Context {
     std_obj, os_obj, bjson_obj,
   )
   let _ = install_test262_helpers(env)
-  Context::{ env, runtime }
+  Vm::{ env, runtime }
 }
 
 ///|
-pub fn Context::run_gc(self : Context) -> Unit {
+pub fn Vm::run_gc(self : Vm) -> Unit {
   let prev = set_current_runtime_state(self.runtime)
   run_gc()
   restore_runtime_state(prev)
 }
 
 ///|
-pub fn Context::set_gc_threshold(self : Context, threshold : Int) -> Unit {
+pub fn Vm::set_gc_threshold(self : Vm, threshold : Int) -> Unit {
   self.runtime.gc_threshold_ref.update(fn(_) { threshold })
 }
 
 ///|
-pub fn Context::set_gc_debug(self : Context, enabled : Bool) -> Unit {
+pub fn Vm::set_gc_debug(self : Vm, enabled : Bool) -> Unit {
   self.runtime.gc_debug_ref.update(fn(_) { enabled })
 }
 
 ///|
-pub fn Context::set_can_block(self : Context, flag : Bool) -> Unit {
+pub fn Vm::set_can_block(self : Vm, flag : Bool) -> Unit {
   self.runtime.can_block_ref.update(fn(_) { flag })
 }
 
 ///|
-pub fn Context::reset_runtime_state(self : Context) -> Unit {
+pub fn Vm::reset_runtime_state(self : Vm) -> Unit {
   let prev = set_current_runtime_state(self.runtime)
   reset_runtime_state()
   restore_runtime_state(prev)
 }
 
 ///|
-pub fn Context::eval(self : Context, source : String) -> JSValue raise {
+pub fn Vm::eval(self : Vm, source : String) -> Value raise {
   let prev_runtime = set_current_runtime_state(self.runtime)
   try {
     let script = parse_script_with_pos(source)
     let result = eval_script(self.env, script)
-    run_pending_timers()
-    run_pending_workers()
+    run_pending_tasks_to_idle()
     gc_maybe_collect_with_root(result)
     result
   } catch {
@@ -484,11 +488,11 @@ pub fn Context::eval(self : Context, source : String) -> JSValue raise {
 }
 
 ///|
-pub fn Context::eval_with_path(
-  self : Context,
+pub fn Vm::eval_with_path(
+  self : Vm,
   source : String,
   path : String,
-) -> JSValue raise {
+) -> Value raise {
   let prev_runtime = set_current_runtime_state(self.runtime)
   try {
     let script = parse_script_with_pos(source)
@@ -501,8 +505,7 @@ pub fn Context::eval_with_path(
     } else {
       with_source_path(full_path, fn() raise { eval_script(self.env, script) })
     }
-    run_pending_timers()
-    run_pending_workers()
+    run_pending_tasks_to_idle()
     gc_maybe_collect_with_root(result)
     result
   } catch {
@@ -519,13 +522,13 @@ pub fn Context::eval_with_path(
 }
 
 ///|
-pub fn Context::eval_with_path_mode(
-  self : Context,
+pub fn Vm::eval_with_path_mode(
+  self : Vm,
   source : String,
   path : String,
   force_module : Bool,
   force_strict : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let prev_runtime = set_current_runtime_state(self.runtime)
   try {
     let script = parse_script_with_pos_mode(source, force_module, force_strict)
@@ -555,11 +558,7 @@ pub fn Context::eval_with_path_mode(
     } else {
       with_source_path(full_path, fn() raise { eval_script(self.env, script) })
     }
-    run_pending_jobs()
-    run_pending_timers()
-    run_pending_jobs()
-    run_pending_workers()
-    run_pending_jobs()
+    run_pending_tasks_to_idle()
     gc_maybe_collect_with_root(result)
     result
   } catch {
@@ -576,10 +575,30 @@ pub fn Context::eval_with_path_mode(
 }
 
 ///|
-pub fn Context::eval_result(
-  self : Context,
+fn run_pending_tasks_to_idle() -> Unit raise {
+  let mut did_work = true
+  while did_work {
+    did_work = false
+    if has_pending_jobs() {
+      run_pending_jobs()
+      did_work = true
+    }
+    if has_pending_timers() {
+      run_pending_timers()
+      did_work = true
+    }
+    if has_pending_workers() {
+      run_pending_workers()
+      did_work = true
+    }
+  }
+}
+
+///|
+pub fn Vm::eval_result(
+  self : Vm,
   source : String,
-) -> Result[JSValue, JSValue] raise {
+) -> Result[Value, Value] raise {
   Ok(self.eval(source)) catch {
     ThrowSignal(value) => Err(value)
     err => raise err
@@ -587,11 +606,11 @@ pub fn Context::eval_result(
 }
 
 ///|
-pub fn Context::eval_result_with_path(
-  self : Context,
+pub fn Vm::eval_result_with_path(
+  self : Vm,
   source : String,
   path : String,
-) -> Result[JSValue, JSValue] raise {
+) -> Result[Value, Value] raise {
   Ok(self.eval_with_path(source, path)) catch {
     ThrowSignal(value) => Err(value)
     err => raise err
@@ -599,13 +618,13 @@ pub fn Context::eval_result_with_path(
 }
 
 ///|
-pub fn Context::eval_result_with_path_mode(
-  self : Context,
+pub fn Vm::eval_result_with_path_mode(
+  self : Vm,
   source : String,
   path : String,
   force_module : Bool,
   force_strict : Bool,
-) -> Result[JSValue, JSValue] raise {
+) -> Result[Value, Value] raise {
   Ok(self.eval_with_path_mode(source, path, force_module, force_strict)) catch {
     ThrowSignal(value) => Err(value)
     err => raise err

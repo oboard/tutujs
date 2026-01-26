@@ -3,13 +3,17 @@ fn new_error_value(
   proto : ObjectValue?,
   message : String,
   set_message? : Bool = true,
-) -> JSValue {
+) -> Value {
   let obj = new_object_value_with_proto(value_from_object(proto))
   match obj {
     Object(value) => {
       value.is_error = true
       if set_message {
-        value.props.set("message", property_data_non_enum(String(message)))
+        props_set(
+          value.props,
+          "message",
+          property_data_non_enum(String(message)),
+        )
       }
       match current_source() {
         Some(source) => {
@@ -18,15 +22,44 @@ fn new_error_value(
             let (stack, line, column) = build_stack_from_positions(
               message, source, positions,
             )
-            value.props.set(
+            props_set(
+              value.props,
               "lineNumber",
               property_data(Number(Double::from_int(line))),
             )
-            value.props.set(
+            props_set(
+              value.props,
               "columnNumber",
               property_data(Number(Double::from_int(column))),
             )
-            value.props.set("stack", property_data(String(stack)))
+            props_set(value.props, "stack", property_data(String(stack)))
+          } else {
+            let funcs = current_function_stack()
+            if !funcs.is_empty() {
+              let lines : Array[String] = []
+              let header = if message.is_empty() { "Error" } else { message }
+              lines.push(header)
+              let mut i = funcs.length()
+              while i > 0 {
+                i = i - 1
+                let func = funcs[i]
+                let name = match func.name {
+                  Some(value) =>
+                    if value.is_empty() {
+                      "<anonymous>"
+                    } else {
+                      value
+                    }
+                  None => "<anonymous>"
+                }
+                lines.push("at " + name)
+              }
+              props_set(
+                value.props,
+                "stack",
+                property_data(String(lines.join("\n"))),
+              )
+            }
           }
         }
         None => ()
@@ -39,7 +72,7 @@ fn new_error_value(
 
 ///|
 fn error_proto_from_target(
-  target : JSValue,
+  target : Value,
   fallback : ObjectValue?,
 ) -> ObjectValue? raise {
   let fallback_value = value_from_object(fallback)
@@ -56,22 +89,24 @@ fn new_error_value_with_pos(
   message : String,
   line : Int,
   column : Int,
-) -> JSValue {
+) -> Value {
   let obj = new_object_value_with_proto(value_from_object(proto))
   match obj {
     Object(value) => {
       value.is_error = true
-      value.props.set("message", property_data_non_enum(String(message)))
-      value.props.set(
+      props_set(value.props, "message", property_data_non_enum(String(message)))
+      props_set(
+        value.props,
         "lineNumber",
         property_data(Number(Double::from_int(line))),
       )
-      value.props.set(
+      props_set(
+        value.props,
         "columnNumber",
         property_data(Number(Double::from_int(column))),
       )
       let stack = "\{message}:\{line}:\{column}"
-      value.props.set("stack", property_data(String(stack)))
+      props_set(value.props, "stack", property_data(String(stack)))
     }
     _ => ()
   }
@@ -86,7 +121,7 @@ priv struct ErrorMessageInfo {
 
 ///|
 fn error_message_from_args(
-  args : Array[JSValue],
+  args : Array[Value],
   index? : Int = 0,
 ) -> ErrorMessageInfo raise {
   if index >= args.length() {
@@ -100,18 +135,18 @@ fn error_message_from_args(
 }
 
 ///|
-fn install_error_cause(obj : ObjectValue, options : JSValue) -> Unit raise {
+fn install_error_cause(obj : ObjectValue, options : Value) -> Unit raise {
   if !is_object_like(options) {
     return
   }
   if has_property_value(options, "cause") {
     let cause = property_get(options, "cause")
-    obj.props.set("cause", property_data_non_enum(cause))
+    props_set(obj.props, "cause", property_data_non_enum(cause))
   }
 }
 
 ///|
-fn new_aggregate_error_value(args : Array[JSValue]) -> JSValue raise {
+fn new_aggregate_error_value(args : Array[Value]) -> Value raise {
   let errors_proto = match current_env() {
     Some(env) =>
       match value_from_object(array_proto_for_env(env)) {
@@ -129,14 +164,14 @@ fn new_aggregate_error_value(args : Array[JSValue]) -> JSValue raise {
 
 ///|
 fn new_aggregate_error_value_with_proto(
-  args : Array[JSValue],
+  args : Array[Value],
   proto : ObjectValue?,
-  errors_proto : JSValue?,
-) -> JSValue raise {
+  errors_proto : Value?,
+) -> Value raise {
   let errors_value = if args.is_empty() { Undefined } else { args[0] }
   let message_info = error_message_from_args(args, index=1)
   let list = build_spread_list(errors_value)
-  let elements : Array[JSValue?] = []
+  let elements : Array[Value?] = []
   for value in list {
     elements.push(Some(value))
   }
@@ -148,14 +183,14 @@ fn new_aggregate_error_value_with_proto(
   )
   match obj {
     Object(value) =>
-      value.props.set("errors", property_data_non_enum(errors_array))
+      props_set(value.props, "errors", property_data_non_enum(errors_array))
     _ => ()
   }
   obj
 }
 
 ///|
-fn throw_type_error_for_env(env : Env?, message : String) -> JSValue raise {
+fn throw_type_error_for_env(env : Env?, message : String) -> Value raise {
   let proto = match env {
     Some(env) =>
       match type_error_proto_for_env(env) {
@@ -168,12 +203,12 @@ fn throw_type_error_for_env(env : Env?, message : String) -> JSValue raise {
 }
 
 ///|
-fn throw_type_error(message : String) -> JSValue raise {
+fn throw_type_error(message : String) -> Value raise {
   throw_type_error_for_env(current_env(), message)
 }
 
 ///|
-fn type_error_value(message : String) -> JSValue {
+fn type_error_value(message : String) -> Value {
   let proto = match current_env() {
     Some(env) =>
       match type_error_proto_for_env(env) {
@@ -186,7 +221,7 @@ fn type_error_value(message : String) -> JSValue {
 }
 
 ///|
-fn throw_reference_error(message : String) -> JSValue raise {
+fn throw_reference_error(message : String) -> Value raise {
   let proto = match current_env() {
     Some(env) =>
       match reference_error_proto_for_env(env) {
@@ -199,7 +234,7 @@ fn throw_reference_error(message : String) -> JSValue raise {
 }
 
 ///|
-fn throw_syntax_error(message : String) -> JSValue raise {
+fn throw_syntax_error(message : String) -> Value raise {
   let proto = match current_env() {
     Some(env) =>
       match syntax_error_proto_for_env(env) {
@@ -212,7 +247,7 @@ fn throw_syntax_error(message : String) -> JSValue raise {
 }
 
 ///|
-fn throw_range_error(message : String) -> JSValue raise {
+fn throw_range_error(message : String) -> Value raise {
   let proto = match current_env() {
     Some(env) =>
       match range_error_proto_for_env(env) {
@@ -225,7 +260,7 @@ fn throw_range_error(message : String) -> JSValue raise {
 }
 
 ///|
-fn throw_uri_error(message : String) -> JSValue raise {
+fn throw_uri_error(message : String) -> Value raise {
   let proto = match current_env() {
     Some(env) =>
       match uri_error_proto_for_env(env) {

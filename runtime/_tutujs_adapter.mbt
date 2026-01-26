@@ -1,4 +1,10 @@
 ///|
+pub type JSValue = Value
+
+///|
+pub type Context = Vm
+
+///|
 pub impl Add for JSValue with add(self, other) -> JSValue {
   eval_add(self, other) catch {
     _ => value_undefined()

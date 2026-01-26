@@ -216,8 +216,8 @@ fn predeclare_module_export_call(
     @engine.Expr::String(name, _, _) => name
     _ => return
   }
-  if !exports.props.contains(export_name) {
-    exports.props.set(export_name, Property::{
+  if !props_contains(exports.props, export_name) {
+    props_set(exports.props, export_name, Property::{
       value: Undefined,
       writable: false,
       configurable: false,

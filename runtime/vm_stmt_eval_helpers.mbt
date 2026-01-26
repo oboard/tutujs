@@ -1,5 +1,5 @@
 ///|
-fn eval_stmt(env : Env, stmt : @engine.Stmt) -> JSValue raise {
+fn eval_stmt(env : Env, stmt : @engine.Stmt) -> Value raise {
   if current_module_env_id() is Some(_) && stmt_is_import_decl(stmt) {
     return Undefined
   }
@@ -12,61 +12,7 @@ fn eval_stmt(env : Env, stmt : @engine.Stmt) -> JSValue raise {
     }
     Block(stmts) => eval_block(env, stmts)
     FunctionDecl(func) => {
-      if top_level_function_decl_contains(func) {
-        return Undefined
-      }
-      let decl_value = JSValue::Function(to_function_value(env, func, false))
-      let value = match func.name {
-        Some(name) =>
-          match env.bindings.get(name) {
-            Some(_) => env_get_binding_value(env, name)
-            None =>
-              match env.var_object {
-                Some(Object(obj)) =>
-                  match obj.props.get(name) {
-                    Some(prop) =>
-                      if is_data_property(prop) {
-                        prop.value
-                      } else {
-                        property_get(JSValue::Object(obj), name)
-                      }
-                    None => decl_value
-                  }
-                Some(_) => decl_value
-                None =>
-                  if env.parent is None {
-                    match global_object(env) {
-                      Some(obj) =>
-                        match obj.props.get(name) {
-                          Some(prop) =>
-                            if is_data_property(prop) {
-                              prop.value
-                            } else {
-                              property_get(JSValue::Object(obj), name)
-                            }
-                          None => decl_value
-                        }
-                      None => decl_value
-                    }
-                  } else {
-                    decl_value
-                  }
-              }
-          }
-        None => decl_value
-      }
-      match func.name {
-        Some(name) => {
-          env_set_local_or_var_object(env, name, value, true)
-          if !env.strict && !func.is_async && !func.is_generator {
-            let var_env = var_env_for(env)
-            if var_env.id != env.id && annex_b_var_func_decl_contains(func) {
-              env_set(var_env, name, decl_value)
-            }
-          }
-        }
-        None => ()
-      }
+      eval_function_decl(env, func)
       Undefined
     }
     ClassDecl(class_def) => {
@@ -328,7 +274,7 @@ fn block_is_export_wrapper(body : Array[@engine.Stmt]) -> Bool {
 }
 
 ///|
-fn eval_block(env : Env, body : Array[@engine.Stmt]) -> JSValue raise {
+fn eval_block(env : Env, body : Array[@engine.Stmt]) -> Value raise {
   if current_module_env_id() is Some(_) && block_is_export_wrapper(body) {
     return eval_block_raw(env, body)
   }
@@ -343,7 +289,7 @@ fn eval_block(env : Env, body : Array[@engine.Stmt]) -> JSValue raise {
 }
 
 ///|
-fn eval_block_raw(env : Env, body : Array[@engine.Stmt]) -> JSValue raise {
+fn eval_block_raw(env : Env, body : Array[@engine.Stmt]) -> Value raise {
   let mut last = Undefined
   for stmt in body {
     try {
@@ -367,10 +313,7 @@ fn eval_block_raw(env : Env, body : Array[@engine.Stmt]) -> JSValue raise {
 }
 
 ///|
-fn eval_stmt_in_block_if_needed(
-  env : Env,
-  stmt : @engine.Stmt,
-) -> JSValue raise {
+fn eval_stmt_in_block_if_needed(env : Env, stmt : @engine.Stmt) -> Value raise {
   match stmt {
     @engine.Stmt::Block(_) => eval_stmt(env, stmt)
     _ =>
@@ -426,9 +369,7 @@ fn hoist_block_functions_in_stmt(
     @engine.Stmt::FunctionDecl(func) =>
       match func.name {
         Some(name) => {
-          let value = JSValue::Function(
-            to_function_value(block_env, func, false),
-          )
+          let value = Value::Function(to_function_value(block_env, func, false))
           env_set_local(block_env, name, value)
         }
         None => ()

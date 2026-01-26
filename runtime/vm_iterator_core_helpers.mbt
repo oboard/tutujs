@@ -1,5 +1,5 @@
 ///|
-fn get_iterator_from_value(value : JSValue) -> (JSValue, JSValue) raise {
+fn get_iterator_from_value(value : Value) -> (Value, Value) raise {
   let obj = to_object(value)
   let iter_method = match symbol_iterator_key() {
     Some(key) => property_get(obj, key)
@@ -26,7 +26,7 @@ fn get_iterator_from_value(value : JSValue) -> (JSValue, JSValue) raise {
 }
 
 ///|
-fn get_iterator_flattenable(value : JSValue) -> (JSValue, JSValue) raise {
+fn get_iterator_flattenable(value : Value) -> (Value, Value) raise {
   if !is_object_like(value) {
     let _ = throw_type_error("not an object")
     return (Undefined, Undefined)
@@ -62,9 +62,9 @@ fn get_iterator_flattenable(value : JSValue) -> (JSValue, JSValue) raise {
 
 ///|
 fn iterator_step_value(
-  iterator : JSValue,
-  next_method : JSValue,
-) -> (Bool, JSValue) raise {
+  iterator : Value,
+  next_method : Value,
+) -> (Bool, Value) raise {
   let result = call_value_with_this(next_method, [], iterator)
   if !is_object_like(result) {
     let _ = throw_type_error("iterator must return an object")
@@ -79,7 +79,7 @@ fn iterator_step_value(
 }
 
 ///|
-fn iterator_close(iterator : JSValue) -> Unit raise {
+fn iterator_close(iterator : Value) -> Unit raise {
   let return_method = property_get(iterator, "return")
   match return_method {
     Undefined | Null => ()
@@ -98,14 +98,14 @@ fn iterator_close(iterator : JSValue) -> Unit raise {
 }
 
 ///|
-fn iterator_close_on_error(iterator : JSValue) -> Unit {
+fn iterator_close_on_error(iterator : Value) -> Unit {
   iterator_close(iterator) catch {
     _ => ()
   }
 }
 
 ///|
-fn get_async_iterator_from_value(value : JSValue) -> (JSValue, JSValue) raise {
+fn get_async_iterator_from_value(value : Value) -> (Value, Value) raise {
   let obj = to_object(value)
   let async_method = match symbol_async_iterator_key() {
     Some(key) => property_get(obj, key)
@@ -136,9 +136,9 @@ fn get_async_iterator_from_value(value : JSValue) -> (JSValue, JSValue) raise {
 
 ///|
 fn async_iterator_step_value(
-  iterator : JSValue,
-  next_method : JSValue,
-) -> (Bool, JSValue) raise {
+  iterator : Value,
+  next_method : Value,
+) -> (Bool, Value) raise {
   let result = call_value_with_this(next_method, [], iterator)
   let awaited = await_value(result)
   if !is_object_like(awaited) {
@@ -154,7 +154,7 @@ fn async_iterator_step_value(
 }
 
 ///|
-fn async_iterator_close(iterator : JSValue) -> Unit raise {
+fn async_iterator_close(iterator : Value) -> Unit raise {
   let return_method = property_get(iterator, "return")
   match return_method {
     Undefined | Null => ()
@@ -174,7 +174,7 @@ fn async_iterator_close(iterator : JSValue) -> Unit raise {
 }
 
 ///|
-fn async_iterator_close_on_error(iterator : JSValue) -> Unit {
+fn async_iterator_close_on_error(iterator : Value) -> Unit {
   async_iterator_close(iterator) catch {
     _ => ()
   }

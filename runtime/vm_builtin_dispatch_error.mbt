@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_error(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::ErrorToString => {
       let target = match builtin.this_value {

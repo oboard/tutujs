@@ -15,7 +15,7 @@ fn array_sort_compare(
   slots : Array[ArraySortSlot],
   left : Int,
   right : Int,
-  compare_fn : JSValue?,
+  compare_fn : Value?,
 ) -> Int raise {
   let left_value = slots[left].value
   let right_value = slots[right].value
@@ -72,7 +72,7 @@ fn array_sort_compare(
 ///|
 fn array_sort_slots(
   slots : Array[ArraySortSlot],
-  compare_fn : JSValue?,
+  compare_fn : Value?,
 ) -> Unit raise {
   let len = slots.length()
   if len < 2 {
@@ -96,7 +96,7 @@ fn array_sort_slots(
 }
 
 ///|
-fn array_sort_object(obj : JSValue, compare_fn : JSValue?) -> JSValue raise {
+fn array_sort_object(obj : Value, compare_fn : Value?) -> Value raise {
   let len = array_like_length(obj)
   let slots : Array[ArraySortSlot] = []
   let mut undefined_count = 0
@@ -157,7 +157,7 @@ fn array_sort_object(obj : JSValue, compare_fn : JSValue?) -> JSValue raise {
 
 ///|
 priv struct ArraySortSlot {
-  value : JSValue
+  value : Value
   mut str_cache : String?
   pos : Int
 }

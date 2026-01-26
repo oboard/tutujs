@@ -1,9 +1,5 @@
 ///|
-fn define_property(
-  target : JSValue,
-  key : JSValue,
-  desc : JSValue,
-) -> JSValue raise {
+fn define_property(target : Value, key : Value, desc : Value) -> Value raise {
   let ok = define_property_value(target, key, desc, true)
   if !ok {
     return throw_type_error("cannot define property")
@@ -18,7 +14,7 @@ fn module_namespace_define_property(
   desc_info : PropertyDescInfo,
   throw_flag : Bool,
 ) -> Bool raise {
-  match obj.props.get(name) {
+  match props_get(obj.props, name) {
     None => {
       if throw_flag {
         let _ = throw_type_error("cannot define property")
@@ -80,9 +76,9 @@ fn module_namespace_define_property(
 
 ///|
 fn define_property_value(
-  target : JSValue,
-  key : JSValue,
-  desc : JSValue,
+  target : Value,
+  key : Value,
+  desc : Value,
   throw_flag : Bool,
 ) -> Bool raise {
   let name = property_key_name(key)
@@ -222,8 +218,8 @@ fn define_property_value(
             Some(index) =>
               if index >= 0 &&
                 index < value.length() &&
-                !obj.props.contains(name) {
-                obj.props.set(name, Property::{
+                !props_contains(obj.props, name) {
+                props_set(obj.props, name, Property::{
                   value: String(
                     value.unsafe_substring(start=index, end=index + 1),
                   ),
@@ -272,7 +268,7 @@ fn define_property_value(
 }
 
 ///|
-fn prop_key_value_from_name(name : String) -> JSValue {
+fn prop_key_value_from_name(name : String) -> Value {
   match symbol_from_prop_key(name) {
     Some(symbol) => Symbol(symbol)
     None => String(name)
@@ -281,9 +277,9 @@ fn prop_key_value_from_name(name : String) -> JSValue {
 
 ///|
 fn create_data_property(
-  target : JSValue,
+  target : Value,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   if !is_object_like(target) {
     let _ = throw_type_error("not an object")
@@ -323,9 +319,9 @@ fn create_data_property(
 
 ///|
 fn create_data_property_or_throw(
-  target : JSValue,
+  target : Value,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   if !create_data_property(target, name, value) {
     let _ = throw_type_error("cannot define property")
@@ -334,10 +330,7 @@ fn create_data_property_or_throw(
 }
 
 ///|
-fn define_properties_from_object(
-  target : JSValue,
-  props : JSValue,
-) -> Unit raise {
+fn define_properties_from_object(target : Value, props : Value) -> Unit raise {
   if !is_object_like(target) {
     let _ = throw_type_error("not an object")
     return
@@ -348,7 +341,7 @@ fn define_properties_from_object(
       match obj.proxy_data {
         Some(data) => {
           let keys = proxy_own_keys_values(data)
-          let filtered : Array[JSValue] = []
+          let filtered : Array[Value] = []
           for key in keys {
             match key {
               String(name) => {
@@ -438,9 +431,9 @@ fn arguments_define_property(
   match parse_array_index(name) {
     Some(index) =>
       if index >= 0 && index < args.elements.length() {
-        if !args.props.contains(name) {
+        if !props_contains(args.props, name) {
           let current = arguments_index_value(args, index)
-          args.props.set(name, property_data(current))
+          props_set(args.props, name, property_data(current))
         }
         let mut mapped = false
         if index < args.mapped.length() &&
@@ -452,10 +445,10 @@ fn arguments_define_property(
           !desc_info.has_value &&
           !(desc_info.has_get || desc_info.has_set) {
           let current = arguments_index_value(args, index)
-          match args.props.get(name) {
+          match props_get(args.props, name) {
             Some(prop) =>
               if prop.getter is None && prop.setter is None {
-                args.props.set(name, Property::{
+                props_set(args.props, name, Property::{
                   value: current,
                   writable: prop.writable,
                   configurable: prop.configurable,
@@ -478,6 +471,7 @@ fn arguments_define_property(
             args.mapped[index] = false
           }
         }
+        rc_replace_optional_value(args.elements[index], None)
         args.elements[index] = None
       } else {
         define_property_in(args.props, name, desc_info)
@@ -553,7 +547,7 @@ fn define_array_property(
       return
     }
     let mut current_writable = true
-    match arr.props.get("length") {
+    match props_get(arr.props, "length") {
       Some(prop) => current_writable = prop.writable
       None => ()
     }
@@ -573,7 +567,7 @@ fn define_array_property(
             let len_value = Number(
               Int64::to_double(array_length_from_props(arr)),
             )
-            arr.props.set("length", Property::{
+            props_set(arr.props, "length", Property::{
               value: len_value,
               writable: false,
               configurable: false,
@@ -589,7 +583,7 @@ fn define_array_property(
       None => ()
     }
     let len_value = Number(Int64::to_double(array_length_from_props(arr)))
-    arr.props.set("length", Property::{
+    props_set(arr.props, "length", Property::{
       value: len_value,
       writable,
       configurable: false,
@@ -603,7 +597,7 @@ fn define_array_property(
     Some(index64) => {
       if index64 >= 0L {
         let current_len = array_length_from_props(arr)
-        match arr.props.get("length") {
+        match props_get(arr.props, "length") {
           Some(prop) =>
             if !prop.writable && index64 >= current_len {
               let _ = throw_type_error("cannot define property")
@@ -631,13 +625,49 @@ fn define_array_property(
         }
         set_length_prop(arr.props, Number(Int64::to_double(new_len)))
       }
+      let is_plain_data = !desc_info.has_get &&
+        !desc_info.has_set &&
+        desc_info.has_value &&
+        desc_info.has_writable &&
+        desc_info.writable &&
+        desc_info.has_enumerable &&
+        desc_info.enumerable &&
+        desc_info.has_configurable &&
+        desc_info.configurable
+      let max_dense_index = 2147483646
+      let elements_len = arr.elements.length()
+      if is_plain_data &&
+        arr.typed_array_data is None &&
+        index64 >= 0L &&
+        index64 <= Int64::from_int(max_dense_index) &&
+        index64 <= Int64::from_int(elements_len) {
+        if props_contains(arr.props, name) {
+          props_remove(arr.props, name)
+        }
+        let index = Int64::to_int(index64)
+        if index >= arr.elements.length() {
+          while arr.elements.length() < index {
+            arr.elements.push(None)
+          }
+          rc_incref_value(desc_info.value)
+          arr.elements.push(Some(desc_info.value))
+        } else {
+          rc_replace_optional_value(arr.elements[index], Some(desc_info.value))
+          arr.elements[index] = Some(desc_info.value)
+        }
+        return ()
+      }
       if arr.typed_array_data is None &&
-        !arr.props.contains(name) &&
+        !props_contains(arr.props, name) &&
         index64 >= 0L &&
         index64 < Int64::from_int(arr.elements.length()) {
         let index = Int64::to_int(index64)
         match arr.elements[index] {
-          Some(value) => arr.props.set(name, property_data(value))
+          Some(value) => {
+            props_set(arr.props, name, property_data(value))
+            rc_replace_optional_value(arr.elements[index], None)
+            arr.elements[index] = None
+          }
           None => ()
         }
       }
@@ -649,7 +679,7 @@ fn define_array_property(
 
 ///|
 fn define_property_in(
-  props : Map[String, Property],
+  props : Props,
   name : String,
   desc_info : PropertyDescInfo,
 ) -> Unit {
@@ -657,13 +687,13 @@ fn define_property_in(
   let mut writable = false
   let mut configurable = false
   let mut enumerable = false
-  let mut getter : JSValue? = None
-  let mut setter : JSValue? = None
+  let mut getter : Value? = None
+  let mut setter : Value? = None
   let mut has_value = false
   let mut has_writable = false
   let mut has_get = false
   let mut has_set = false
-  match props.get(name) {
+  match props_get(props, name) {
     Some(existing) => {
       value = existing.value
       writable = existing.writable
@@ -706,7 +736,7 @@ fn define_property_in(
     value = Undefined
     writable = false
   }
-  props.set(name, Property::{
+  props_set(props, name, Property::{
     value,
     writable,
     configurable,

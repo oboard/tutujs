@@ -2,7 +2,7 @@
 fn gen_eval_expr_cont(
   env : Env,
   expr : @engine.Expr,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if !expr_contains_yield(expr) {
     return try {
@@ -25,8 +25,8 @@ fn gen_eval_expr_cont(
         }
       } else {
         let is_async_gen = current_function_is_async_generator()
-        let yield_with_value = fn(value : JSValue) {
-          Yield(value, fn(resume_state) {
+        let yield_with_value = fn(value : Value) {
+          GenStep::Yield(value, fn(resume_state) {
             match resume_state {
               GenResume::Next(arg) => k(arg)
               GenResume::Return(arg) =>
@@ -43,7 +43,7 @@ fn gen_eval_expr_cont(
           Some(inner) =>
             gen_eval_expr_cont(env, inner, fn(value) {
               if is_async_gen {
-                Await(value, fn(resume_state) {
+                GenStep::Await(value, fn(resume_state) {
                   match resume_state {
                     GenResume::Next(arg) => yield_with_value(arg)
                     GenResume::Return(arg) => gen_async_return(arg)
@@ -56,7 +56,7 @@ fn gen_eval_expr_cont(
             })
           None =>
             if is_async_gen {
-              Await(Undefined, fn(resume_state) {
+              GenStep::Await(Undefined, fn(resume_state) {
                 match resume_state {
                   GenResume::Next(arg) => yield_with_value(arg)
                   GenResume::Return(arg) => gen_async_return(arg)
@@ -286,8 +286,8 @@ fn gen_eval_named_expr_cont(
   env : Env,
   expr : @engine.Expr,
   name : String,
-  key_value : JSValue?,
-  k : (JSValue) -> GenStep raise,
+  key_value : Value?,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   let hint_name = function_name_from_key(name, key_value, None)
   match unwrap_paren(expr) {
@@ -325,8 +325,8 @@ fn gen_eval_array_literal(
   env : Env,
   elems : Array[@engine.Expr?],
   index : Int,
-  values : Array[JSValue?],
-  k : (JSValue) -> GenStep raise,
+  values : Array[Value?],
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if index >= elems.length() {
     let array_proto_value = match value_from_object(array_proto_for_env(env)) {
@@ -365,7 +365,7 @@ fn gen_eval_template_literal(
   env : Env,
   parts : @engine.TemplateParts,
   exprs : Array[@engine.Expr],
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
     let cooked = parts.cooked
@@ -392,7 +392,7 @@ fn gen_eval_template_parts(
   exprs : Array[@engine.Expr],
   index : Int,
   acc : String,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if index >= exprs.length() {
     return k(String(acc))
@@ -420,8 +420,8 @@ fn gen_eval_template_values(
   env : Env,
   exprs : Array[@engine.Expr],
   index : Int,
-  values : Array[JSValue],
-  k : (Array[JSValue]) -> GenStep raise,
+  values : Array[Value],
+  k : (Array[Value]) -> GenStep raise,
 ) -> GenStep raise {
   if index >= exprs.length() {
     return k(values)
@@ -439,7 +439,7 @@ fn gen_eval_tagged_template(
   callee : @engine.Expr,
   parts : @engine.TemplateParts,
   exprs : Array[@engine.Expr],
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
     match callee {
@@ -461,7 +461,7 @@ fn gen_eval_tagged_template(
           let template_obj = build_template_object(env, parts)
           let _ = gen_root_push(template_obj)
           gen_eval_template_values(env, exprs, 0, [], fn(values) raise {
-            let argv : Array[JSValue] = [template_obj]
+            let argv : Array[Value] = [template_obj]
             for value in values {
               argv.push(value)
             }
@@ -474,7 +474,7 @@ fn gen_eval_tagged_template(
           let template_obj = build_template_object(env, parts)
           let _ = gen_root_push(template_obj)
           gen_eval_template_values(env, exprs, 0, [], fn(values) raise {
-            let argv : Array[JSValue] = [template_obj]
+            let argv : Array[Value] = [template_obj]
             for value in values {
               argv.push(value)
             }
@@ -490,7 +490,7 @@ fn gen_eval_sequence(
   env : Env,
   exprs : Array[@engine.Expr],
   index : Int,
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   if exprs.is_empty() {
     return k(Undefined)

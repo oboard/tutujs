@@ -41,15 +41,15 @@ fn new_typed_array_view(
   byte_offset : Int,
   length : Int,
   length_tracking : Bool,
-  proto? : JSValue? = None,
-) -> JSValue {
-  let elements : Array[JSValue?] = []
+  proto? : Value? = None,
+) -> Value {
+  let elements : Array[Value?] = []
   let mut i = 0
   while i < length {
     elements.push(None)
     i = i + 1
   }
-  let props = Map::new()
+  let props = props_new()
   let bpe = typed_array_bytes_per_element(kind)
   let proto_value = match proto {
     Some(value) => Some(value)
@@ -74,6 +74,8 @@ fn new_typed_array_view(
     }),
     extensible: true,
   })
+  rc_incref_optional_value(proto_value)
+  rc_incref_value(Object(buffer))
   Array(arr)
 }
 
@@ -81,9 +83,9 @@ fn new_typed_array_view(
 fn new_typed_array_value(
   kind : TypedArrayKind,
   length : Int,
-  proto? : JSValue? = None,
-  buffer_proto? : JSValue? = None,
-) -> JSValue {
+  proto? : Value? = None,
+  buffer_proto? : Value? = None,
+) -> Value {
   let bpe = typed_array_bytes_per_element(kind)
   let byte_length = length * bpe
   let buffer_value = new_array_buffer_value_with_options(
@@ -111,9 +113,9 @@ fn new_typed_array_value(
 fn new_typed_array_from_array(
   kind : TypedArrayKind,
   arr : ArrayValue,
-  proto : JSValue?,
-  buffer_proto : JSValue?,
-) -> JSValue raise {
+  proto : Value?,
+  buffer_proto : Value?,
+) -> Value raise {
   let source_value = Array(arr)
   let length = match arr.typed_array_data {
     Some(src_data) =>
@@ -150,11 +152,11 @@ fn new_typed_array_from_array(
 ///|
 fn new_typed_array_from_buffer(
   kind : TypedArrayKind,
-  buffer_value : JSValue,
-  byte_offset_value : JSValue,
-  length_value : JSValue?,
-  target_value : JSValue,
-) -> JSValue raise {
+  buffer_value : Value,
+  byte_offset_value : Value,
+  length_value : Value?,
+  target_value : Value,
+) -> Value raise {
   let (buffer_obj, _) = require_array_buffer(Some(buffer_value))
   let offset64 = to_index_int64(byte_offset_value)
   let buf = match buffer_obj.array_buffer_data {
@@ -219,8 +221,8 @@ fn new_typed_array_from_buffer(
 ///|
 fn typed_array_proto_from_target(
   kind : TypedArrayKind,
-  target_value : JSValue,
-) -> JSValue? raise {
+  target_value : Value,
+) -> Value? raise {
   match target_value {
     Undefined =>
       match value_from_object(typed_array_proto_for_kind(kind)) {
@@ -244,9 +246,7 @@ fn typed_array_proto_from_target(
 }
 
 ///|
-fn typed_array_buffer_proto_from_target(
-  target_value : JSValue,
-) -> JSValue? raise {
+fn typed_array_buffer_proto_from_target(target_value : Value) -> Value? raise {
   match target_value {
     Undefined =>
       match current_env() {
@@ -270,9 +270,9 @@ fn typed_array_buffer_proto_from_target(
 ///|
 fn new_typed_array_from_args(
   kind : TypedArrayKind,
-  args : Array[JSValue],
-  target_value : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  target_value : Value,
+) -> Value raise {
   let buffer_proto = typed_array_buffer_proto_from_target(target_value)
   if args.is_empty() {
     let proto = typed_array_proto_from_target(kind, target_value)
@@ -345,7 +345,7 @@ fn new_typed_array_from_args(
 }
 
 ///|
-fn typed_array_get_index(data : TypedArrayData, index : Int) -> JSValue {
+fn typed_array_get_index(data : TypedArrayData, index : Int) -> Value {
   let len = typed_array_effective_length(data)
   if index < 0 || index >= len {
     return Undefined
@@ -419,7 +419,7 @@ fn typed_array_get_index(data : TypedArrayData, index : Int) -> JSValue {
 fn typed_array_set_index(
   data : TypedArrayData,
   index : Int,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   if index < 0 {
     return false
@@ -563,7 +563,7 @@ fn typed_array_set_index(
 }
 
 ///|
-fn require_typed_array(value : JSValue?) -> (ArrayValue, TypedArrayData) raise {
+fn require_typed_array(value : Value?) -> (ArrayValue, TypedArrayData) raise {
   match value {
     Some(Array(arr)) =>
       match arr.typed_array_data {
@@ -585,15 +585,17 @@ fn require_typed_array(value : JSValue?) -> (ArrayValue, TypedArrayData) raise {
       }
     _ => {
       let _ = throw_type_error("not a typed array")
+      let fallback = register_array_value(ArrayValue::{
+        id: alloc_id(),
+        elements: [],
+        proto: value_from_object(array_proto()),
+        props: props_new(),
+        typed_array_data: None,
+        extensible: true,
+      })
+      rc_incref_optional_value(fallback.proto)
       (
-        register_array_value(ArrayValue::{
-          id: alloc_id(),
-          elements: [],
-          proto: value_from_object(array_proto()),
-          props: Map::new(),
-          typed_array_data: None,
-          extensible: true,
-        }),
+        fallback,
         TypedArrayData::{
           kind: TypedArrayKind::Uint8,
           buffer: new_object_struct(None),
@@ -608,7 +610,7 @@ fn require_typed_array(value : JSValue?) -> (ArrayValue, TypedArrayData) raise {
 }
 
 ///|
-fn typed_array_kind_from_value(value : JSValue) -> TypedArrayKind? {
+fn typed_array_kind_from_value(value : Value) -> TypedArrayKind? {
   match value {
     Array(arr) =>
       match arr.typed_array_data {
@@ -626,7 +628,7 @@ fn typed_array_kind_from_value(value : JSValue) -> TypedArrayKind? {
 
 ///|
 fn require_typed_array_checked(
-  value : JSValue?,
+  value : Value?,
 ) -> (ArrayValue, TypedArrayData) raise {
   let (arr, data) = require_typed_array(value)
   if typed_array_is_oob(data) {

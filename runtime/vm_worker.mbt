@@ -1,15 +1,15 @@
 ///|
-fn new_message_event(data : JSValue) -> JSValue {
+fn new_message_event(data : Value) -> Value {
   let obj = new_object_value()
   match obj {
-    Object(event) => event.props.set("data", property_data(data))
+    Object(event) => props_set(event.props, "data", property_data(data))
     _ => ()
   }
   obj
 }
 
 ///|
-fn worker_port_info(this_value : JSValue?) -> (Int, Bool) raise {
+fn worker_port_info(this_value : Value?) -> (Int, Bool) raise {
   match this_value {
     Some(Object(obj)) => {
       let id_value = property_get(Object(obj), "__worker_id")
@@ -34,23 +34,29 @@ fn worker_port_info(this_value : JSValue?) -> (Int, Bool) raise {
 }
 
 ///|
-fn new_worker_port_value(worker_id : Int, to_main : Bool) -> JSValue {
+fn new_worker_port_value(worker_id : Int, to_main : Bool) -> Value {
   let obj = new_object_value()
   match obj {
     Object(port) => {
-      port.props.set(
+      props_set(
+        port.props,
         "__worker_id",
         property_data_non_enum(Number(Double::from_int(worker_id))),
       )
       let port_kind = if to_main { 1.0 } else { 0.0 }
-      port.props.set("__worker_port", property_data_non_enum(Number(port_kind)))
-      port.props.set(
+      props_set(
+        port.props,
+        "__worker_port",
+        property_data_non_enum(Number(port_kind)),
+      )
+      props_set(
+        port.props,
         "postMessage",
         property_data_non_enum(
           new_builtin_value(BuiltinFunction::WorkerPostMessage),
         ),
       )
-      port.props.set("onmessage", property_data_non_enum(Null))
+      props_set(port.props, "onmessage", property_data_non_enum(Null))
     }
     _ => ()
   }
@@ -60,7 +66,7 @@ fn new_worker_port_value(worker_id : Int, to_main : Bool) -> JSValue {
 ///|
 fn deliver_worker_message_main(
   state : WorkerState,
-  message : JSValue,
+  message : Value,
 ) -> Unit raise {
   let handler = property_get(Object(state.worker_obj), "onmessage")
   if is_callable(handler) {
@@ -77,7 +83,7 @@ fn deliver_worker_message_main(
 ///|
 fn deliver_worker_message_worker(
   state : WorkerState,
-  message : JSValue,
+  message : Value,
 ) -> Unit raise {
   let handler = property_get(Object(state.parent_obj), "onmessage")
   if is_callable(handler) {
@@ -90,8 +96,8 @@ fn deliver_worker_message_worker(
 }
 
 ///|
-fn clone_worker_value(value : JSValue) -> JSValue raise {
-  let seen : Map[Int, JSValue] = Map::new()
+fn clone_worker_value(value : Value) -> Value raise {
+  let seen : Map[Int, Value] = Map::new()
   clone_worker_value_inner(value, seen)
 }
 
@@ -99,7 +105,7 @@ fn clone_worker_value(value : JSValue) -> JSValue raise {
 fn clone_array_buffer_object(
   obj : ObjectValue,
   data : ArrayBufferData,
-  seen : Map[Int, JSValue],
+  seen : Map[Int, Value],
 ) -> ObjectValue {
   match seen.get(obj.id) {
     Some(Object(existing)) => return existing
@@ -136,9 +142,9 @@ fn clone_array_buffer_object(
 
 ///|
 fn clone_worker_value_inner(
-  value : JSValue,
-  seen : Map[Int, JSValue],
-) -> JSValue raise {
+  value : Value,
+  seen : Map[Int, Value],
+) -> Value raise {
   match value {
     Undefined | Null | Bool(_) | Number(_) | String(_) | BigInt(_) => value
     Symbol(_) => {
@@ -171,7 +177,7 @@ fn clone_worker_value_inner(
             }
             None => {
               let len = arr.elements.length()
-              let elements : Array[JSValue?] = []
+              let elements : Array[Value?] = []
               let mut i = 0
               while i < len {
                 elements.push(None)
@@ -321,21 +327,25 @@ fn clone_worker_value_inner(
                                           seen.set(obj.id, clone_value)
                                           match clone_value {
                                             Object(target) =>
-                                              for key, prop in obj.props {
+                                              props_iter_raise(obj.props, fn(
+                                                key,
+                                                prop,
+                                              ) raise {
                                                 if is_symbol_prop_key(key) ||
                                                   is_private_prop_key(key) ||
                                                   !prop.enumerable {
-                                                  continue
+                                                  return ()
                                                 }
                                                 let cloned = clone_worker_value_inner(
                                                   prop.value,
                                                   seen,
                                                 )
-                                                target.props.set(
+                                                props_set(
+                                                  target.props,
                                                   key,
                                                   property_data(cloned),
                                                 )
-                                              }
+                                              })
                                             _ => ()
                                           }
                                           clone_value
@@ -353,7 +363,7 @@ fn clone_worker_value_inner(
 }
 
 ///|
-fn set_worker_parent(env : Env, parent_value : JSValue) -> Unit raise {
+fn set_worker_parent(env : Env, parent_value : Value) -> Unit raise {
   let os_value = env_get(env, "os")
   match os_value {
     Object(os_obj) => {
@@ -366,7 +376,7 @@ fn set_worker_parent(env : Env, parent_value : JSValue) -> Unit raise {
 }
 
 ///|
-fn create_worker_from_args(args : Array[JSValue]) -> JSValue raise {
+fn create_worker_from_args(args : Array[Value]) -> Value raise {
   if args.is_empty() {
     return throw_type_error("missing filename")
   }

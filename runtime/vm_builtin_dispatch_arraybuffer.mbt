@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_arraybuffer(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::DataViewConstructor =>
       throw_type_error("DataView constructor requires 'new'")

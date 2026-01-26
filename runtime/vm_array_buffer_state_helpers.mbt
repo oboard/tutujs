@@ -1,5 +1,5 @@
 ///|
-fn require_array_buffer_data(value : JSValue) -> ArrayBufferData raise {
+fn require_array_buffer_data(value : Value) -> ArrayBufferData raise {
   let (_, data) = require_array_buffer(Some(value))
   if data.detached {
     let _ = throw_type_error("ArrayBuffer is detached")
@@ -16,7 +16,7 @@ fn require_array_buffer_data(value : JSValue) -> ArrayBufferData raise {
 }
 
 ///|
-fn detach_array_buffer(value : JSValue) -> Unit {
+fn detach_array_buffer(value : Value) -> Unit {
   match value {
     Object(obj) =>
       match obj.array_buffer_data {
@@ -33,19 +33,19 @@ fn detach_array_buffer(value : JSValue) -> Unit {
 }
 
 ///|
-fn array_buffer_byte_length(value : JSValue) -> Int raise {
+fn array_buffer_byte_length(value : Value) -> Int raise {
   let data = require_array_buffer_data(value)
   data.bytes.length()
 }
 
 ///|
-fn array_buffer_byte_length_value(this_value : JSValue?) -> JSValue raise {
+fn array_buffer_byte_length_value(this_value : Value?) -> Value raise {
   let (_, data) = require_non_shared_array_buffer(this_value)
   Number(Double::from_int(array_buffer_data_length(data)))
 }
 
 ///|
-fn array_buffer_max_byte_length_value(this_value : JSValue?) -> JSValue raise {
+fn array_buffer_max_byte_length_value(this_value : Value?) -> Value raise {
   let (_, data) = require_non_shared_array_buffer(this_value)
   let len = array_buffer_data_length(data)
   let max_len = if data.resizable { data.max_byte_length } else { len }
@@ -53,29 +53,27 @@ fn array_buffer_max_byte_length_value(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn array_buffer_resizable_value(this_value : JSValue?) -> JSValue raise {
+fn array_buffer_resizable_value(this_value : Value?) -> Value raise {
   let (_, data) = require_non_shared_array_buffer(this_value)
   Bool(data.resizable)
 }
 
 ///|
-fn array_buffer_detached_value(this_value : JSValue?) -> JSValue raise {
+fn array_buffer_detached_value(this_value : Value?) -> Value raise {
   let (_, data) = require_non_shared_array_buffer(this_value)
   Bool(data.detached)
 }
 
 ///|
-fn shared_array_buffer_byte_length_value(
-  this_value : JSValue?,
-) -> JSValue raise {
+fn shared_array_buffer_byte_length_value(this_value : Value?) -> Value raise {
   let (_, data) = require_shared_array_buffer(this_value)
   Number(Double::from_int(array_buffer_data_length(data)))
 }
 
 ///|
 fn shared_array_buffer_max_byte_length_value(
-  this_value : JSValue?,
-) -> JSValue raise {
+  this_value : Value?,
+) -> Value raise {
   let (_, data) = require_shared_array_buffer(this_value)
   let len = array_buffer_data_length(data)
   let max_len = if data.resizable { data.max_byte_length } else { len }
@@ -83,7 +81,7 @@ fn shared_array_buffer_max_byte_length_value(
 }
 
 ///|
-fn shared_array_buffer_growable_value(this_value : JSValue?) -> JSValue raise {
+fn shared_array_buffer_growable_value(this_value : Value?) -> Value raise {
   let (_, data) = require_shared_array_buffer(this_value)
   Bool(data.resizable)
 }
@@ -93,7 +91,7 @@ fn array_buffer_resize_value(
   obj : ObjectValue,
   data : ArrayBufferData,
   new_len : Int,
-) -> JSValue raise {
+) -> Value raise {
   if data.detached {
     return throw_type_error("ArrayBuffer is detached")
   }
@@ -120,7 +118,7 @@ fn shared_array_buffer_grow_value(
   obj : ObjectValue,
   data : ArrayBufferData,
   new_len : Int,
-) -> JSValue raise {
+) -> Value raise {
   if data.detached {
     return throw_type_error("ArrayBuffer is detached")
   }
@@ -143,10 +141,10 @@ fn shared_array_buffer_grow_value(
 
 ///|
 fn array_buffer_transfer_value(
-  this_value : JSValue?,
-  args : Array[JSValue],
+  this_value : Value?,
+  args : Array[Value],
   to_fixed_length : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let (obj, data) = require_non_shared_array_buffer(this_value)
   if data.detached {
     return throw_type_error("ArrayBuffer is detached")
@@ -203,10 +201,10 @@ fn array_buffer_transfer_value(
 
 ///|
 fn array_buffer_slice_value(
-  this_value : JSValue,
-  args : Array[JSValue],
+  this_value : Value,
+  args : Array[Value],
   shared : Bool,
-) -> JSValue raise {
+) -> Value raise {
   let (_, data) = if shared {
     require_shared_array_buffer(Some(this_value))
   } else {

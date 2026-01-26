@@ -1,5 +1,5 @@
 ///|
-fn same_value_zero(a : JSValue, b : JSValue) -> Bool {
+fn same_value_zero(a : Value, b : Value) -> Bool {
   match (a, b) {
     (Number(x), Number(y)) =>
       if Double::is_nan(x) && Double::is_nan(y) {
@@ -17,7 +17,7 @@ fn is_negative_zero(value : Double) -> Bool {
 }
 
 ///|
-fn map_normalize_key(key : JSValue) -> JSValue {
+fn map_normalize_key(key : Value) -> Value {
   match key {
     Number(num) => if is_negative_zero(num) { Number(0.0) } else { key }
     _ => key
@@ -25,7 +25,7 @@ fn map_normalize_key(key : JSValue) -> JSValue {
 }
 
 ///|
-fn same_value(a : JSValue, b : JSValue) -> Bool {
+fn same_value(a : Value, b : Value) -> Bool {
   match (a, b) {
     (Number(x), Number(y)) =>
       if Double::is_nan(x) && Double::is_nan(y) {
@@ -40,7 +40,7 @@ fn same_value(a : JSValue, b : JSValue) -> Bool {
 }
 
 ///|
-fn is_weakref_target(value : JSValue) -> Bool {
+fn is_weakref_target(value : Value) -> Bool {
   match value {
     Symbol(symbol) => symbol.key is None
     _ => is_object_like(value)

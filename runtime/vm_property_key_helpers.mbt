@@ -1,5 +1,5 @@
 ///|
-fn property_key_name(value : JSValue) -> String raise {
+fn property_key_name(value : Value) -> String raise {
   let prim = if is_object_like(value) {
     to_primitive(value, true)
   } else {
@@ -8,6 +8,47 @@ fn property_key_name(value : JSValue) -> String raise {
   match symbol_from_value(prim) {
     Some(symbol) => symbol_prop_key(symbol)
     None => to_string_strict(prim)
+  }
+}
+
+///|
+fn to_property_key_value(value : Value) -> Value raise {
+  let prim = if is_object_like(value) {
+    to_primitive(value, true)
+  } else {
+    value
+  }
+  match symbol_from_value(prim) {
+    Some(symbol) => Symbol(symbol)
+    None => String(to_string_strict(prim))
+  }
+}
+
+///|
+fn array_index_from_key_value_raw(value : Value) -> Int64? {
+  match value {
+    Number(num) =>
+      if Double::is_nan(num) || Double::is_inf(num) {
+        None
+      } else {
+        let trunc = Double::trunc(num)
+        if trunc != num {
+          None
+        } else if trunc < 0.0 || trunc > Int64::to_double(max_array_index) {
+          None
+        } else {
+          Some(Double::to_int64(trunc))
+        }
+      }
+    _ => None
+  }
+}
+
+///|
+fn array_index_from_key_value(value : Value) -> (Int64, String)? {
+  match array_index_from_key_value_raw(value) {
+    Some(index) => Some((index, Int64::to_string(index)))
+    None => None
   }
 }
 
@@ -21,7 +62,7 @@ fn member_key_name(env : Env, key : @engine.MemberKey) -> String raise {
 }
 
 ///|
-fn string_property_get(value : String, name : String) -> JSValue raise {
+fn string_property_get(value : String, name : String) -> Value raise {
   if name == "length" {
     return Number(Double::from_int(value.length()))
   }
@@ -40,15 +81,12 @@ fn string_property_get(value : String, name : String) -> JSValue raise {
 }
 
 ///|
-fn ordered_prop_keys(
-  props : Map[String, Property],
-  include_non_enum : Bool,
-) -> Array[String] {
+fn ordered_prop_keys(props : Props, include_non_enum : Bool) -> Array[String] {
   let indices : Array[Int64] = []
   let non_indices : Array[String] = []
-  for key, prop in props {
+  props_iter(props, fn(key, prop) {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if include_non_enum || prop.enumerable {
       match array_index_from_name(key) {
@@ -56,7 +94,7 @@ fn ordered_prop_keys(
         None => non_indices.push(key)
       }
     }
-  }
+  })
   sort_int64s(indices)
   let names : Array[String] = []
   for index in indices {
@@ -70,26 +108,26 @@ fn ordered_prop_keys(
 
 ///|
 fn module_namespace_prop_keys(
-  props : Map[String, Property],
+  props : Props,
   include_non_enum : Bool,
 ) -> Array[String] {
   let names : Array[String] = []
-  for key, prop in props {
+  props_iter(props, fn(key, prop) {
     if is_symbol_prop_key(key) || is_private_prop_key(key) {
-      continue
+      return ()
     }
     if !include_non_enum && !prop.enumerable {
-      continue
+      return ()
     }
     names.push(key)
-  }
+  })
   sort_strings_lex(names)
   names
 }
 
 ///|
-fn names_to_array_value(names : Array[String]) -> JSValue {
-  let values : Array[JSValue?] = []
+fn names_to_array_value(names : Array[String]) -> Value {
+  let values : Array[Value?] = []
   for name in names {
     values.push(Some(String(name)))
   }

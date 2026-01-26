@@ -1,7 +1,7 @@
 ///|
 fn init_map_or_set_from_iterable(
-  obj : JSValue,
-  iterable : JSValue,
+  obj : Value,
+  iterable : Value,
   is_set : Bool,
 ) -> Unit raise {
   if is_nullish(iterable) {
@@ -43,7 +43,7 @@ fn init_map_or_set_from_iterable(
 }
 
 ///|
-fn get_set_record(obj : JSValue) -> (Int64, JSValue, JSValue) raise {
+fn get_set_record(obj : Value) -> (Int64, Value, Value) raise {
   let obj_value = to_object(obj)
   let mut size_value : Int64? = None
   match obj_value {
@@ -115,10 +115,7 @@ fn get_set_record(obj : JSValue) -> (Int64, JSValue, JSValue) raise {
 }
 
 ///|
-fn iterator_from_keys(
-  obj : JSValue,
-  keys : JSValue,
-) -> (JSValue, JSValue) raise {
+fn iterator_from_keys(obj : Value, keys : Value) -> (Value, Value) raise {
   let iterator = call_value_with_this(keys, [], obj)
   let next_method = property_get(iterator, "next")
   if !is_callable(next_method) {
@@ -129,7 +126,7 @@ fn iterator_from_keys(
 }
 
 ///|
-fn set_copy_value(this_value : JSValue?) -> JSValue raise {
+fn set_copy_value(this_value : Value?) -> Value raise {
   let (_, data) = require_set(this_value)
   let new_value = new_set_value()
   match new_value {
@@ -138,7 +135,10 @@ fn set_copy_value(this_value : JSValue?) -> JSValue raise {
         Some(new_data) =>
           for entry in data.entries {
             match entry {
-              Some(value) => new_data.entries.push(Some(value))
+              Some(value) => {
+                rc_incref_value(value)
+                new_data.entries.push(Some(value))
+              }
               None => ()
             }
           }
@@ -150,10 +150,7 @@ fn set_copy_value(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn set_is_disjoint_from(
-  this_value : JSValue?,
-  other : JSValue,
-) -> JSValue raise {
+fn set_is_disjoint_from(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (size, has, keys) = get_set_record(other)
   let this_size = Int64::from_int(set_entry_count(data))
@@ -195,7 +192,7 @@ fn set_is_disjoint_from(
 }
 
 ///|
-fn set_is_subset_of(this_value : JSValue?, other : JSValue) -> JSValue raise {
+fn set_is_subset_of(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (size, has, _) = get_set_record(other)
   let this_size = Int64::from_int(set_entry_count(data))
@@ -221,7 +218,7 @@ fn set_is_subset_of(this_value : JSValue?, other : JSValue) -> JSValue raise {
 }
 
 ///|
-fn set_is_superset_of(this_value : JSValue?, other : JSValue) -> JSValue raise {
+fn set_is_superset_of(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (size, _, keys) = get_set_record(other)
   let this_size = Int64::from_int(set_entry_count(data))
@@ -249,7 +246,7 @@ fn set_is_superset_of(this_value : JSValue?, other : JSValue) -> JSValue raise {
 }
 
 ///|
-fn set_intersection(this_value : JSValue?, other : JSValue) -> JSValue raise {
+fn set_intersection(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (size, has, keys) = get_set_record(other)
   let this_size = Int64::from_int(set_entry_count(data))
@@ -285,7 +282,7 @@ fn set_intersection(this_value : JSValue?, other : JSValue) -> JSValue raise {
 }
 
 ///|
-fn set_difference(this_value : JSValue?, other : JSValue) -> JSValue raise {
+fn set_difference(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (size, has, keys) = get_set_record(other)
   let this_size = Int64::from_int(set_entry_count(data))
@@ -321,10 +318,7 @@ fn set_difference(this_value : JSValue?, other : JSValue) -> JSValue raise {
 }
 
 ///|
-fn set_symmetric_difference(
-  this_value : JSValue?,
-  other : JSValue,
-) -> JSValue raise {
+fn set_symmetric_difference(this_value : Value?, other : Value) -> Value raise {
   let (_, data) = require_set(this_value)
   let (_, _, keys) = get_set_record(other)
   let (iterator, next_method) = iterator_from_keys(other, keys)
@@ -350,7 +344,7 @@ fn set_symmetric_difference(
 }
 
 ///|
-fn set_union(this_value : JSValue?, other : JSValue) -> JSValue raise {
+fn set_union(this_value : Value?, other : Value) -> Value raise {
   let (_, _, keys) = get_set_record(other)
   let (iterator, next_method) = iterator_from_keys(other, keys)
   let new_value = set_copy_value(this_value)

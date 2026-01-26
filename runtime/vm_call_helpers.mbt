@@ -1,7 +1,7 @@
 ///|
-fn build_spread_list(value : JSValue) -> Array[JSValue] raise {
+fn build_spread_list(value : Value) -> Array[Value] raise {
   let (iterator, next_method) = get_iterator_from_value(value)
-  let args : Array[JSValue] = []
+  let args : Array[Value] = []
   while true {
     try {
       let (done, item) = iterator_step_value(iterator, next_method)
@@ -20,7 +20,7 @@ fn build_spread_list(value : JSValue) -> Array[JSValue] raise {
 }
 
 ///|
-fn build_arg_list(value : JSValue) -> Array[JSValue] raise {
+fn build_arg_list(value : Value) -> Array[Value] raise {
   let target = to_object(value)
   let len_value = property_get(target, "length")
   let len_num = to_number(len_value)
@@ -28,9 +28,11 @@ fn build_arg_list(value : JSValue) -> Array[JSValue] raise {
   if !(Double::is_nan(len_num) || len_num < 0.0) {
     len = Int::max(0, Int64::to_int(Double::to_int64(Double::trunc(len_num))))
   }
-  let args : Array[JSValue] = []
-  for i = 0; i < len; i = i + 1 {
-    args.push(property_get(target, Int::to_string(i)))
+  let args : Array[Value] = Array::make(len, Undefined)
+  let mut i = 0
+  while i < len {
+    args[i] = property_get(target, Int::to_string(i))
+    i = i + 1
   }
   args
 }
@@ -38,10 +40,10 @@ fn build_arg_list(value : JSValue) -> Array[JSValue] raise {
 ///|
 fn call_bound_function(
   bound : BoundFunctionValue,
-  args : Array[JSValue],
-  new_target? : JSValue = Undefined,
-) -> JSValue raise {
-  let final_args : Array[JSValue] = []
+  args : Array[Value],
+  new_target? : Value = Undefined,
+) -> Value raise {
+  let final_args : Array[Value] = []
   for value in bound.bound_args {
     final_args.push(value)
   }
@@ -52,7 +54,7 @@ fn call_bound_function(
 }
 
 ///|
-fn call_value(value : JSValue, args : Array[JSValue]) -> JSValue raise {
+fn call_value(value : Value, args : Array[Value]) -> Value raise {
   match value {
     Function(func) => call_user_function(func, args)
     BoundFunction(bound) => call_bound_function(bound, args)
@@ -68,11 +70,11 @@ fn call_value(value : JSValue, args : Array[JSValue]) -> JSValue raise {
 
 ///|
 fn call_value_with_this(
-  value : JSValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target? : JSValue = Undefined,
-) -> JSValue raise {
+  value : Value,
+  args : Array[Value],
+  this_value : Value,
+  new_target? : Value = Undefined,
+) -> Value raise {
   match value {
     Function(func) =>
       call_user_function_with_this(func, args, this_value, new_target)
@@ -90,9 +92,9 @@ fn call_value_with_this(
 ///|
 fn call_builtin_with_this(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+) -> Value raise {
   let target = match builtin.this_value {
     Some(_) => builtin
     None =>
@@ -114,20 +116,17 @@ fn call_builtin_with_this(
 }
 
 ///|
-fn call_user_function(
-  func : FunctionValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+fn call_user_function(func : FunctionValue, args : Array[Value]) -> Value raise {
   call_user_function_with_this(func, args, Undefined, Undefined)
 }
 
 ///|
 fn call_user_function_body_impl(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   let is_derived_constructor = func.is_class_constructor &&
     func.super_constructor is Some(_)
   let init_fields_before_params = func.is_class_constructor &&
@@ -163,7 +162,7 @@ fn call_user_function_body_impl(
     match func.name {
       Some(name) =>
         if func.local_name_binding {
-          env_define_readonly(func_env, name, JSValue::Function(func), false)
+          env_define_readonly(func_env, name, Value::Function(func), false)
         }
       None => ()
     }
@@ -196,7 +195,7 @@ fn call_user_function_body_impl(
       with_env_value(param_env, fn() raise {
         for i, param in func.params {
           if param.is_rest {
-            let rest_values : Array[JSValue?] = []
+            let rest_values : Array[Value?] = []
             let mut j = i
             while j < arg_len {
               rest_values.push(Some(args[j]))
@@ -245,11 +244,14 @@ fn call_user_function_body_impl(
           merge_arg_env_bindings(arg_env, var_env)
           with_env_value(body_env, fn() raise {
             try {
-              for stmt in func.body {
-                let _ = eval_stmt(body_env, stmt)
-
+              let bytecode = bytecode_compile_function_body(func)
+              match bytecode {
+                Some(code) => bytecode_exec(body_env, code)
+                None => {
+                  let _ = throw_type_error("bytecode compile failed")
+                  Undefined
+                }
               }
-              Undefined
             } catch {
               ReturnSignal(value) => value
               BreakSignal((_, _)) => fail("illegal break")
@@ -282,7 +284,7 @@ fn call_user_function_body_impl(
     match func.name {
       Some(name) =>
         if func.local_name_binding {
-          env_define_readonly(frame, name, JSValue::Function(func), false)
+          env_define_readonly(frame, name, Value::Function(func), false)
         }
       None => ()
     }
@@ -303,7 +305,7 @@ fn call_user_function_body_impl(
     let _ = with_env_value(frame, fn() raise {
       for i, param in func.params {
         if param.is_rest {
-          let rest_values : Array[JSValue?] = []
+          let rest_values : Array[Value?] = []
           let mut j = i
           while j < arg_len {
             rest_values.push(Some(args[j]))
@@ -351,11 +353,14 @@ fn call_user_function_body_impl(
           hoist_decls(body_env, func.body, false, false)
           with_env_value(body_env, fn() raise {
             try {
-              for stmt in func.body {
-                let _ = eval_stmt(body_env, stmt)
-
+              let bytecode = bytecode_compile_function_body(func)
+              match bytecode {
+                Some(code) => bytecode_exec(body_env, code)
+                None => {
+                  let _ = throw_type_error("bytecode compile failed")
+                  Undefined
+                }
               }
-              Undefined
             } catch {
               ReturnSignal(value) => value
               BreakSignal((_, _)) => fail("illegal break")
@@ -374,10 +379,10 @@ fn call_user_function_body_impl(
 ///|
 fn call_user_function_body(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   with_function_source(func, fn() raise {
     call_user_function_body_impl(func, args, this_value, new_target)
   })
@@ -386,10 +391,10 @@ fn call_user_function_body(
 ///|
 fn call_user_function_with_this(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   if func.is_class_constructor && new_target is Undefined {
     return with_env_value(func.env, fn() raise {
       throw_type_error("class constructor cannot be invoked without 'new'")
@@ -410,10 +415,10 @@ fn call_user_function_with_this(
 ///|
 fn call_async_function(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   let (promise, resolve, reject) = new_promise_capability(Undefined)
   try {
     let gen_value = new_generator_value(func, args, this_value, new_target)
@@ -444,10 +449,10 @@ fn call_async_function(
 ///|
 fn new_async_generator_value(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   let value = new_generator_value(func, args, this_value, new_target)
   match value {
     Object(obj) => {
@@ -465,10 +470,10 @@ fn new_async_generator_value(
 ///|
 fn new_generator_value(
   func : FunctionValue,
-  args : Array[JSValue],
-  this_value : JSValue,
-  new_target : JSValue,
-) -> JSValue raise {
+  args : Array[Value],
+  this_value : Value,
+  new_target : Value,
+) -> Value raise {
   let has_param_expr = has_param_expressions(func)
   let simple_params = has_simple_parameter_list(func)
   let this_bound = if func.is_arrow {
@@ -496,7 +501,7 @@ fn new_generator_value(
     match func.name {
       Some(name) =>
         if func.local_name_binding {
-          env_define_readonly(func_env, name, JSValue::Function(func), false)
+          env_define_readonly(func_env, name, Value::Function(func), false)
         }
       None => ()
     }
@@ -516,8 +521,8 @@ fn new_generator_value(
     arg_env.var_env = Some(arg_env)
     let param_env = Env::new(Some(arg_env))
     param_env.strict = func.is_strict
-    param_env.var_env = Some(arg_env)
     arg_env_opt = Some(arg_env)
+    param_env.var_env = Some(arg_env)
     let var_env = Env::new(Some(param_env))
     var_env.var_env = Some(var_env)
     func_env.var_env = Some(var_env)
@@ -527,7 +532,7 @@ fn new_generator_value(
       with_env_value(param_env, fn() raise {
         for i, param in func.params {
           if param.is_rest {
-            let rest_values : Array[JSValue?] = []
+            let rest_values : Array[Value?] = []
             let mut j = i
             while j < arg_len {
               rest_values.push(Some(args[j]))
@@ -576,7 +581,7 @@ fn new_generator_value(
     match func.name {
       Some(name) =>
         if func.local_name_binding {
-          env_define_readonly(frame, name, JSValue::Function(func), false)
+          env_define_readonly(frame, name, Value::Function(func), false)
         }
       None => ()
     }
@@ -591,7 +596,7 @@ fn new_generator_value(
       with_env_value(frame, fn() raise {
         for i, param in func.params {
           if param.is_rest {
-            let rest_values : Array[JSValue?] = []
+            let rest_values : Array[Value?] = []
             let mut j = i
             while j < arg_len {
               rest_values.push(Some(args[j]))
@@ -641,11 +646,21 @@ fn new_generator_value(
   })
   let body_env = prepare_function_body_env(frame, func)
   let top_level_func_decls = collect_top_level_function_decls(func.body)
-  let next_step = fn(_ : GenResume) raise {
-    let step = with_top_level_function_decls_step(top_level_func_decls, fn() raise {
-      gen_eval_stmt_seq(body_env, func.body, 0)
-    })
-    top_level_function_decls_wrap_step(step, top_level_func_decls)
+  let bytecode_opt = bytecode_compile_function_body(func)
+  let next_step = match bytecode_opt {
+    Some(bytecode) => {
+      let state = bytecode_exec_state_new(body_env, bytecode)
+      fn(resume_state : GenResume) raise {
+        let step = with_top_level_function_decls_step(top_level_func_decls, fn() raise {
+          bytecode_exec_step(state, resume_state)
+        })
+        top_level_function_decls_wrap_step(step, top_level_func_decls)
+      }
+    }
+    None => {
+      let _ = throw_type_error("bytecode compile failed")
+      fn(_ : GenResume) { Done(Normal(Undefined)) }
+    }
   }
   let data = GeneratorData::{
     state: GeneratorState::SuspendedStart,
@@ -666,7 +681,7 @@ fn new_generator_value(
       None => value_from_object(generator_proto())
     }
   }
-  let proto_value = match func.props.get("prototype") {
+  let proto_value = match props_get(func.props, "prototype") {
     Some(prop) =>
       if is_object_like(prop.value) {
         Some(prop.value)
@@ -677,7 +692,7 @@ fn new_generator_value(
   }
   let obj = register_object_value(ObjectValue::{
     id: alloc_id(),
-    props: Map::new(),
+    props: props_new(),
     proto: proto_value,
     string_data: None,
     number_data: None,
@@ -709,5 +724,8 @@ fn new_generator_value(
     immutable_proto: false,
     extensible: true,
   })
+  rc_incref_optional_value(proto_value)
+  rc_incref_env(body_env)
+  rc_incref_value(Function(func))
   Object(obj)
 }

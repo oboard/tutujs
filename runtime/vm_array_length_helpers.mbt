@@ -1,6 +1,6 @@
 ///|
 fn array_length_from_props(arr : ArrayValue) -> Int64 {
-  match arr.props.get("length") {
+  match props_get(arr.props, "length") {
     Some(prop) =>
       match prop.value {
         Number(num) =>
@@ -25,8 +25,8 @@ fn array_length_from_props(arr : ArrayValue) -> Int64 {
 ///|
 fn array_length_value_from_props(
   arr : ArrayValue,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match property_get_from_props(arr.props, "length", receiver) {
     Some(value) => value
     None => Number(Double::from_int(arr.elements.length()))
@@ -40,7 +40,7 @@ fn array_set_length_int64(
   allow_nonwritable_equal : Bool,
 ) -> Bool {
   let current_len = array_length_from_props(arr)
-  match arr.props.get("length") {
+  match props_get(arr.props, "length") {
     Some(prop) =>
       if !prop.writable {
         if allow_nonwritable_equal && target_len == current_len {
@@ -62,7 +62,7 @@ fn array_set_length_int64(
     return true
   }
   let mut final_len = target_len
-  for key, prop in arr.props {
+  props_iter(arr.props, fn(key, prop) {
     match array_index_from_name(key) {
       Some(index) =>
         if index >= target_len && !prop.configurable {
@@ -73,9 +73,9 @@ fn array_set_length_int64(
         }
       None => ()
     }
-  }
+  })
   let to_remove : Array[String] = []
-  for key, prop in arr.props {
+  props_iter(arr.props, fn(key, prop) {
     match array_index_from_name(key) {
       Some(index) =>
         if index >= final_len && prop.configurable {
@@ -83,13 +83,13 @@ fn array_set_length_int64(
         }
       None => ()
     }
-  }
+  })
   for key in to_remove {
-    arr.props.remove(key)
+    props_remove(arr.props, key)
   }
   if final_len <= Int64::from_int(arr.elements.length()) {
     let final_int = Int64::to_int(final_len)
-    arr.elements.truncate(final_int)
+    rc_truncate_optional_values(arr.elements, final_int)
   }
   set_length_prop(arr.props, Number(Int64::to_double(final_len)))
   final_len == target_len
@@ -99,11 +99,11 @@ fn array_set_length_int64(
 fn array_set_sparse(
   arr : ArrayValue,
   name : String,
-  value : JSValue,
-  receiver : JSValue,
+  value : Value,
+  receiver : Value,
   index64 : Int64,
 ) -> Bool raise {
-  if arr.props.contains(name) {
+  if props_contains(arr.props, name) {
     return set_property_in(arr.props, name, value, receiver)
   }
   match arr.proto {
@@ -123,7 +123,7 @@ fn array_set_sparse(
 }
 
 ///|
-fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
+fn array_set(arr : ArrayValue, name : String, value : Value) -> Bool raise {
   match arr.typed_array_data {
     Some(data) => return typed_array_set(arr, data, name, value)
     None => ()
@@ -146,7 +146,7 @@ fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
         return false
       }
       let current_len = array_length_from_props(arr)
-      match arr.props.get("length") {
+      match props_get(arr.props, "length") {
         Some(prop) =>
           if !prop.writable && index64 >= current_len {
             return false
@@ -160,7 +160,7 @@ fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
         if index > elements_len {
           return array_set_sparse(arr, name, value, receiver, index64)
         }
-        let mut has_existing = arr.props.contains(name)
+        let mut has_existing = props_contains(arr.props, name)
         if !has_existing && index < elements_len {
           has_existing = match arr.elements[index] {
             Some(_) => true
@@ -168,10 +168,11 @@ fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
           }
         }
         if has_existing {
-          if arr.props.contains(name) {
+          if props_contains(arr.props, name) {
             return set_property_in(arr.props, name, value, receiver)
           }
           if index < arr.elements.length() {
+            rc_replace_optional_value(arr.elements[index], Some(value))
             arr.elements[index] = Some(value)
           }
           let current_len = array_length_from_props(arr)
@@ -196,8 +197,10 @@ fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
           arr.elements.push(None)
         }
         if index == arr.elements.length() {
+          rc_incref_value(value)
           arr.elements.push(Some(value))
         } else {
+          rc_replace_optional_value(arr.elements[index], Some(value))
           arr.elements[index] = Some(value)
         }
         let current_len = array_length_from_props(arr)
@@ -226,10 +229,10 @@ fn array_set(arr : ArrayValue, name : String, value : JSValue) -> Bool raise {
 }
 
 ///|
-fn set_length_prop(props : Map[String, Property], value : JSValue) -> Unit {
-  match props.get("length") {
+fn set_length_prop(props : Props, value : Value) -> Unit {
+  match props_get(props, "length") {
     Some(prop) =>
-      props.set("length", Property::{
+      props_set(props, "length", Property::{
         value,
         writable: prop.writable,
         configurable: false,
@@ -237,13 +240,13 @@ fn set_length_prop(props : Map[String, Property], value : JSValue) -> Unit {
         getter: None,
         setter: None,
       })
-    None => props.set("length", property_data_non_enum_non_config(value))
+    None => props_set(props, "length", property_data_non_enum_non_config(value))
   }
 }
 
 ///|
 fn array_proto_length(obj : ObjectValue) -> Int {
-  match obj.props.get("length") {
+  match props_get(obj.props, "length") {
     Some(prop) =>
       match prop.value {
         Number(num) => Int64::to_int(Double::to_int64(Double::trunc(num)))
@@ -254,8 +257,8 @@ fn array_proto_length(obj : ObjectValue) -> Int {
 }
 
 ///|
-fn array_proto_set_length(obj : ObjectValue, value : JSValue) -> Bool raise {
-  match obj.props.get("length") {
+fn array_proto_set_length(obj : ObjectValue, value : Value) -> Bool raise {
+  match props_get(obj.props, "length") {
     Some(prop) => if !prop.writable { return false }
     None => ()
   }
@@ -273,14 +276,14 @@ fn array_proto_set_length(obj : ObjectValue, value : JSValue) -> Bool raise {
     let mut i = current_len - 1
     while i >= target {
       let index_name = Int::to_string(i)
-      match obj.props.get(index_name) {
+      match props_get(obj.props, index_name) {
         Some(prop) =>
           if !prop.configurable {
             let final_len = i + 1
             set_length_prop(obj.props, Number(Double::from_int(final_len)))
             return false
           } else {
-            obj.props.remove(index_name)
+            props_remove(obj.props, index_name)
           }
         None => ()
       }
@@ -298,7 +301,7 @@ fn array_proto_set_length(obj : ObjectValue, value : JSValue) -> Bool raise {
 fn array_proto_set(
   obj : ObjectValue,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   let receiver = Object(obj)
   if name == "length" {
@@ -309,11 +312,11 @@ fn array_proto_set(
       if index < 0 {
         return false
       }
-      let has_existing = obj.props.contains(name)
+      let has_existing = props_contains(obj.props, name)
       if !has_existing && !obj.extensible {
         return false
       }
-      if obj.props.contains(name) {
+      if props_contains(obj.props, name) {
         return set_property_in(obj.props, name, value, receiver)
       }
       match get_property_in_chain(obj.proto, name) {
@@ -335,7 +338,7 @@ fn array_proto_set(
         None => ()
       }
       let current_len = array_proto_length(obj)
-      match obj.props.get("length") {
+      match props_get(obj.props, "length") {
         Some(prop) => if !prop.writable && index >= current_len { return false }
         None => ()
       }

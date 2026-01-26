@@ -1,5 +1,5 @@
 ///|
-fn is_extensible_value(value : JSValue) -> Bool {
+fn is_extensible_value(value : Value) -> Bool {
   match value {
     Object(obj) => obj.extensible
     Function(func) => func.extensible
@@ -12,7 +12,7 @@ fn is_extensible_value(value : JSValue) -> Bool {
 }
 
 ///|
-fn is_extensible_value_checked(value : JSValue) -> Bool raise {
+fn is_extensible_value_checked(value : Value) -> Bool raise {
   match value {
     Object(obj) =>
       match obj.proxy_data {
@@ -29,7 +29,7 @@ fn is_extensible_value_checked(value : JSValue) -> Bool raise {
 }
 
 ///|
-fn prevent_extensions_value(value : JSValue) -> Bool raise {
+fn prevent_extensions_value(value : Value) -> Bool raise {
   match value {
     Object(obj) =>
       match obj.proxy_data {

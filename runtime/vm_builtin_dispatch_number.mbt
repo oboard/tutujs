@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_number(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::NumberConstructor => {
       if args.is_empty() {

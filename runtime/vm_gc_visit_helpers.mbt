@@ -1,5 +1,5 @@
 ///|
-fn is_live_value(state : GcState, value : JSValue) -> Bool {
+fn is_live_value(state : GcState, value : Value) -> Bool {
   match value {
     Undefined => true
     _ =>
@@ -15,7 +15,7 @@ fn is_live_value(state : GcState, value : JSValue) -> Bool {
 }
 
 ///|
-fn is_live_value_now(value : JSValue) -> Bool {
+fn is_live_value_now(value : Value) -> Bool {
   let state = new_gc_state()
   gc_prepare_meta(state)
   gc_count_roots(state)
@@ -24,11 +24,8 @@ fn is_live_value_now(value : JSValue) -> Bool {
 }
 
 ///|
-fn gc_visit_props(
-  props : Map[String, Property],
-  visit_value : (JSValue) -> Unit,
-) -> Unit {
-  for key, prop in props {
+fn gc_visit_props(props : Props, visit_value : (Value) -> Unit) -> Unit {
+  props_iter(props, fn(key, prop) {
     if is_symbol_prop_key(key) {
       match symbol_from_prop_key(key) {
         Some(symbol) => visit_value(Symbol(symbol))
@@ -44,11 +41,11 @@ fn gc_visit_props(
       Some(setter) => visit_value(setter)
       None => ()
     }
-  }
+  })
 }
 
 ///|
-fn gc_visit_proto(proto : JSValue?, visit_value : (JSValue) -> Unit) -> Unit {
+fn gc_visit_proto(proto : Value?, visit_value : (Value) -> Unit) -> Unit {
   match proto {
     Some(value) => visit_value(value)
     None => ()
@@ -58,7 +55,7 @@ fn gc_visit_proto(proto : JSValue?, visit_value : (JSValue) -> Unit) -> Unit {
 ///|
 fn gc_visit_env_children(
   env : Env,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
 ) -> Unit {
   for _, value in env.bindings {
@@ -84,7 +81,7 @@ fn gc_visit_env_children(
 }
 
 ///|
-fn gc_visit_promise_data(obj_id : Int, visit_value : (JSValue) -> Unit) -> Unit {
+fn gc_visit_promise_data(obj_id : Int, visit_value : (Value) -> Unit) -> Unit {
   match promise_table_get(obj_id) {
     Some(data) => {
       visit_value(data.value)
@@ -106,7 +103,7 @@ fn gc_visit_promise_data(obj_id : Int, visit_value : (JSValue) -> Unit) -> Unit 
 ///|
 fn gc_visit_async_function_data(
   obj_id : Int,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
 ) -> Unit {
   match async_function_data_get(obj_id) {
     Some(data) => {
@@ -121,7 +118,7 @@ fn gc_visit_async_function_data(
 fn gc_visit_object_children(
   state : GcState,
   obj : ObjectValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
   collect_weak : Bool,
 ) -> Unit {
@@ -285,7 +282,7 @@ fn gc_visit_object_children(
 ///|
 fn gc_visit_function_children(
   func : FunctionValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
 ) -> Unit {
   gc_visit_proto(func.proto, visit_value)
@@ -305,7 +302,7 @@ fn gc_visit_function_children(
 ///|
 fn gc_visit_bound_function_children(
   bound : BoundFunctionValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
 ) -> Unit {
   gc_visit_proto(bound.proto, visit_value)
   gc_visit_props(bound.props, visit_value)
@@ -319,7 +316,7 @@ fn gc_visit_bound_function_children(
 ///|
 fn gc_visit_builtin_extra_children(
   builtin : BuiltinValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
 ) -> Unit {
   match builtin.kind {
     BuiltinFunction::PromiseResolveFunction
@@ -386,7 +383,7 @@ fn gc_visit_builtin_extra_children(
 ///|
 fn gc_visit_builtin_children(
   builtin : BuiltinValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
 ) -> Unit {
   gc_visit_proto(builtin.proto, visit_value)
@@ -405,7 +402,7 @@ fn gc_visit_builtin_children(
 ///|
 fn gc_visit_array_children(
   arr : ArrayValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
 ) -> Unit {
   gc_visit_proto(arr.proto, visit_value)
   gc_visit_props(arr.props, visit_value)
@@ -424,7 +421,7 @@ fn gc_visit_array_children(
 ///|
 fn gc_visit_arguments_children(
   args : ArgumentsValue,
-  visit_value : (JSValue) -> Unit,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
 ) -> Unit {
   gc_visit_proto(args.proto, visit_value)
@@ -441,8 +438,8 @@ fn gc_visit_arguments_children(
 ///|
 fn gc_visit_value_children(
   state : GcState,
-  value : JSValue,
-  visit_value : (JSValue) -> Unit,
+  value : Value,
+  visit_value : (Value) -> Unit,
   visit_env : (Env) -> Unit,
   collect_weak : Bool,
 ) -> Unit {
@@ -477,6 +474,7 @@ fn gc_count_roots(state : GcState) -> Unit {
     }
     stack
   })
+  bytecode_visit_roots(fn(value) { gc_incref_value(state, value) })
   gc_incref_object_ref(state, object_proto_ref)
   gc_incref_value_ref(state, function_proto_ref)
   gc_incref_object_ref(state, array_proto_ref)

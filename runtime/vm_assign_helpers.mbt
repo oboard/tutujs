@@ -4,7 +4,7 @@ fn eval_assign_op(
   op : @engine.BinaryOp,
   lhs : @engine.Expr,
   rhs : @engine.Expr,
-) -> JSValue raise {
+) -> Value raise {
   with_gc_frame(fn() raise {
     let (target, is_cover) = unwrap_paren_with_cover(lhs)
     match target {

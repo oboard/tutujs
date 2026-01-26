@@ -1,10 +1,11 @@
 ///|
 fn new_array_value_with_proto(
-  elements : Array[JSValue?],
-  proto? : JSValue? = None,
-) -> JSValue {
-  let props = Map::new()
-  props.set(
+  elements : Array[Value?],
+  proto? : Value? = None,
+) -> Value {
+  let props = props_new()
+  props_set(
+    props,
     "length",
     property_data_non_enum_non_config(
       Number(Double::from_int(elements.length())),
@@ -22,19 +23,21 @@ fn new_array_value_with_proto(
     typed_array_data: None,
     extensible: true,
   })
+  rc_incref_optional_values(elements)
+  rc_incref_optional_value(proto_value)
   Array(arr)
 }
 
 ///|
-fn new_array_value(elements : Array[JSValue?]) -> JSValue {
+fn new_array_value(elements : Array[Value?]) -> Value {
   new_array_value_with_proto(elements)
 }
 
 ///|
 fn array_from_args_with_proto(
-  args : Array[JSValue],
-  proto : JSValue?,
-) -> JSValue raise {
+  args : Array[Value],
+  proto : Value?,
+) -> Value raise {
   if args.length() == 1 {
     match args[0] {
       Number(n) => {
@@ -55,7 +58,7 @@ fn array_from_args_with_proto(
       _ => ()
     }
   }
-  let elements : Array[JSValue?] = []
+  let elements : Array[Value?] = []
   for value in args {
     elements.push(Some(value))
   }

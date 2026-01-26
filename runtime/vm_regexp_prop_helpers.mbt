@@ -15,7 +15,7 @@ fn is_regexp_proto_obj(obj : ObjectValue, env : Env?) -> Bool {
 }
 
 ///|
-fn regexp_get_source_value(this_value : JSValue?) -> JSValue raise {
+fn regexp_get_source_value(this_value : Value?) -> Value raise {
   match this_value {
     Some(Object(obj)) =>
       if is_regexp_proto_obj(obj, current_env()) {
@@ -32,7 +32,7 @@ fn regexp_get_source_value(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn regexp_get_flag_value(this_value : JSValue?, flag : String) -> JSValue raise {
+fn regexp_get_flag_value(this_value : Value?, flag : String) -> Value raise {
   match this_value {
     Some(Object(obj)) =>
       if is_regexp_proto_obj(obj, current_env()) {
@@ -62,7 +62,7 @@ fn regexp_get_flag_value(this_value : JSValue?, flag : String) -> JSValue raise 
 }
 
 ///|
-fn regexp_get_flags_value(this_value : JSValue?) -> JSValue raise {
+fn regexp_get_flags_value(this_value : Value?) -> Value raise {
   let target = match this_value {
     Some(value) => value
     None => Undefined
@@ -91,7 +91,7 @@ fn regexp_get_flags_value(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn regexp_to_string_value(this_value : JSValue?) -> JSValue raise {
+fn regexp_to_string_value(this_value : Value?) -> Value raise {
   let target = match this_value {
     Some(value) => value
     None => Undefined
@@ -105,7 +105,7 @@ fn regexp_to_string_value(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn regexp_species_constructor(rx : JSValue) -> JSValue raise {
+fn regexp_species_constructor(rx : Value) -> Value raise {
   let default_ctor = match global_property_value("RegExp") {
     Some(value) => value
     None => new_builtin_value(BuiltinFunction::RegExpConstructor)

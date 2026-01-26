@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_misc(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::FunctionCall => {
       let target = match builtin.this_value {
@@ -15,7 +15,7 @@ fn call_builtin_misc(
       if args.is_empty() {
         call_value_with_this(target, [], Undefined)
       } else {
-        let rest : Array[JSValue] = []
+        let rest : Array[Value] = []
         if args.length() > 1 {
           for i = 1; i < args.length(); i = i + 1 {
             rest.push(args[i])
@@ -52,7 +52,7 @@ fn call_builtin_misc(
         return throw_type_error("not a function")
       }
       let this_arg = if args.is_empty() { Undefined } else { args[0] }
-      let bound_args : Array[JSValue] = []
+      let bound_args : Array[Value] = []
       if args.length() > 1 {
         for i = 1; i < args.length(); i = i + 1 {
           bound_args.push(args[i])
@@ -176,7 +176,7 @@ fn call_builtin_misc(
       Undefined
     }
     BuiltinFunction::FunctionConstructor =>
-      match function_realm_env(JSValue::Builtin(builtin)) {
+      match function_realm_env(Value::Builtin(builtin)) {
         Some(env) => function_from_args_with_env(args, env)
         None => function_from_args(args)
       }

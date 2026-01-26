@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_symbol(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::SymbolConstructor => {
       let description = if args.is_empty() || args[0] is Undefined {

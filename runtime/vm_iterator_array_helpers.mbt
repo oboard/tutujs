@@ -1,16 +1,22 @@
 ///|
-fn new_array_iterator(obj : JSValue, kind : Int) -> JSValue {
+fn new_array_iterator(obj : Value, kind : Int) -> Value {
   let iterator = new_object_value_with_proto(
     value_from_object(array_iterator_proto()),
   )
   match iterator {
     Object(iter_obj) => {
-      iter_obj.props.set(array_iter_target_key, property_data_non_enum(obj))
-      iter_obj.props.set(
+      props_set(
+        iter_obj.props,
+        array_iter_target_key,
+        property_data_non_enum(obj),
+      )
+      props_set(
+        iter_obj.props,
         array_iter_index_key,
         property_data_non_enum(Number(0.0)),
       )
-      iter_obj.props.set(
+      props_set(
+        iter_obj.props,
         array_iter_kind_key,
         property_data_non_enum(Number(Double::from_int(kind))),
       )
@@ -25,8 +31,8 @@ fn iterator_internal_value(
   iter_obj : ObjectValue,
   key : String,
   error_msg : String,
-) -> (JSValue, Bool) raise {
-  let desc = get_own_property_descriptor(JSValue::Object(iter_obj), key)
+) -> (Value, Bool) raise {
+  let desc = get_own_property_descriptor(Value::Object(iter_obj), key)
   match desc {
     Undefined => {
       let _ = throw_type_error(error_msg)
@@ -43,7 +49,7 @@ fn iterator_internal_value(
 }
 
 ///|
-fn array_iterator_next(this_value : JSValue?) -> JSValue raise {
+fn array_iterator_next(this_value : Value?) -> Value raise {
   let iter_obj = match this_value {
     Some(Object(obj)) => obj
     _ => {
@@ -94,11 +100,32 @@ fn array_iterator_next(this_value : JSValue?) -> JSValue raise {
     None => array_like_length(obj)
   }
   if index < 0 || index >= len {
-    iter_obj.props.set(array_iter_target_key, property_data_non_enum(Undefined))
+    props_set(
+      iter_obj.props,
+      array_iter_target_key,
+      property_data_non_enum(Undefined),
+    )
     return iterator_result(Undefined, true)
   }
   let key = Number(Double::from_int(index))
-  let value = property_get(obj, Int::to_string(index))
+  let key_name = Int::to_string(index)
+  let mut fast_value : Value? = None
+  match obj {
+    Array(arr) =>
+      if arr.typed_array_data is None {
+        if !props_contains(arr.props, key_name) && index < arr.elements.length() {
+          match arr.elements[index] {
+            Some(found) => fast_value = Some(found)
+            None => ()
+          }
+        }
+      }
+    _ => ()
+  }
+  let value = match fast_value {
+    Some(found) => found
+    None => property_get(obj, key_name)
+  }
   let result = if kind == 0 {
     key
   } else if kind == 1 {
@@ -106,7 +133,8 @@ fn array_iterator_next(this_value : JSValue?) -> JSValue raise {
   } else {
     new_array_value([Some(key), Some(value)])
   }
-  iter_obj.props.set(
+  props_set(
+    iter_obj.props,
     array_iter_index_key,
     property_data_non_enum(Number(Double::from_int(index + 1))),
   )

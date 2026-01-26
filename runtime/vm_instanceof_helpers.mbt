@@ -1,5 +1,5 @@
 ///|
-fn ordinary_instanceof(left : JSValue, right : JSValue) -> Bool raise {
+fn ordinary_instanceof(left : Value, right : Value) -> Bool raise {
   if !is_object_like(left) {
     return false
   }

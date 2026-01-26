@@ -28,7 +28,7 @@ fn eval_call(
   env : Env,
   callee : @engine.Expr,
   args : Array[@engine.Expr],
-) -> JSValue raise {
+) -> Value raise {
   with_gc_frame(fn() raise {
     match unwrap_paren(callee) {
       @engine.Expr::Ident(name, offset) => {
@@ -124,9 +124,9 @@ fn eval_call(
 fn eval_export_args(
   env : Env,
   args : Array[@engine.Expr],
-) -> Array[JSValue] raise {
+) -> Array[Value] raise {
   with_gc_frame_values(fn() raise {
-    let values : Array[JSValue] = []
+    let values : Array[Value] = []
     if args.is_empty() {
       return values
     }
@@ -181,9 +181,9 @@ fn eval_export_args(
 }
 
 ///|
-fn eval_args(env : Env, args : Array[@engine.Expr]) -> Array[JSValue] raise {
+fn eval_args(env : Env, args : Array[@engine.Expr]) -> Array[Value] raise {
   with_gc_frame_values(fn() raise {
-    let values : Array[JSValue] = []
+    let values : Array[Value] = []
     for expr in args {
       match expr {
         @engine.Expr::Spread(inner) => {

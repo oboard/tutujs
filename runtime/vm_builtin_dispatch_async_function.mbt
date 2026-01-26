@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_async_function(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::AsyncFunctionResolveFunction =>
       match async_function_resolve_func_data_get(builtin.id) {
@@ -24,7 +24,7 @@ fn call_builtin_async_function(
         None => Undefined
       }
     BuiltinFunction::AsyncFunctionConstructor =>
-      match function_realm_env(JSValue::Builtin(builtin)) {
+      match function_realm_env(Value::Builtin(builtin)) {
         Some(env) => function_from_args_with_env_kind(args, env, false, true)
         None => async_function_from_args(args)
       }

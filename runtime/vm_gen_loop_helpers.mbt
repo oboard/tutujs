@@ -223,10 +223,7 @@ fn gen_eval_for_in(
 }
 
 ///|
-fn gen_iterator_close(
-  iterator : JSValue,
-  control : GenControl,
-) -> GenStep raise {
+fn gen_iterator_close(iterator : Value, control : GenControl) -> GenStep raise {
   try {
     match control {
       Throw(_) => iterator_close_on_error(iterator)
@@ -241,7 +238,7 @@ fn gen_iterator_close(
 
 ///|
 fn gen_async_iterator_close(
-  iterator : JSValue,
+  iterator : Value,
   control : GenControl,
 ) -> GenStep raise {
   try {
@@ -258,9 +255,9 @@ fn gen_async_iterator_close(
 
 ///|
 fn gen_async_iterator_step_value(
-  iterator : JSValue,
-  next_method : JSValue,
-  k : (Bool, JSValue) -> GenStep raise,
+  iterator : Value,
+  next_method : Value,
+  k : (Bool, Value) -> GenStep raise,
 ) -> GenStep raise {
   let result = call_value_with_this(next_method, [], iterator) catch {
     ThrowSignal(value) => return Done(Throw(value))
@@ -382,8 +379,8 @@ fn gen_eval_for_of_loop(
   env : Env,
   label : String?,
   init : @engine.ForInit,
-  iterator : JSValue,
-  next_method : JSValue,
+  iterator : Value,
+  next_method : Value,
   body : @engine.Stmt,
 ) -> GenStep raise {
   let (done, value) = iterator_step_value(iterator, next_method) catch {
@@ -448,8 +445,8 @@ fn gen_eval_for_await_of_loop(
   env : Env,
   label : String?,
   init : @engine.ForInit,
-  iterator : JSValue,
-  next_method : JSValue,
+  iterator : Value,
+  next_method : Value,
   body : @engine.Stmt,
 ) -> GenStep raise {
   gen_async_iterator_step_value(iterator, next_method, fn(done, value) raise {
@@ -515,7 +512,7 @@ fn gen_eval_for_in_loop(
   env : Env,
   label : String?,
   init : @engine.ForInit,
-  target : JSValue,
+  target : Value,
   keys : Array[String],
   index : Int,
   body : @engine.Stmt,

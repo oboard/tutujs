@@ -1,7 +1,5 @@
 ///|
-fn require_array_buffer(
-  value : JSValue?,
-) -> (ObjectValue, ArrayBufferData) raise {
+fn require_array_buffer(value : Value?) -> (ObjectValue, ArrayBufferData) raise {
   match value {
     Some(Object(obj)) =>
       match obj.array_buffer_data {
@@ -38,7 +36,7 @@ fn require_array_buffer(
 
 ///|
 fn require_non_shared_array_buffer(
-  value : JSValue?,
+  value : Value?,
 ) -> (ObjectValue, ArrayBufferData) raise {
   let (obj, data) = require_array_buffer(value)
   if data.shared {
@@ -50,7 +48,7 @@ fn require_non_shared_array_buffer(
 
 ///|
 fn require_shared_array_buffer(
-  value : JSValue?,
+  value : Value?,
 ) -> (ObjectValue, ArrayBufferData) raise {
   let (obj, data) = require_array_buffer(value)
   if !data.shared {
@@ -201,7 +199,7 @@ fn dataview_effective_length(data : DataViewData) -> Int {
 }
 
 ///|
-fn require_dataview_data(value : JSValue?) -> (ObjectValue, DataViewData) raise {
+fn require_dataview_data(value : Value?) -> (ObjectValue, DataViewData) raise {
   match value {
     Some(Object(obj)) =>
       match obj.dataview_data {

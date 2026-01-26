@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_generator(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::GeneratorNext => {
       let obj = require_generator(builtin.this_value)
@@ -63,12 +63,12 @@ fn call_builtin_generator(
         None => Undefined
       }
     BuiltinFunction::GeneratorFunctionConstructor =>
-      match function_realm_env(JSValue::Builtin(builtin)) {
+      match function_realm_env(Value::Builtin(builtin)) {
         Some(env) => function_from_args_with_env_kind(args, env, true, false)
         None => generator_function_from_args(args)
       }
     BuiltinFunction::AsyncGeneratorFunctionConstructor =>
-      match function_realm_env(JSValue::Builtin(builtin)) {
+      match function_realm_env(Value::Builtin(builtin)) {
         Some(env) => function_from_args_with_env_kind(args, env, true, true)
         None => async_generator_function_from_args(args)
       }

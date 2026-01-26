@@ -19,8 +19,8 @@ fn module_is_cycle_root(path : String, info : ModuleEvalInfo) -> Bool {
 ///|
 fn module_eval_resolvers_set(
   path : String,
-  resolve : JSValue,
-  reject : JSValue,
+  resolve : Value,
+  reject : Value,
 ) -> Unit {
   match module_eval_info_get(path) {
     Some(info) => {
@@ -34,7 +34,7 @@ fn module_eval_resolvers_set(
 }
 
 ///|
-fn module_eval_promise_init(path : String) -> JSValue raise {
+fn module_eval_promise_init(path : String) -> Value raise {
   match module_eval_promise_get(path) {
     Some(promise) => promise
     None => {
@@ -64,7 +64,7 @@ fn module_eval_resolve(path : String) -> Unit raise {
 }
 
 ///|
-fn module_eval_reject(path : String, error : JSValue) -> Unit raise {
+fn module_eval_reject(path : String, error : Value) -> Unit raise {
   match module_eval_info_get(path) {
     Some(info) =>
       if module_is_cycle_root(path, info) {
@@ -144,6 +144,11 @@ fn module_import_dynamic_job_data_set(
   data : ModuleImportDynamicJobData,
 ) -> Unit {
   module_import_dynamic_job_data_ref.update(fn(table) {
+    match table.get(id) {
+      Some(existing) => rc_decref_module_import_dynamic_job_data(existing)
+      None => ()
+    }
+    rc_incref_module_import_dynamic_job_data(data)
     table.set(id, data)
     table
   })
@@ -167,7 +172,14 @@ fn module_import_dynamic_job_data_take(id : Int) -> ModuleImportDynamicJobData? 
 }
 
 ///|
-fn new_module_async_callback(path : String, is_reject : Bool) -> JSValue {
+fn module_import_dynamic_job_data_release(
+  data : ModuleImportDynamicJobData,
+) -> Unit {
+  rc_decref_module_import_dynamic_job_data(data)
+}
+
+///|
+fn new_module_async_callback(path : String, is_reject : Bool) -> Value {
   let func = if is_reject {
     new_builtin_value(BuiltinFunction::ModuleAsyncRejected)
   } else {
@@ -286,10 +298,7 @@ fn module_gather_available_ancestors(
 }
 
 ///|
-fn module_async_evaluation_rejected(
-  path : String,
-  error : JSValue,
-) -> Unit raise {
+fn module_async_evaluation_rejected(path : String, error : Value) -> Unit raise {
   let info = match module_eval_info_get(path) {
     Some(value) => value
     None => return
@@ -484,7 +493,7 @@ fn module_inner_evaluation(
 }
 
 ///|
-fn module_evaluate(path : String) -> JSValue raise {
+fn module_evaluate(path : String) -> Value raise {
   let info = module_eval_info_get(path)
   match info {
     None => {
@@ -543,7 +552,7 @@ fn module_evaluate(path : String) -> JSValue raise {
 }
 
 ///|
-fn await_promise_completion(promise : JSValue) -> JSValue raise {
+fn await_promise_completion(promise : Value) -> Value raise {
   while true {
     match promise_data_from_value(promise) {
       Some(data) =>

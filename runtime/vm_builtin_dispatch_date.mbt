@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_date(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::DateConstructor => {
       let ms = date_now_ms()
@@ -390,7 +390,10 @@ fn call_builtin_date(
       let value = if args.is_empty() {
         to_number(Undefined)
       } else {
-        to_number(args[0])
+        match args[0] {
+          Number(num) => num
+          _ => to_number(args[0])
+        }
       }
       let new_ms = date_time_clip(value)
       obj.date_data = Some(new_ms)
@@ -521,7 +524,7 @@ fn call_builtin_date(
           year_val = year_val + 1900.0
         }
       }
-      let year_args : Array[JSValue] = [Number(year_val)]
+      let year_args : Array[Value] = [Number(year_val)]
       let new_ms = date_set_field_value(obj, year_args, 0, 1, true)
       Number(new_ms)
     }

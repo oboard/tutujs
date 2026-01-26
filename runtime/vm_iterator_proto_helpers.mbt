@@ -1,9 +1,9 @@
 ///|
 fn iterator_helper_create(
   kind : Int,
-  this_value : JSValue?,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value?,
+  args : Array[Value],
+) -> Value raise {
   let target = match this_value {
     Some(value) => value
     None => Undefined
@@ -46,7 +46,10 @@ fn iterator_helper_create(
     value_from_object(iterator_helper_proto()),
   )
   match iterator {
-    Object(obj) =>
+    Object(obj) => {
+      rc_incref_value(target)
+      rc_incref_value(next_method)
+      rc_incref_value(func)
       obj.iterator_helper_data = Some(IteratorHelperData::{
         obj: target,
         next: next_method,
@@ -58,13 +61,14 @@ fn iterator_helper_create(
         executing: false,
         done: false,
       })
+    }
     _ => ()
   }
   iterator
 }
 
 ///|
-fn iterator_helper_next(this_value : JSValue?) -> JSValue raise {
+fn iterator_helper_next(this_value : Value?) -> Value raise {
   let (_, data) = require_iterator_helper(this_value)
   if data.executing {
     return throw_type_error("cannot invoke a running iterator")
@@ -175,7 +179,9 @@ fn iterator_helper_next(this_value : JSValue?) -> JSValue raise {
               }
             }
             if done {
+              rc_replace_value(data.inner, Undefined)
               data.inner = Undefined
+              rc_replace_value(data.inner_next, Undefined)
               data.inner_next = Undefined
               continue
             }
@@ -206,7 +212,9 @@ fn iterator_helper_next(this_value : JSValue?) -> JSValue raise {
               raise err
             }
           }
+          rc_replace_value(data.inner, inner_iter)
           data.inner = inner_iter
+          rc_replace_value(data.inner_next, inner_next)
           data.inner_next = inner_next
         }
         data.executing = false
@@ -226,7 +234,7 @@ fn iterator_helper_next(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn iterator_helper_return(this_value : JSValue?) -> JSValue raise {
+fn iterator_helper_return(this_value : Value?) -> Value raise {
   let (_, data) = require_iterator_helper(this_value)
   if data.executing {
     return throw_type_error("cannot invoke a running iterator")
@@ -239,7 +247,9 @@ fn iterator_helper_return(this_value : JSValue?) -> JSValue raise {
     }
     data.done = true
     let inner = data.inner
+    rc_replace_value(data.inner, Undefined)
     data.inner = Undefined
+    rc_replace_value(data.inner_next, Undefined)
     data.inner_next = Undefined
     if is_object_like(inner) {
       iterator_close(inner)
@@ -258,9 +268,9 @@ fn iterator_helper_return(this_value : JSValue?) -> JSValue raise {
 ///|
 fn iterator_proto_iterate(
   kind : Int,
-  this_value : JSValue?,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value?,
+  args : Array[Value],
+) -> Value raise {
   let iter = match this_value {
     Some(value) => value
     None => Undefined
@@ -323,9 +333,9 @@ fn iterator_proto_iterate(
 
 ///|
 fn iterator_proto_reduce(
-  this_value : JSValue?,
-  args : Array[JSValue],
-) -> JSValue raise {
+  this_value : Value?,
+  args : Array[Value],
+) -> Value raise {
   let iter = match this_value {
     Some(value) => value
     None => Undefined
@@ -376,7 +386,7 @@ fn iterator_proto_reduce(
 }
 
 ///|
-fn iterator_proto_to_array(this_value : JSValue?) -> JSValue raise {
+fn iterator_proto_to_array(this_value : Value?) -> Value raise {
   let iter = match this_value {
     Some(value) => value
     None => Undefined
@@ -396,7 +406,7 @@ fn iterator_proto_to_array(this_value : JSValue?) -> JSValue raise {
       }
     None => value_from_object(array_proto())
   }
-  let values : Array[JSValue?] = []
+  let values : Array[Value?] = []
   for {
     let (done, value) = iterator_step_value(iter, next_method)
     if done {
@@ -408,51 +418,61 @@ fn iterator_proto_to_array(this_value : JSValue?) -> JSValue raise {
 }
 
 ///|
-fn iterator_constructor_getter(this_value : JSValue?) -> JSValue raise {
+fn iterator_constructor_getter(this_value : Value?) -> Value raise {
   let _ = this_value
   iterator_constructor_value()
 }
 
 ///|
 fn iterator_constructor_setter(
-  this_value : JSValue?,
-  value : JSValue,
-) -> JSValue raise {
-  let target = match this_value {
-    Some(value) => to_object(value)
-    None => {
-      let _ = throw_type_error("not an object")
-      return Undefined
-    }
+  this_value : Value?,
+  value : Value,
+) -> Value raise {
+  let raw = match this_value {
+    Some(value) => value
+    None => Undefined
   }
-  if !is_object_like(value) {
-    return throw_type_error("not an object")
+  if !is_object_like(raw) {
+    let _ = throw_type_error("not an object")
+    return Undefined
   }
-  let desc = new_object_value()
+  let target = to_object(raw)
+  match iterator_proto() {
+    Some(proto) =>
+      match target {
+        Object(obj) =>
+          if obj.id == proto.id {
+            let _ = throw_type_error("invalid receiver")
+            return Undefined
+          }
+        _ => ()
+      }
+    None => ()
+  }
+  let desc = get_own_property_descriptor(target, "constructor")
   match desc {
-    Object(obj) => {
-      obj.props.set("value", property_data(value))
-      obj.props.set("writable", property_data(Bool(true)))
-      obj.props.set("enumerable", property_data(Bool(false)))
-      obj.props.set("configurable", property_data(Bool(true)))
+    Undefined => {
+      let _ = create_data_property_or_throw(target, "constructor", value)
+      Undefined
     }
-    _ => ()
+    _ => {
+      let _ = property_set(target, "constructor", value, true)
+      Undefined
+    }
   }
-  let _ = define_property_value(target, String("constructor"), desc, true)
-  value
 }
 
 ///|
-fn iterator_to_string_tag_getter(this_value : JSValue?) -> JSValue {
+fn iterator_to_string_tag_getter(this_value : Value?) -> Value {
   let _ = this_value
   String("Iterator")
 }
 
 ///|
 fn iterator_to_string_tag_setter(
-  this_value : JSValue?,
-  value : JSValue,
-) -> JSValue raise {
+  this_value : Value?,
+  value : Value,
+) -> Value raise {
   let target = match this_value {
     Some(value) => value
     None => Undefined

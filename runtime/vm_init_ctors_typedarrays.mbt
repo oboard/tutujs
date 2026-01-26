@@ -1,17 +1,23 @@
 ///|
 fn init_typed_array_ctor(
-  typed_array_ctor : JSValue,
+  typed_array_ctor : Value,
   proto_obj : ObjectValue,
   ctor_kind : BuiltinFunction,
   bytes_per_element : Int,
   species_key : String,
-) -> JSValue {
+) -> Value {
   let ctor = new_builtin_value(ctor_kind)
   match ctor {
     Builtin(builtin) => {
+      rc_replace_optional_value(builtin.proto, Some(typed_array_ctor))
       builtin.proto = Some(typed_array_ctor)
-      builtin.props.set("prototype", property_data_const(Object(proto_obj)))
-      builtin.props.set(
+      props_set(
+        builtin.props,
+        "prototype",
+        property_data_const(Object(proto_obj)),
+      )
+      props_set(
+        builtin.props,
         "BYTES_PER_ELEMENT",
         property_data_const(Number(Double::from_int(bytes_per_element))),
       )
@@ -24,8 +30,9 @@ fn init_typed_array_ctor(
     }
     _ => ()
   }
-  proto_obj.props.set("constructor", property_data_non_enum(ctor))
-  proto_obj.props.set(
+  props_set(proto_obj.props, "constructor", property_data_non_enum(ctor))
+  props_set(
+    proto_obj.props,
     "BYTES_PER_ELEMENT",
     property_data_const(Number(Double::from_int(bytes_per_element))),
   )
@@ -34,7 +41,7 @@ fn init_typed_array_ctor(
 
 ///|
 fn init_typed_array_ctors(
-  typed_array_ctor : JSValue,
+  typed_array_ctor : Value,
   uint8_array_proto_obj : ObjectValue,
   int8_array_proto_obj : ObjectValue,
   uint8_clamped_array_proto_obj : ObjectValue,
@@ -49,18 +56,18 @@ fn init_typed_array_ctors(
   float64_array_proto_obj : ObjectValue,
   species_key : String,
 ) -> (
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
-  JSValue,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
+  Value,
 ) {
   let uint8_array_ctor = init_typed_array_ctor(
     typed_array_ctor,

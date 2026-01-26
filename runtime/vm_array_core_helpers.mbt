@@ -16,7 +16,7 @@ fn typed_array_join(data : TypedArrayData, sep : String) -> String {
 }
 
 ///|
-fn array_like_length(value : JSValue) -> Int raise {
+fn array_like_length(value : Value) -> Int raise {
   let len64 = array_like_length_int64(value)
   let max_int = 2147483647
   if len64 > Int64::from_int(max_int) {
@@ -27,7 +27,7 @@ fn array_like_length(value : JSValue) -> Int raise {
 }
 
 ///|
-fn array_like_length_int64(value : JSValue) -> Int64 raise {
+fn array_like_length_int64(value : Value) -> Int64 raise {
   let len_value = property_get(value, "length")
   let len_num = to_number(len_value)
   if Double::is_nan(len_num) || len_num <= 0.0 {
@@ -47,7 +47,7 @@ fn array_like_length_int64(value : JSValue) -> Int64 raise {
 }
 
 ///|
-fn array_species_create(obj : JSValue, len : Int) -> JSValue raise {
+fn array_species_create(obj : Value, len : Int) -> Value raise {
   if !is_array_value(obj) {
     let array_proto_value = match current_env() {
       Some(env) =>
@@ -106,7 +106,7 @@ fn array_species_create(obj : JSValue, len : Int) -> JSValue raise {
 }
 
 ///|
-fn array_species_create64(obj : JSValue, len : Int64) -> JSValue raise {
+fn array_species_create64(obj : Value, len : Int64) -> Value raise {
   let max_int = 2147483647
   if !is_array_value(obj) {
     if len > Int64::from_int(max_int) {
@@ -173,9 +173,9 @@ fn array_species_create64(obj : JSValue, len : Int64) -> JSValue raise {
 
 ///|
 fn typed_array_species_constructor(
-  obj : JSValue,
+  obj : Value,
   kind : TypedArrayKind,
-) -> JSValue raise {
+) -> Value raise {
   let ctor = property_get(obj, "constructor")
   let mut species = ctor
   if is_object_like(species) {
@@ -206,10 +206,10 @@ fn typed_array_species_constructor(
 
 ///|
 fn typed_array_species_create64(
-  obj : JSValue,
+  obj : Value,
   kind : TypedArrayKind,
   len : Int64,
-) -> JSValue raise {
+) -> Value raise {
   let max_int = 2147483647
   if len > Int64::from_int(max_int) {
     return throw_range_error("invalid typed array length")
@@ -226,9 +226,9 @@ fn typed_array_species_create64(
 
 ///|
 fn typed_array_create_from_constructor(
-  ctor : JSValue,
+  ctor : Value,
   len : Int64,
-) -> JSValue raise {
+) -> Value raise {
   let max_int = 2147483647
   if len < 0L || len > Int64::from_int(max_int) {
     return throw_range_error("invalid typed array length")
@@ -243,7 +243,7 @@ fn typed_array_create_from_constructor(
 }
 
 ///|
-fn is_concat_spreadable(value : JSValue) -> Bool raise {
+fn is_concat_spreadable(value : Value) -> Bool raise {
   if is_object_like(value) {
     match symbol_is_concat_spreadable_key() {
       Some(key) =>
@@ -272,8 +272,8 @@ fn array_join(arr : ArrayValue, sep : String) -> String {
   let len = arr.elements.length()
   for i = 0; i < len; i = i + 1 {
     let name = Int::to_string(i)
-    let mut value_opt : JSValue? = None
-    match arr.props.get(name) {
+    let mut value_opt : Value? = None
+    match props_get(arr.props, name) {
       Some(prop) => value_opt = Some(prop.value)
       None => ()
     }
@@ -300,7 +300,7 @@ fn array_join(arr : ArrayValue, sep : String) -> String {
 }
 
 ///|
-fn array_join_value(target : JSValue, sep_value : JSValue?) -> String raise {
+fn array_join_value(target : Value, sep_value : Value?) -> String raise {
   let obj = to_object(target)
   let len = array_like_length_int64(obj)
   let sep = match sep_value {
@@ -330,7 +330,7 @@ fn array_join_value(target : JSValue, sep_value : JSValue?) -> String raise {
 }
 
 ///|
-fn value_to_locale_string(value : JSValue) -> String raise {
+fn value_to_locale_string(value : Value) -> String raise {
   match value {
     Undefined => to_string_strict(value)
     Null => to_string_strict(value)
@@ -350,7 +350,7 @@ fn value_to_locale_string(value : JSValue) -> String raise {
 }
 
 ///|
-fn array_to_locale_string_value(target : JSValue) -> String raise {
+fn array_to_locale_string_value(target : Value) -> String raise {
   let obj = to_object(target)
   let len = array_like_length_int64(obj)
   if len <= 0L {

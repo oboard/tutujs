@@ -1,9 +1,9 @@
 ///|
-fn init_number_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
+fn init_number_proto(object_proto_obj : ObjectValue) -> (ObjectValue, Value) {
   let number_proto_value = {
     let obj = register_object_value(ObjectValue::{
       id: alloc_id(),
-      props: Map::new(),
+      props: props_new(),
       proto: Some(Object(object_proto_obj)),
       string_data: None,
       number_data: Some(0.0),
@@ -35,6 +35,7 @@ fn init_number_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
       immutable_proto: false,
       extensible: true,
     })
+    rc_incref_optional_value(obj.proto)
     Object(obj)
   }
   let number_proto_obj = match number_proto_value {
@@ -42,33 +43,39 @@ fn init_number_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
     _ => new_object_struct(Some(Object(object_proto_obj)))
   }
   set_proto_ref(number_proto_ref, Some(number_proto_obj))
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "toString",
     property_data_non_enum(new_builtin_value(BuiltinFunction::NumberToString)),
   )
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "toLocaleString",
     property_data_non_enum(
       new_builtin_value(BuiltinFunction::NumberToLocaleString),
     ),
   )
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "toFixed",
     property_data_non_enum(new_builtin_value(BuiltinFunction::NumberToFixed)),
   )
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "toExponential",
     property_data_non_enum(
       new_builtin_value(BuiltinFunction::NumberToExponential),
     ),
   )
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "toPrecision",
     property_data_non_enum(
       new_builtin_value(BuiltinFunction::NumberToPrecision),
     ),
   )
-  number_proto_obj.props.set(
+  props_set(
+    number_proto_obj.props,
     "valueOf",
     property_data_non_enum(new_builtin_value(BuiltinFunction::NumberValueOf)),
   )
@@ -76,11 +83,11 @@ fn init_number_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
 }
 
 ///|
-fn init_bool_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
+fn init_bool_proto(object_proto_obj : ObjectValue) -> (ObjectValue, Value) {
   let bool_proto_value = {
     let obj = register_object_value(ObjectValue::{
       id: alloc_id(),
-      props: Map::new(),
+      props: props_new(),
       proto: Some(Object(object_proto_obj)),
       string_data: None,
       number_data: None,
@@ -112,6 +119,7 @@ fn init_bool_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
       immutable_proto: false,
       extensible: true,
     })
+    rc_incref_optional_value(obj.proto)
     Object(obj)
   }
   let bool_proto_obj = match bool_proto_value {
@@ -119,11 +127,13 @@ fn init_bool_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
     _ => new_object_struct(Some(Object(object_proto_obj)))
   }
   set_proto_ref(bool_proto_ref, Some(bool_proto_obj))
-  bool_proto_obj.props.set(
+  props_set(
+    bool_proto_obj.props,
     "toString",
     property_data_non_enum(new_builtin_value(BuiltinFunction::BooleanToString)),
   )
-  bool_proto_obj.props.set(
+  props_set(
+    bool_proto_obj.props,
     "valueOf",
     property_data_non_enum(new_builtin_value(BuiltinFunction::BooleanValueOf)),
   )
@@ -131,7 +141,7 @@ fn init_bool_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
 }
 
 ///|
-fn init_bigint_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
+fn init_bigint_proto(object_proto_obj : ObjectValue) -> (ObjectValue, Value) {
   let bigint_proto_value = new_object_value_with_proto(
     Some(Object(object_proto_obj)),
   )
@@ -142,14 +152,20 @@ fn init_bigint_proto(object_proto_obj : ObjectValue) -> (ObjectValue, JSValue) {
   set_proto_ref(bigint_proto_ref, Some(bigint_proto_obj))
   match symbol_to_string_tag_key() {
     Some(key) =>
-      bigint_proto_obj.props.set(key, property_data_readonly(String("BigInt")))
+      props_set(
+        bigint_proto_obj.props,
+        key,
+        property_data_readonly(String("BigInt")),
+      )
     None => ()
   }
-  bigint_proto_obj.props.set(
+  props_set(
+    bigint_proto_obj.props,
     "toString",
     property_data_non_enum(new_builtin_value(BuiltinFunction::BigIntToString)),
   )
-  bigint_proto_obj.props.set(
+  props_set(
+    bigint_proto_obj.props,
     "valueOf",
     property_data_non_enum(new_builtin_value(BuiltinFunction::BigIntValueOf)),
   )

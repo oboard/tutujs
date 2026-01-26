@@ -3,7 +3,7 @@ fn gen_eval_optional_chain(
   env : Env,
   base : @engine.Expr,
   segments : Array[@engine.ChainSegment],
-  k : (JSValue) -> GenStep raise,
+  k : (Value) -> GenStep raise,
 ) -> GenStep raise {
   gen_eval_optional_chain_with_this(env, base, segments, fn(value, _) raise {
     k(value)
@@ -15,7 +15,7 @@ fn gen_eval_optional_chain_with_this(
   env : Env,
   base : @engine.Expr,
   segments : Array[@engine.ChainSegment],
-  k : (JSValue, JSValue?) -> GenStep raise,
+  k : (Value, Value?) -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
     match unwrap_paren(base) {
@@ -106,9 +106,9 @@ fn gen_eval_optional_chain_step(
   env : Env,
   segments : Array[@engine.ChainSegment],
   index : Int,
-  current : JSValue,
-  this_value : JSValue?,
-  k : (JSValue, JSValue?) -> GenStep raise,
+  current : Value,
+  this_value : Value?,
+  k : (Value, Value?) -> GenStep raise,
 ) -> GenStep raise {
   if index >= segments.length() {
     return k(current, this_value)

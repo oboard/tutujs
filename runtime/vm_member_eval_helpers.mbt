@@ -3,7 +3,7 @@ fn eval_member(
   env : Env,
   obj_expr : @engine.Expr,
   key : @engine.MemberKey,
-) -> JSValue raise {
+) -> Value raise {
   with_gc_frame(fn() raise {
     match key {
       @engine.MemberKey::Private(name) => {
@@ -28,11 +28,11 @@ fn eval_optional_chain_with_this(
   env : Env,
   base : @engine.Expr,
   segments : Array[@engine.ChainSegment],
-) -> (JSValue, JSValue?) raise {
+) -> (Value, Value?) raise {
   fn eval_optional_chain_base_with_this(
     env : Env,
     base : @engine.Expr,
-  ) -> (JSValue, JSValue?) raise {
+  ) -> (Value, Value?) raise {
     match unwrap_paren(base) {
       @engine.Expr::Member(obj_expr, key, offset) =>
         match obj_expr {
@@ -72,7 +72,7 @@ fn eval_optional_chain_with_this(
   with_gc_frame_pair(fn() raise {
     let (base_value, base_this) = eval_optional_chain_base_with_this(env, base)
     let mut current = base_value
-    let mut this_value : JSValue? = base_this
+    let mut this_value : Value? = base_this
     for segment in segments {
       let base_depth = gc_root_depth()
       let _ = gc_root_push(current)
@@ -136,7 +136,7 @@ fn eval_optional_chain(
   env : Env,
   base : @engine.Expr,
   segments : Array[@engine.ChainSegment],
-) -> JSValue raise {
+) -> Value raise {
   let (value, _) = eval_optional_chain_with_this(env, base, segments)
   value
 }

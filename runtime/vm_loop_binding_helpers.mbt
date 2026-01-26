@@ -2,9 +2,9 @@
 fn initialize_var_binding(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
-  let assign = fn(name : String, v : JSValue) raise {
+  let assign = fn(name : String, v : Value) raise {
     initialize_binding_assign(env, name, v)
   }
   match binding {
@@ -21,10 +21,10 @@ fn initialize_var_binding(
 fn assign_var_binding(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
+  value : Value,
   use_env_set : Bool,
 ) -> Unit raise {
-  let assign = fn(name : String, v : JSValue) raise {
+  let assign = fn(name : String, v : Value) raise {
     if use_env_set {
       env_set(env, name, v)
     } else {
@@ -45,9 +45,9 @@ fn assign_var_binding(
 fn assign_for_in_const_binding(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
-  let assign = fn(name : String, v : JSValue) {
+  let assign = fn(name : String, v : Value) {
     env_define_readonly(env, name, v, true)
   }
   match binding {
@@ -68,7 +68,7 @@ fn assign_for_in_const_binding(
 fn assign_for_in_expr(
   env : Env,
   expr : @engine.Expr,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   match expr {
     @engine.Expr::Ident(name, _) => env_set(env, name, value)
@@ -136,11 +136,11 @@ fn assign_for_in_expr(
 fn gen_assign_var_binding(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
+  value : Value,
   use_env_set : Bool,
   k : () -> GenStep raise,
 ) -> GenStep raise {
-  let assign = fn(name : String, v : JSValue) raise {
+  let assign = fn(name : String, v : Value) raise {
     if use_env_set {
       env_set(env, name, v)
     } else {
@@ -168,7 +168,7 @@ fn gen_assign_var_binding(
 fn define_readonly_assign(
   env : Env,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   env_define_readonly(env, name, value, true)
 }
@@ -177,10 +177,10 @@ fn define_readonly_assign(
 fn gen_assign_for_in_const_binding(
   env : Env,
   binding : @engine.VarBinding,
-  value : JSValue,
+  value : Value,
   k : () -> GenStep raise,
 ) -> GenStep raise {
-  let assign = fn(name : String, v : JSValue) raise {
+  let assign = fn(name : String, v : Value) raise {
     define_readonly_assign(env, name, v)
   }
   match binding {
@@ -203,7 +203,7 @@ fn gen_assign_for_in_const_binding(
 fn gen_assign_for_in_expr(
   env : Env,
   expr : @engine.Expr,
-  value : JSValue,
+  value : Value,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   gen_with_root_frame(fn() raise {
@@ -300,7 +300,7 @@ fn gen_assign_for_in_expr(
 fn gen_assign_for_in_target(
   env : Env,
   init : @engine.ForInit,
-  value : JSValue,
+  value : Value,
   k : () -> GenStep raise,
 ) -> GenStep raise {
   match init {
@@ -325,7 +325,7 @@ fn gen_assign_for_in_target(
 fn assign_for_in_target(
   env : Env,
   init : @engine.ForInit,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   match init {
     @engine.ForInit::Var(kind, decls) =>

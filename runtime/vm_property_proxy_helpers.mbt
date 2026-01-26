@@ -12,7 +12,7 @@ fn proxy_own_keys(data : ProxyData) -> Array[String] raise {
 }
 
 ///|
-fn proxy_own_keys_values(data : ProxyData) -> Array[JSValue] raise {
+fn proxy_own_keys_values(data : ProxyData) -> Array[Value] raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -29,7 +29,7 @@ fn proxy_own_keys_values(data : ProxyData) -> Array[JSValue] raise {
       let length_value = property_get(result_obj, "length")
       let length_uint = to_uint32(to_number(length_value))
       let length = UInt::reinterpret_as_int(length_uint)
-      let values : Array[JSValue] = []
+      let values : Array[Value] = []
       let seen : Map[String, Bool] = Map::new()
       for i = 0; i < length; i = i + 1 {
         let entry = property_get(result_obj, "\{i}")
@@ -113,7 +113,7 @@ fn proxy_own_keys_values(data : ProxyData) -> Array[JSValue] raise {
 fn proxy_get_own_property_descriptor_info(
   data : ProxyData,
   name : String,
-) -> (JSValue, PropertyDescInfo?) raise {
+) -> (Value, PropertyDescInfo?) raise {
   proxy_check_revoked(data)
   let handler = data.handler
   let target = data.target
@@ -256,7 +256,7 @@ fn proxy_get_own_property_descriptor_info(
 fn proxy_get_own_property_descriptor(
   data : ProxyData,
   name : String,
-) -> JSValue raise {
+) -> Value raise {
   let (result, _) = proxy_get_own_property_descriptor_info(data, name)
   result
 }
@@ -264,7 +264,7 @@ fn proxy_get_own_property_descriptor(
 ///|
 fn copy_proxy_data_properties(
   target : ObjectValue,
-  source : JSValue,
+  source : Value,
   data : ProxyData,
 ) -> Unit raise {
   let keys = proxy_own_keys_values(data)
@@ -288,7 +288,7 @@ fn copy_proxy_data_properties(
           let enumerable_value = property_get(desc, "enumerable")
           if is_truthy(enumerable_value) {
             let value = property_get(source, name)
-            target.props.set(name, property_data(value))
+            props_set(target.props, name, property_data(value))
           }
         }
     }

@@ -1,5 +1,5 @@
 ///|
-fn this_to_string(this_value : JSValue?) -> String raise {
+fn this_to_string(this_value : Value?) -> String raise {
   match this_value {
     Some(String(value)) => value
     Some(Object(obj)) =>
@@ -30,7 +30,7 @@ fn this_to_string(this_value : JSValue?) -> String raise {
 }
 
 ///|
-fn this_to_string_coerce(this_value : JSValue?) -> String raise {
+fn this_to_string_coerce(this_value : Value?) -> String raise {
   let value = match this_value {
     Some(inner) => inner
     None => Undefined
@@ -49,7 +49,7 @@ fn this_to_string_coerce(this_value : JSValue?) -> String raise {
 }
 
 ///|
-fn this_to_number(this_value : JSValue?) -> Double raise {
+fn this_to_number(this_value : Value?) -> Double raise {
   match this_value {
     Some(Number(value)) => value
     Some(Object(obj)) =>
@@ -72,7 +72,7 @@ fn this_to_number(this_value : JSValue?) -> Double raise {
 }
 
 ///|
-fn this_to_bool(this_value : JSValue?) -> Bool raise {
+fn this_to_bool(this_value : Value?) -> Bool raise {
   match this_value {
     Some(Bool(value)) => value
     Some(Object(obj)) =>
@@ -95,7 +95,7 @@ fn this_to_bool(this_value : JSValue?) -> Bool raise {
 }
 
 ///|
-fn this_to_bigint(this_value : JSValue?) -> @bigint.BigInt raise {
+fn this_to_bigint(this_value : Value?) -> @bigint.BigInt raise {
   match this_value {
     Some(BigInt(value)) => value
     Some(Object(obj)) =>
@@ -118,7 +118,7 @@ fn this_to_bigint(this_value : JSValue?) -> @bigint.BigInt raise {
 }
 
 ///|
-fn coerce_this(env : Env, value : JSValue) -> JSValue {
+fn coerce_this(env : Env, value : Value) -> Value {
   match value {
     Undefined => global_object_value(env)
     Null => global_object_value(env)
@@ -162,7 +162,7 @@ fn coerce_this(env : Env, value : JSValue) -> JSValue {
 }
 
 ///|
-fn this_to_symbol(this_value : JSValue?) -> SymbolValue raise {
+fn this_to_symbol(this_value : Value?) -> SymbolValue raise {
   match this_value {
     Some(Symbol(symbol)) => symbol
     Some(Object(obj)) =>

@@ -2,7 +2,7 @@
 fn integer_indexed_element_set(
   data : TypedArrayData,
   index : Double,
-  value : JSValue,
+  value : Value,
 ) -> Unit raise {
   let converted = match data.kind {
     TypedArrayKind::BigInt64 | TypedArrayKind::BigUint64 =>
@@ -22,7 +22,7 @@ fn typed_array_set(
   arr : ArrayValue,
   data : TypedArrayData,
   name : String,
-  value : JSValue,
+  value : Value,
 ) -> Bool raise {
   if name == "length" {
     return false

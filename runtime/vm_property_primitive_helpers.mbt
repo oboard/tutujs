@@ -2,8 +2,8 @@
 fn string_object_get(
   obj : ObjectValue,
   name : String,
-  receiver : JSValue,
-) -> JSValue raise {
+  receiver : Value,
+) -> Value raise {
   match obj.string_data {
     Some(value) => {
       if name == "length" {
@@ -23,7 +23,7 @@ fn string_object_get(
 }
 
 ///|
-fn number_property_get(value : Double, name : String) -> JSValue raise {
+fn number_property_get(value : Double, name : String) -> Value raise {
   match number_proto() {
     Some(proto) =>
       property_get_from_chain(proto.props, proto.proto, name, Number(value))

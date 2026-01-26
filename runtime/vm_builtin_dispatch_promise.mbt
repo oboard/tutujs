@@ -1,8 +1,8 @@
 ///|
 fn call_builtin_promise(
   builtin : BuiltinValue,
-  args : Array[JSValue],
-) -> JSValue raise {
+  args : Array[Value],
+) -> Value raise {
   match builtin.kind {
     BuiltinFunction::PromiseConstructor =>
       throw_type_error("constructor requires 'new'")
@@ -337,7 +337,9 @@ fn call_builtin_promise(
           }
           let resolve = if args.is_empty() { Undefined } else { args[0] }
           let reject = if args.length() > 1 { args[1] } else { Undefined }
+          rc_replace_optional_value(data.resolve, Some(resolve))
           data.resolve = Some(resolve)
+          rc_replace_optional_value(data.reject, Some(reject))
           data.reject = Some(reject)
         }
         None => ()
